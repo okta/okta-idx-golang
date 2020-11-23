@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package oktaIdentityEngine
+package idx
 
 import (
 	"bytes"
@@ -34,17 +34,17 @@ import (
  */
 const packageVersion = "0.0.1-alpha.1"
 
-type OktaIdentityEngineClient struct {
+type IDXClient struct {
 	config          *config
 	requestExecutor *RequestExecutor
 }
 
-type OktaIdentityEngine interface {
-	Start(ctx context.Context, interactionHandle *string) (OktaIdentityEngineResponse, error)
+type IDX interface {
+	Start(ctx context.Context, interactionHandle *string) (IDXResponse, error)
 }
 
-func NewOktaIdentityEngineClient(conf ...ConfigSetter) (*OktaIdentityEngineClient, error) {
-	oie := &OktaIdentityEngineClient{}
+func NewIDXClient(conf ...ConfigSetter) (*IDXClient, error) {
+	oie := &IDXClient{}
 	cfg := &config{}
 
 	err := ReadConfig(cfg)
@@ -64,7 +64,7 @@ func NewOktaIdentityEngineClient(conf ...ConfigSetter) (*OktaIdentityEngineClien
 	return oie, nil
 }
 
-func (oie *OktaIdentityEngineClient) Start(ctx context.Context, interactionHandle *InteractionHandle) (OktaIdentityEngineResponse, error) {
+func (oie *IDXClient) Start(ctx context.Context, interactionHandle *InteractionHandle) (*IDXResponse, error) {
 	if interactionHandle == nil {
 
 		interactRequest := &InteractRequest{

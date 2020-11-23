@@ -16,12 +16,11 @@
 
 package idx
 
-import "encoding/json"
+import "time"
 
-type InteractionHandle struct {
-	InteractionHandle string `json:"interaction_handle"`
-}
-
-func (ih *InteractionHandle) Marshal() ([]byte, error) {
-	return json.Marshal(ih)
+type IDXResponse struct {
+	StateHandle string
+	Version     string
+	ExpiresAt   time.Time
+	Intent      string
 }

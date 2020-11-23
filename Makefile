@@ -4,7 +4,7 @@ COLOR_ERROR=\x1b[31;01m
 COLOR_WARNING=\x1b[33;01m
 COLOR_OKTA=\x1B[34;01m
 
-VERSION=$(shell grep -E -o '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?' ./oktaIdentityEngine.go)
+VERSION=$(shell grep -E -o '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?' ./idx.go)
 
 help:
 	@echo "$(COLOR_OKTA)  ___  _  _______  _$(COLOR_NONE)"
@@ -13,7 +13,7 @@ help:
 	@echo "$(COLOR_OKTA)| |_| | . \  | |/ ___ \ $(COLOR_NONE)"
 	@echo "$(COLOR_OKTA) \___/|_|\_\ |_/_/   \_\ $(COLOR_NONE)"
 	@echo ""
-	@echo "$(COLOR_OK)Okta Identity Engine Golang$(COLOR_NONE) version $(COLOR_WARNING)$(VERSION)$(COLOR_NONE)"
+	@echo "$(COLOR_OK)Okta IDX Golang$(COLOR_NONE) version $(COLOR_WARNING)$(VERSION)$(COLOR_NONE)"
 	@echo ""
 	@echo "$(COLOR_WARNING)Usage:$(COLOR_NONE)"
 	@echo "$(COLOR_OK)  make [command]$(COLOR_NONE)"

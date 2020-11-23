@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package oktaIdentityEngine
+package idx
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 )
 
 func TestIntrospectRequest(t *testing.T) {
-	client, err := NewOktaIdentityEngineClient()
+	client, err := NewIDXClient()
 	if err != nil {
 		log.Fatal(err)
 	}

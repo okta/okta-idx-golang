@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package oktaIdentityEngine
+package idx
 
 import (
 	"bytes"
@@ -22,12 +22,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/okta/okta-identity-engine-golang/oktaHttp"
+	"github.com/okta/okta-idx-golang/oktaHttp"
 )
 
 type RequestMarshaler interface {
 	Marshal() ([]byte, error)
-	NewRequest(ctx context.Context, oie *OktaIdentityEngineClient) (*http.Request, error)
+	NewRequest(ctx context.Context, oie *IDXClient) (*http.Request, error)
 }
 
 type RequestExecutor struct {

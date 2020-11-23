@@ -4,9 +4,9 @@
 ![Go Version](https://img.shields.io/badge/go%20version-%3E=1.14-61CFDD.svg?style=flat-square)
 [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/okta/okta-identity-engine-golang)](https://pkg.go.dev/mod/github.com/okta/okta-identity-engine-golang)
 
-# Okta Identity Engine - Golang
+# Okta IDX - Golang
 
-This repository contains the Okta Identity Engine SDK for Golang. This SDK can be used in your server-side code to assist in authenticating users against the Okta Idnetity Engine.
+This repository contains the Okta IDX SDK for Golang. This SDK can be used in your server-side code to assist in authenticating users against the Okta IDX.
 
 ## Release status
 

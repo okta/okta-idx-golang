@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package oktaIdentityEngine
+package idx
 
 import (
 	"context"
@@ -33,7 +33,7 @@ func (ir *IntrospectRequest) Marshal() ([]byte, error) {
 	return json.Marshal(ir)
 }
 
-func (ir *IntrospectRequest) NewRequest(ctx context.Context, oie *OktaIdentityEngineClient) (*http.Request, error) {
+func (ir *IntrospectRequest) NewRequest(ctx context.Context, oie *IDXClient) (*http.Request, error) {
 	domain, err := url.Parse(oie.config.Okta.Client.OIE.Issuer)
 	if err != nil {
 		return nil, errors.New("could not parse your issuer")
@@ -68,7 +68,7 @@ func (ir *InteractRequest) Marshal() ([]byte, error) {
 	return []byte(interactRequest.Encode()), nil
 }
 
-func (ir *InteractRequest) NewRequest(ctx context.Context, oie *OktaIdentityEngineClient) (*http.Request, error) {
+func (ir *InteractRequest) NewRequest(ctx context.Context, oie *IDXClient) (*http.Request, error) {
 	req, err := oie.
 		requestExecutor.
 		NewRequest(

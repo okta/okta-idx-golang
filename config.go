@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package oktaIdentityEngine
+package idx
 
 import (
 	"strings"
