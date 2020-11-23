@@ -1,4 +1,8 @@
-[<img src="https://aws1.discourse-cdn.com/standard14/uploads/oktadev/original/1X/0c6402653dfb70edc661d4976a43a46f33e5e919.png" align="right" width="256px"/>](https://devforum.okta.com/)
+[<img src=".github/images/logo.png" align="right" width="256px"/>](https://devforum.okta.com/)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/okta/okta-identity-engine-golang/CI?style=flat-square)](https://github.com/okta/okta-identity-engine-golang/actions?query=workflow%3ACI)
+[![Go Report Card](https://goreportcard.com/badge/github.com/okta/okta-identity-engine-golang?style=flat-square)](https://goreportcard.com/report/github.com/okta/okta-identity-engine-golang)
+![Go Version](https://img.shields.io/badge/go%20version-%3E=1.14-61CFDD.svg?style=flat-square)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/okta/okta-identity-engine-golang)](https://pkg.go.dev/mod/github.com/okta/okta-identity-engine-golang)
 
 # Okta Identity Engine - Golang
 
@@ -14,6 +18,16 @@ This library uses semantic versioning and follows Okta's [Library Version Policy
 
 The latest release can always be found on the [releases page][github-releases].
 
+
+## Need help?
+
+If you run into problems using the SDK, you can
+
+- Ask questions on the [Okta Developer Forums][devforum]
+- Post [issues on GitHub][github-issues] (for code errors)
+
+
+## Getting started
 
 
 
