@@ -14,7 +14,7 @@ This library uses semantic versioning and follows Okta's [Library Version Policy
 
 | Version | Status                             |
 | ------- | ---------------------------------- |
-| 0.x     | :warning: In Development (Retired) |
+| 0.x     | :warning: In Development           |
 
 The latest release can always be found on the [releases page][github-releases].
 
