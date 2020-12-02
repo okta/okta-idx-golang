@@ -68,9 +68,9 @@ func (oie *IDXClient) Start(ctx context.Context, interactionHandle *InteractionH
 	if interactionHandle == nil {
 
 		interactRequest := &InteractRequest{
-			ClientId:     oie.config.Okta.Client.OIE.ClientId,
-			ClientSecret: oie.config.Okta.Client.OIE.ClientSecret,
-			Scope:        strings.Join(oie.config.Okta.Client.OIE.Scopes, " "),
+			ClientId:     oie.config.Okta.IDX.ClientId,
+			ClientSecret: oie.config.Okta.IDX.ClientSecret,
+			Scope:        strings.Join(oie.config.Okta.IDX.Scopes, " "),
 		}
 
 		req, err := interactRequest.NewRequest(ctx, oie)
@@ -103,14 +103,19 @@ func (oie *IDXClient) Start(ctx context.Context, interactionHandle *InteractionH
 	if err != nil {
 		return nil, err
 	}
-	var tmp interface{}
 
-	err = json.NewDecoder(resp.Body).Decode(&tmp)
+	idxr := &IDXResponse{}
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return nil, nil
+	err = json.Unmarshal(body, idxr)
+	if err != nil {
+		return nil, err
+	}
+
+	return idxr, nil
 }
 
 func printcURL(req *http.Request) error {

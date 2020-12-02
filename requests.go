@@ -34,7 +34,7 @@ func (ir *IntrospectRequest) Marshal() ([]byte, error) {
 }
 
 func (ir *IntrospectRequest) NewRequest(ctx context.Context, oie *IDXClient) (*http.Request, error) {
-	domain, err := url.Parse(oie.config.Okta.Client.OIE.Issuer)
+	domain, err := url.Parse(oie.config.Okta.IDX.Issuer)
 	if err != nil {
 		return nil, errors.New("could not parse your issuer")
 	}
@@ -73,7 +73,7 @@ func (ir *InteractRequest) NewRequest(ctx context.Context, oie *IDXClient) (*htt
 		requestExecutor.
 		NewRequest(
 			http.MethodPost,
-			oie.config.Okta.Client.OIE.Issuer+"/v1/interact",
+			oie.config.Okta.IDX.Issuer+"/v1/interact",
 			ir,
 		)
 

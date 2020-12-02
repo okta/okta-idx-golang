@@ -18,6 +18,7 @@ package idx
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"testing"
 )
@@ -28,8 +29,10 @@ func TestIntrospectRequest(t *testing.T) {
 		log.Fatal(err)
 	}
 
-	_, err = client.Start(context.TODO(), nil)
+	idxResponse, err := client.Start(context.TODO(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Printf("%+s\n", idxResponse.Cancel())
 }

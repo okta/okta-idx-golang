@@ -16,53 +16,45 @@
 
 package idx
 
-import (
-	"encoding/json"
-	"time"
-)
+import "encoding/json"
 
-type IDXResponse struct {
-	StateHandle string    `json:"stateHandle"`
-	Version     string    `json:"version"`
-	ExpiresAt   time.Time `json:"expiresAt"`
-	Intent      string    `json:"intent"`
-	cancel      *IDXResponse
-	raw         []byte
+type FormValue struct {
+	Name      string        `json:"name"`
+	Label     string        `json:"label"`
+	Type      string        `json:"type"`
+	Value     []interface{} `json:"value"`
+	Visible   bool          `json:"visible"`
+	Mutable   bool          `json:"mutable"`
+	Required  bool          `json:"required"`
+	Secret    bool          `json:"secret"`
+	relatesTo []byte        `json:"relatesTo"`
 }
 
-func (idxr *IDXResponse) Remediation() error {
-	return nil
+func (fv *FormValue) RelatesTo() ([]byte, error) {
+	return nil, nil
 }
 
-func (idxr *IDXResponse) Cancel() error {
-	return nil
+func (fv *FormValue) Form() ([]FormValue, error) {
+	return nil, nil
 }
 
-func (idxr *IDXResponse) SuccessWithInteractionCode() error {
-	return nil
+func (fv *FormValue) Options() ([]FormValue, error) {
+	return nil, nil
 }
 
-func (idxr *IDXResponse) LoginSuccess() bool {
-	return false
-}
-
-func (idxr *IDXResponse) Raw() []byte {
-	return idxr.raw
-}
-
-func (idxr *IDXResponse) UnmarshalJSON(data []byte) error {
-	type Alias IDXResponse
+func (fv *FormValue) UnmarshalJSON(data []byte) error {
+	type Alias FormValue
 
 	aux := &struct {
 		*Alias
 	}{
-		Alias: (*Alias)(idxr),
+		Alias: (*Alias)(fv),
 	}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
 
-	idxr.raw = data
+	fv.relatesTo = data
 
 	return nil
 }
