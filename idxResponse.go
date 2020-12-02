@@ -17,7 +17,9 @@
 package idx
 
 import (
+	"context"
 	"encoding/json"
+	"io/ioutil"
 	"time"
 )
 
@@ -26,7 +28,7 @@ type IDXResponse struct {
 	Version     string    `json:"version"`
 	ExpiresAt   time.Time `json:"expiresAt"`
 	Intent      string    `json:"intent"`
-	cancel      *IDXResponse
+	CancelObj   IonObject `json:"cancel"`
 	raw         []byte
 }
 
@@ -34,8 +36,35 @@ func (idxr *IDXResponse) Remediation() error {
 	return nil
 }
 
-func (idxr *IDXResponse) Cancel() error {
-	return nil
+func (idxr *IDXResponse) Cancel(ctx context.Context) (*IDXResponse, error) {
+	generalRequest := &GeneralRequest{
+		"stateHandle": idxr.CancelObj.Value[0].Value,
+		"method":      idxr.CancelObj.Method,
+		"href":        idxr.CancelObj.Href,
+	}
+
+	req, err := generalRequest.NewRequest(ctx, &IDXC)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := IDXC.requestExecutor.GetHttpClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	idxResp := &IDXResponse{}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(body, idxResp)
+	if err != nil {
+		return nil, err
+	}
+
+	return idxResp, nil
 }
 
 func (idxr *IDXResponse) SuccessWithInteractionCode() error {

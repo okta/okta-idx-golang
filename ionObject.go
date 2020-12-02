@@ -16,24 +16,11 @@
 
 package idx
 
-import (
-	"context"
-	"fmt"
-	"log"
-	"testing"
-)
-
-func TestIntrospectRequest(t *testing.T) {
-	client, err := NewIDXClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	idxResponse, err := client.Start(context.TODO(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	idxResponse.Cancel(context.TODO())
-	fmt.Printf("%+s\n", idxResponse.Raw())
+type IonObject struct {
+	Rel     []string    `json:"rel"`
+	Name    string      `json:"name"`
+	Href    string      `json:"href"`
+	Method  string      `json:"method"`
+	Value   []FormValue `json:"value"`
+	Accepts string      `json:"accepts"`
 }

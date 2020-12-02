@@ -34,6 +34,8 @@ import (
  */
 const packageVersion = "0.0.1-alpha.1"
 
+var IDXC IDXClient
+
 type IDXClient struct {
 	config          *config
 	requestExecutor *RequestExecutor
@@ -60,6 +62,8 @@ func NewIDXClient(conf ...ConfigSetter) (*IDXClient, error) {
 
 	httpClient := &http.Client{}
 	oie.requestExecutor = NewRequestExecutor(httpClient)
+
+	IDXC = *oie
 
 	return oie, nil
 }

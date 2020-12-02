@@ -16,18 +16,15 @@
 
 package idx
 
-import "encoding/json"
-
 type FormValue struct {
-	Name      string        `json:"name"`
-	Label     string        `json:"label"`
-	Type      string        `json:"type"`
-	Value     []interface{} `json:"value"`
-	Visible   bool          `json:"visible"`
-	Mutable   bool          `json:"mutable"`
-	Required  bool          `json:"required"`
-	Secret    bool          `json:"secret"`
-	relatesTo []byte        `json:"relatesTo"`
+	Name     string `json:"name"`
+	Label    string `json:"label"`
+	Type     string `json:"type"`
+	Value    string `json:"value"`
+	Visible  bool   `json:"visible"`
+	Mutable  bool   `json:"mutable"`
+	Required bool   `json:"required"`
+	Secret   bool   `json:"secret"`
 }
 
 func (fv *FormValue) RelatesTo() ([]byte, error) {
@@ -40,21 +37,4 @@ func (fv *FormValue) Form() ([]FormValue, error) {
 
 func (fv *FormValue) Options() ([]FormValue, error) {
 	return nil, nil
-}
-
-func (fv *FormValue) UnmarshalJSON(data []byte) error {
-	type Alias FormValue
-
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(fv),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-
-	fv.relatesTo = data
-
-	return nil
 }

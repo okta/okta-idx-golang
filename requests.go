@@ -82,3 +82,26 @@ func (ir *InteractRequest) NewRequest(ctx context.Context, oie *IDXClient) (*htt
 
 	return req, err
 }
+
+type GeneralRequest map[string]interface{}
+
+func (gr *GeneralRequest) Marshal() ([]byte, error) {
+	return json.Marshal(gr)
+}
+
+func (gr *GeneralRequest) NewRequest(ctx context.Context, oie *IDXClient) (*http.Request, error) {
+	method := gr["Method"].string
+	href := gr["href"]
+	req, err := oie.
+		requestExecutor.
+		NewRequest(
+			method,
+			href,
+			gr,
+		)
+
+	req.WithContext(ctx)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	return req, err
+}
