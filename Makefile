@@ -24,7 +24,7 @@ help:
 	@echo "$(COLOR_OK)  help$(COLOR_NONE)     Show this help message"
 
 dep: # Download required dependencies
-	GOPRIVATE="github.com/okta" GONOSUMDB="github.com/okta" go mod vendor
+	go mod vendor
 
 .PHONY: check-lint
 check-lint:

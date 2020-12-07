@@ -26,12 +26,6 @@ jobs:
           fetch-depth: 1
           path: go/src/github.com/okta/okta-idx-golang
 
-      - name: Download dependencies
-        run: make dep
-        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
-        env:
-          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
-
       - name: Lint
         run: make lint
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
