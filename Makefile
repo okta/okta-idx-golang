@@ -23,6 +23,9 @@ help:
 	@echo "$(COLOR_WARNING)Available commands:$(COLOR_NONE)"
 	@echo "$(COLOR_OK)  help$(COLOR_NONE)     Show this help message"
 
+dep: # Download required dependencies
+	go mod vendor
+
 .PHONY: check-lint
 check-lint:
 	@which $(GOLINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.25.0
