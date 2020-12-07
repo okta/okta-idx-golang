@@ -23,10 +23,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"net/url"
 	"strings"
+	"time"
 
-	"github.com/pkg/errors"
+	"github.com/gorilla/schema"
 )
 
 /**
@@ -34,116 +35,125 @@ import (
  */
 const packageVersion = "0.0.1-alpha.1"
 
-var IDXC IDXClient
-
-type IDXClient struct {
-	config          *config
-	requestExecutor *RequestExecutor
-}
-
 type IDX interface {
-	Start(ctx context.Context, interactionHandle *string) (IDXResponse, error)
+	Start(ctx context.Context, interactionHandle *string) (Response, error)
 }
 
-func NewIDXClient(conf ...ConfigSetter) (*IDXClient, error) {
-	oie := &IDXClient{}
-	cfg := &config{}
+var idx *Client
 
+type Client struct {
+	config     *config
+	httpClient *http.Client
+}
+
+func NewIDXClient(conf ...ConfigSetter) (*Client, error) {
+	oie := &Client{}
+	cfg := &config{}
 	err := ReadConfig(cfg)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Error with config")
+		return nil, fmt.Errorf("failed to create new Client: %v", err)
 	}
-
 	for _, confSetter := range conf {
 		confSetter(cfg)
 	}
-
 	oie.config = cfg
-
-	httpClient := &http.Client{}
-	oie.requestExecutor = NewRequestExecutor(httpClient)
-
-	IDXC = *oie
-
+	oie.httpClient = &http.Client{Timeout: time.Second * 60}
+	idx = oie
 	return oie, nil
 }
 
-func (oie *IDXClient) Start(ctx context.Context, interactionHandle *InteractionHandle) (*IDXResponse, error) {
-	if interactionHandle == nil {
-
-		interactRequest := &InteractRequest{
-			ClientId:     oie.config.Okta.IDX.ClientId,
-			ClientSecret: oie.config.Okta.IDX.ClientSecret,
-			Scope:        strings.Join(oie.config.Okta.IDX.Scopes, " "),
-		}
-
-		req, err := interactRequest.NewRequest(ctx, oie)
-		if err != nil {
-			return nil, err
-		}
-
-		resp, err := oie.requestExecutor.GetHttpClient().Do(req)
-		if err != nil {
-			return nil, err
-		}
-
-		body, _ := ioutil.ReadAll(resp.Body)
-		_ = json.Unmarshal(body, &interactionHandle)
-
-	}
-
-	// We should have an interaction handle at this point. If it is nil, lets return an error
-	if interactionHandle == nil {
-		return nil, errors.New("we need an interaction handle in order to proceed. We were not able to find on.")
-	}
-
-	introspectRequest := &IntrospectRequest{
-		InteractionHandle: interactionHandle.InteractionHandle,
-	}
-
-	req, err := introspectRequest.NewRequest(ctx, oie)
-
-	resp, err := oie.requestExecutor.GetHttpClient().Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	idxr := &IDXResponse{}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(body, idxr)
-	if err != nil {
-		return nil, err
-	}
-
-	return idxr, nil
+func (c *Client) WithHTTPClient(client *http.Client) *Client {
+	c.httpClient = client
+	return c
 }
 
-func printcURL(req *http.Request) error {
-	var (
-		command string
-		b       []byte
-		err     error
-	)
-	if req.URL != nil {
-		command = fmt.Sprintf("curl -X %s '%s'", req.Method, req.URL.String())
-	}
-	for k, v := range req.Header {
-		command += fmt.Sprintf(" -H '%s: %s'", k, strings.Join(v, ", "))
-	}
-	if req.Body != nil {
-		b, err = ioutil.ReadAll(req.Body)
+func (c *Client) Start(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
+	if interactionHandle == nil {
+		var err error
+		interactResponse, err := c.interact(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		command += fmt.Sprintf(" -d %q", string(b))
+		interactionHandle = &InteractionHandle{
+			InteractionHandle: interactResponse.InteractionHandle,
+		}
 	}
-	fmt.Fprintf(os.Stderr, "cURL Command: %s\n", command)
-	// reset body
-	body := bytes.NewBuffer(b)
-	req.Body = ioutil.NopCloser(body)
+	return c.introspect(ctx, interactionHandle)
+}
+
+func unmarshalResponse(r *http.Response, i interface{}) error {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+	if r.StatusCode != http.StatusOK {
+		var respErr ErrorResponse
+		err = json.Unmarshal(body, &respErr)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal response body: %v", err)
+		}
+		return &respErr
+	}
+	err = json.Unmarshal(body, &i)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal response body: %v", err)
+	}
 	return nil
 }
+
+func (c *Client) interact(ctx context.Context) (*InteractionHandleResponse, error) {
+	data := url.Values{}
+	err := schema.NewEncoder().Encode(&c.config.Okta.IDX, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode interaction request: %v", err)
+	}
+	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
+	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create interact http request: %v", err)
+	}
+	req = req.WithContext(ctx)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http call has failed: %v", err)
+	}
+	var interactionHandle InteractionHandleResponse
+	err = unmarshalResponse(resp, &interactionHandle)
+	if err != nil {
+		return nil, err
+	}
+	return &interactionHandle, nil
+}
+
+func (c *Client) introspect(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
+	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse issuer: %v", err)
+	}
+	body, err := json.Marshal(interactionHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal interaction handle: %v", err)
+	}
+	endpoint := domain.Scheme + "://" + domain.Host + "/idp/idx/introspect"
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
+	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http call has failed: %v", err)
+	}
+	var idxResponse Response
+	err = unmarshalResponse(resp, &idxResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &idxResponse, nil
+}
+
+

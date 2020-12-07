@@ -16,24 +16,10 @@
 
 package idx
 
-import (
-	"context"
-	"fmt"
-	"log"
-	"testing"
-)
+type InteractionHandleResponse struct {
+	InteractionHandle string `json:"interaction_handle"`
+}
 
-func TestIntrospectRequest(t *testing.T) {
-	client, err := NewIDXClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	idxResponse, err := client.Start(context.TODO(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	idxResponse.Cancel(context.TODO())
-	fmt.Printf("%+s\n", idxResponse.Raw())
+type InteractionHandle struct {
+	InteractionHandle string `json:"interactionHandle"`
 }
