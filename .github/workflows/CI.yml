@@ -27,7 +27,7 @@ jobs:
           path: go/src/github.com/okta/okta-idx-golang
 
       - name: Download dependencies
-        run: go mod vendor
+        run: ls
         env:
           GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
