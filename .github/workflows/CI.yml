@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
-          path: go/src/github.com/okta/okta-idx-golang
+          path: /home/runner/go/src/github.com/okta/okta-idx-golang
 
       - name: Download dependencies
         run: go env
