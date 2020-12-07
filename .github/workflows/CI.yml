@@ -22,9 +22,12 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/okta/okta-idx-golang
 
       - name: Download dependencies
-        run: make dep
+        run: go env
 
       - name: Lint
         run: make lint
