@@ -32,6 +32,9 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_ACCOUNT_TOKEN }}
         run: git config --global url."https://${ACCOUNT}:${TOKEN}@github.com".insteadOf "https://github.com"
 
+      - name: Dependencies
+        run: make dep
+
       - name: Lint
         run: make lint
 
