@@ -28,6 +28,7 @@ jobs:
 
       - name: Download dependencies
         run: ls
+        working-directory: ./src/github.com/okta/okta-idx-golang
         env:
           GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
