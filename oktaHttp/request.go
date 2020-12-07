@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package oktaHttp
+package oktahttp
 
 import (
 	"net/http"

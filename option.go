@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/okta/okta-idx-golang/oktahttp"
 	"github.com/pkg/errors"
 )
 
@@ -109,9 +110,10 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cancel request: %v", err)
 	}
+	req = req.WithContext(ctx)
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
-	req = req.WithContext(ctx)
+	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %v", err)
@@ -124,20 +126,22 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	return &idxResponse, nil
 }
 
+// nolint:gocyclo
 func form(input, output map[string]interface{}, f ...FormValue) (map[string]interface{}, error) {
 	if output == nil {
 		output = make(map[string]interface{})
 	}
 	for _, v := range f {
-		if v.Value != nil {
+		switch {
+		case v.Value != nil:
 			output[v.Name] = v.Value
-		} else if v.Value == nil && v.Form == nil {
+		case v.Value == nil && v.Form == nil:
 			vv, ok := input[v.Name]
 			if !ok {
 				return nil, fmt.Errorf("missing %s property from input", v.Name)
 			}
 			output[v.Name] = vv
-		} else if v.Form != nil && len(v.Form.FormValues) != 0 {
+		case v.Form != nil && len(v.Form.FormValues) != 0:
 			vv, ok := input[v.Name]
 			if !ok {
 				return nil, fmt.Errorf("missing %s property from input", v.Name)
@@ -186,7 +190,7 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context) (*Token, error) {
 	req = req.WithContext(ctx)
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
-	req = req.WithContext(ctx)
+	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %v", err)

@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/okta/okta-idx-golang/oktaHttp"
+	"github.com/okta/okta-idx-golang/oktahttp"
 	"github.com/pkg/errors"
 )
 
@@ -67,7 +67,7 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	}
 	req.Header.Set("Accepts", r.CancelResponse.Accepts)
 	req.Header.Set("Content-Type", r.CancelResponse.Accepts)
-	oktaHttp.WithOktaUserAgent(req, packageVersion)
+	oktahttp.WithOktaUserAgent(req, packageVersion)
 	req = req.WithContext(ctx)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {

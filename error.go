@@ -10,7 +10,7 @@ type ErrorResponse struct {
 	ErrorCode        string                   `json:"errorCode,omitempty"`
 	ErrorSummary     string                   `json:"errorSummary,omitempty"`
 	ErrorLink        string                   `json:"errorLink,omitempty"`
-	ErrorId          string                   `json:"errorId,omitempty"`
+	ErrorID          string                   `json:"errorId,omitempty"`
 	ErrorCauses      []map[string]interface{} `json:"errorCauses,omitempty"`
 	ErrorType        string                   `json:"error,omitempty"`
 	ErrorDescription string                   `json:"error_description,omitempty"`

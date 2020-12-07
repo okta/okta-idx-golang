@@ -28,16 +28,13 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
+	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 /**
  * Current version of the package. This is used mainly for our User-Agent
  */
 const packageVersion = "0.0.1-alpha.1"
-
-type IDX interface {
-	Start(ctx context.Context, interactionHandle *string) (Response, error)
-}
 
 var idx *Client
 
@@ -67,20 +64,6 @@ func (c *Client) WithHTTPClient(client *http.Client) *Client {
 	return c
 }
 
-func (c *Client) Start(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
-	if interactionHandle == nil {
-		var err error
-		interactResponse, err := c.interact(ctx)
-		if err != nil {
-			return nil, err
-		}
-		interactionHandle = &InteractionHandle{
-			InteractionHandle: interactResponse.InteractionHandle,
-		}
-	}
-	return c.introspect(ctx, interactionHandle)
-}
-
 func unmarshalResponse(r *http.Response, i interface{}) error {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
@@ -102,7 +85,7 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	return nil
 }
 
-func (c *Client) interact(ctx context.Context) (*InteractionHandleResponse, error) {
+func (c *Client) Interact(ctx context.Context) (*InteractionHandleResponse, error) {
 	data := url.Values{}
 	err := schema.NewEncoder().Encode(&c.config.Okta.IDX, data)
 	if err != nil {
@@ -115,6 +98,7 @@ func (c *Client) interact(ctx context.Context) (*InteractionHandleResponse, erro
 	}
 	req = req.WithContext(ctx)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %v", err)
@@ -127,7 +111,7 @@ func (c *Client) interact(ctx context.Context) (*InteractionHandleResponse, erro
 	return &interactionHandle, nil
 }
 
-func (c *Client) introspect(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
+func (c *Client) Introspect(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
 	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse issuer: %v", err)
@@ -144,6 +128,7 @@ func (c *Client) introspect(ctx context.Context, interactionHandle *InteractionH
 	req = req.WithContext(ctx)
 	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
 	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
+	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %v", err)
@@ -155,5 +140,3 @@ func (c *Client) introspect(ctx context.Context, interactionHandle *InteractionH
 	}
 	return &idxResponse, nil
 }
-
-

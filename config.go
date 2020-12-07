@@ -26,13 +26,13 @@ import (
 type config struct {
 	Okta struct {
 		IDX struct {
-			ClientId            string   `mapstructure:"client_id" schema:"client_id"`
+			ClientID            string   `mapstructure:"client_id" schema:"client_id"`
 			ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
 			Issuer              string   `mapstructure:"issuer" schema:"-"`
 			Scopes              []string `mapstructure:"scope" schema:"scope"`
 			CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
 			CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-			RedirectUri         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
+			RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 			State               string   `mapstrucutre:"state" schema:"state"`
 		} `mapstructure:"idx"`
 	} `mapstructure:"okta"`
@@ -40,9 +40,9 @@ type config struct {
 
 type ConfigSetter func(*config)
 
-func WithClientId(clientId string) ConfigSetter {
+func WithClientID(clientID string) ConfigSetter {
 	return func(c *config) {
-		c.Okta.IDX.ClientId = clientId
+		c.Okta.IDX.ClientID = clientID
 	}
 }
 
@@ -78,7 +78,7 @@ func WithCodeChallengeMethod(codeChallengeMethod string) ConfigSetter {
 
 func WithRedirectURI(redirectURI string) ConfigSetter {
 	return func(c *config) {
-		c.Okta.IDX.RedirectUri = redirectURI
+		c.Okta.IDX.RedirectURI = redirectURI
 	}
 }
 
