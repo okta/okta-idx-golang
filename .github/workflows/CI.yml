@@ -30,7 +30,7 @@ jobs:
           env:
             ACCOUNT: ${{ secrets.GITHUB_ACCOUNT_USER }}
             TOKEN: ${{ secrets.GITHUB_ACCOUNT_TOKEN }}
-          run: git config --global url."https://${ACCOUNT}:${TOKEN}@github.com".insteadOf "https://github.com"
+          run: 'git config --global url."https://${ACCOUNT}:${TOKEN}@github.com".insteadOf "https://github.com"'
 
       - name: Lint
         run: make lint
