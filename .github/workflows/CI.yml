@@ -24,13 +24,19 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
-          path: /home/runner/go/src/github.com/okta/okta-idx-golang
+          path: go/src/github.com/okta/okta-idx-golang
 
       - name: Download dependencies
-        run: go env
+        run: go mod vendor
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
       - name: Lint
         run: make lint
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
       - name: Test
         run: make test
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
