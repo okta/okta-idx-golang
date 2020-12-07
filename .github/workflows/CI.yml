@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 1
           path: go/src/github.com/okta/okta-idx-golang
 
-      - name: Download dependencies
+      - name: Set git
           run: git config --global --add url."git@github.com:".insteadOf "https://github.com/"
           working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
           env:
