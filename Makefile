@@ -24,6 +24,7 @@ help:
 	@echo "$(COLOR_OK)  help$(COLOR_NONE)     Show this help message"
 
 dep: # Download required dependencies
+	git config --global --add url."git@github.com:".insteadOf "https://github.com/"
 	go mod vendor
 
 .PHONY: check-lint
