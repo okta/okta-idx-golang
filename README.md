@@ -1,5 +1,5 @@
 [<img src=".github/images/logo.png" align="right" width="256px"/>](https://devforum.okta.com/)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/okta/okta-identity-engine-golang/CI?style=flat-square)](https://github.com/okta/okta-identity-engine-golang/actions?query=workflow%3ACI)
+[![GitHub Workflow Status](https://github.com/okta/okta-identity-engine-golang/workflows/CI/badge.svg)](https://github.com/okta/okta-identity-engine-golang/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/okta/okta-identity-engine-golang?style=flat-square)](https://goreportcard.com/report/github.com/okta/okta-identity-engine-golang)
 ![Go Version](https://img.shields.io/badge/go%20version-%3E=1.14-61CFDD.svg?style=flat-square)
 [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/okta/okta-identity-engine-golang)](https://pkg.go.dev/mod/github.com/okta/okta-identity-engine-golang)
