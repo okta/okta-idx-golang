@@ -17,9 +17,9 @@
 package idx
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -100,11 +100,12 @@ func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v.SetTypeByDefaultValue(true)
 	err := v.ReadInConfig()
 	if err != nil {
-		return errors.WithMessage(err, "failed to read from config file")
+		return fmt.Errorf("failed to read from config file: %v", err)
+
 	}
 	err = v.Unmarshal(config, opts...)
 	if err != nil {
-		return errors.WithMessage(err, "failed to parse configuration")
+		return fmt.Errorf( "failed to parse configuration: %v", err)
 	}
 	return nil
 }

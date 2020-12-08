@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/okta/okta-idx-golang/oktahttp"
-	"github.com/pkg/errors"
+	"github.com/okta/okta-identity-engine-golang/oktahttp"
 )
 
 type Remediation struct {
