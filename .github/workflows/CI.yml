@@ -36,6 +36,7 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           ls
           pwd
+          echo test
           make dep
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
         env:
