@@ -19,12 +19,12 @@ jobs:
         go: [ '1.14', '1.15' ]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@main
         with:
           go-version: ${{ matrix.go }}
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@master
         with:
           fetch-depth: 1
           path: go/src/github.com/okta/okta-idx-golang
@@ -37,10 +37,13 @@ jobs:
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
 
       - name: Dependencies
-        run: make dep
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          make dep
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
         env:
           GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
+          GO111MODULE: on
 
       - name: Lint
         run: make lint
