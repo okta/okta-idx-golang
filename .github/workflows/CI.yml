@@ -15,8 +15,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        go: ['1.14', '1.15']
+        os: [ ubuntu-latest, macos-latest ]
+        go: [ '1.14', '1.15' ]
     steps:
       - name: Set up Go
         uses: actions/setup-go@v2
@@ -25,15 +25,22 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/okta/okta-idx-golang
 
       - name: Configure git for private modules
         env:
-          ACCOUNT: ${{ secrets.GITHUB_USER }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: git config --global url."https://${ACCOUNT}:${TOKEN}@github.com".insteadOf "https://github.com"
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
+        run: git config --global url."https://${TOKEN}:x-oauth-basic@github.com/okta".insteadOf "https://github.com/okta"
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
 
       - name: Dependencies
         run: make dep
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-idx-golang
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
       - name: Lint
         run: make lint
