@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest ]
         go: [ '1.14', '1.15' ]
     steps:
       - name: Set up Go
@@ -35,8 +35,6 @@ jobs:
         run: |
           make dep
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
-        env:
-          TOKEN: ${{ github.token }}
 
       - name: Lint
         run: |
