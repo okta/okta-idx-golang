@@ -33,7 +33,6 @@ jobs:
 
       - name: Dependencies
         run: |
-          git config --global url."https://x-oauth-basic:${TOKEN}@github.com".insteadOf "https://github.com"
           make dep
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
         env:

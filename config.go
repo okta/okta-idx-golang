@@ -105,7 +105,7 @@ func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	}
 	err = v.Unmarshal(config, opts...)
 	if err != nil {
-		return fmt.Errorf( "failed to parse configuration: %v", err)
+		return fmt.Errorf("failed to parse configuration: %v", err)
 	}
 	return nil
 }
