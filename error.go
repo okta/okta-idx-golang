@@ -14,7 +14,18 @@ type ErrorResponse struct {
 	ErrorCauses      []map[string]interface{} `json:"errorCauses,omitempty"`
 	ErrorType        string                   `json:"error,omitempty"`
 	ErrorDescription string                   `json:"error_description,omitempty"`
-	raw              []byte
+	Version          string                   `json:"version"`
+	Messages         struct {
+		Type  string `json:"type"`
+		Value []struct {
+			Message string `json:"message"`
+			I18N    struct {
+				Key string `json:"key"`
+			} `json:"i18n"`
+			Class string `json:"class"`
+		} `json:"value"`
+	} `json:"messages"`
+	raw []byte
 }
 
 func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
@@ -27,23 +38,26 @@ func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 }
 
 func (e *ErrorResponse) Error() string {
-	if e == nil {
+	f := "the API returned an error: %s"
+	switch {
+	case e == nil:
 		return ""
-	}
-	if e.ErrorType != "" {
-		return fmt.Sprintf("the API returned an error: %s", e.ErrorDescription)
-	} else if e.ErrorSummary != "" {
-		formattedErr := fmt.Sprintf("the API returned an error: %s", e.ErrorSummary)
-		if len(e.ErrorCauses) > 0 {
-			causes := make([]string, len(e.ErrorCauses))
-			for i := range e.ErrorCauses {
-				for key, val := range e.ErrorCauses[i] {
-					causes[i] = fmt.Sprintf("%s: %v", key, val)
-				}
+	case e.ErrorType != "":
+		return fmt.Sprintf(f, e.ErrorDescription)
+	case len(e.ErrorCauses) > 0:
+		causes := make([]string, len(e.ErrorCauses))
+		for i := range e.ErrorCauses {
+			for key, val := range e.ErrorCauses[i] {
+				causes[i] = fmt.Sprintf("%s: %v", key, val)
 			}
-			formattedErr = fmt.Sprintf("%s. Causes: %s", formattedErr, strings.Join(causes, ", "))
 		}
-		return formattedErr
+		return fmt.Sprintf(f+". Causes: %s", e.ErrorSummary, strings.Join(causes, ", "))
+	case len(e.Messages.Value) > 0:
+		messages := make([]string, len(e.Messages.Value))
+		for i := range e.Messages.Value {
+			messages[i] = e.Messages.Value[i].Message
+		}
+		return fmt.Sprintf(f, strings.Join(messages, ","))
 	}
-	return string(e.raw)
+	return fmt.Sprintf(f, string(e.raw))
 }

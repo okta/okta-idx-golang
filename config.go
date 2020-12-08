@@ -101,7 +101,6 @@ func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	err := v.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read from config file: %v", err)
-
 	}
 	err = v.Unmarshal(config, opts...)
 	if err != nil {
