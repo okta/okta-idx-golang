@@ -26,14 +26,26 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@master
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/okta/okta-identity-engine-golang
 
       - name: Dependencies
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           make dep
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
       - name: Lint
         run: make lint
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
       - name: Test
         run: make test
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
+        env:
+          GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go

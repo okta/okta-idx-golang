@@ -44,8 +44,8 @@ test\:all:
 
 test\:integration:
 	@echo "$(COLOR_OKTA)Running integration tests...$(COLOR_NONE)"
-	go test -tags integration -test.v
+	go test -tags integration -mod=vendor -test.v
 
 test\:unit:
 	@echo "$(COLOR_OK)Running unit tests...$(COLOR_NONE)"
-	go test -tags unit -test.v
+	go test -tags unit -mod=vendor -test.v
