@@ -16,11 +16,10 @@
 
 package idx
 
-type IonObject struct {
-	Rel     []string    `json:"rel"`
-	Name    string      `json:"name"`
-	Href    string      `json:"href"`
-	Method  string      `json:"method"`
-	Value   []FormValue `json:"value"`
-	Accepts string      `json:"accepts"`
+type InteractionHandleResponse struct {
+	InteractionHandle string `json:"interaction_handle"`
+}
+
+type InteractionHandle struct {
+	InteractionHandle string `json:"interactionHandle"`
 }

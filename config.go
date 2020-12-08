@@ -17,40 +17,32 @@
 package idx
 
 import (
-	"net/url"
+	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-)
-
-const (
-	viperDefaultDelimiter = "."
-	defaultTagName        = "default"
-	squashTagValue        = ",squash"
-	mapStructureTagName   = "mapstructure"
 )
 
 type config struct {
 	Okta struct {
 		IDX struct {
-			ClientId            string   `mapstructure:"clientId"`
-			ClientSecret        string   `mapstructure:"clientSecret"`
-			Issuer              string   `mapstructure:"issuer"`
-			Scopes              []string `mapstructure:"scopes"`
-			CodeChallenge       string   `mapstructure:"code_challenge"`
-			CodeChallengeMethod string   `mapstructure:"code_challenge_method"`
-			RedirectUri         url.URL  `mapstructure:"redirect_uri"`
-			State               string   `mapstrucutre:"state"`
+			ClientID            string   `mapstructure:"client_id" schema:"client_id"`
+			ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
+			Issuer              string   `mapstructure:"issuer" schema:"-"`
+			Scopes              []string `mapstructure:"scope" schema:"scope"`
+			CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
+			CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
+			RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
+			State               string   `mapstrucutre:"state" schema:"state"`
 		} `mapstructure:"idx"`
 	} `mapstructure:"okta"`
 }
 
 type ConfigSetter func(*config)
 
-func WithClientId(clientId string) ConfigSetter {
+func WithClientID(clientID string) ConfigSetter {
 	return func(c *config) {
-		c.Okta.IDX.ClientId = clientId
+		c.Okta.IDX.ClientID = clientID
 	}
 }
 
@@ -84,9 +76,9 @@ func WithCodeChallengeMethod(codeChallengeMethod string) ConfigSetter {
 	}
 }
 
-func WithRedirectUri(redirectUri url.URL) ConfigSetter {
+func WithRedirectURI(redirectURI string) ConfigSetter {
 	return func(c *config) {
-		c.Okta.IDX.RedirectUri = redirectUri
+		c.Okta.IDX.RedirectURI = redirectURI
 	}
 }
 
@@ -96,23 +88,23 @@ func WithState(state string) ConfigSetter {
 	}
 }
 
+// ReadConfig reads config from file and environment variables
+// Config file should be placed either in project root dir or in $HOME/.okta/
 func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v := viper.New()
 	v.SetConfigName("okta")
-	v.AddConfigPath("$HOME/.okta/")                                      // path to look for the config file in
-	v.AddConfigPath(".")                                                 // path to look for config in the working directory
-	v.SetEnvKeyReplacer(strings.NewReplacer(viperDefaultDelimiter, "_")) // replace default viper delimiter for env vars
+	v.AddConfigPath("$HOME/.okta/")                    // path to look for the config file in
+	v.AddConfigPath(".")                               // path to look for config in the working directory
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace default viper delimiter for env vars
 	v.AutomaticEnv()
 	v.SetTypeByDefaultValue(true)
-
-	err := v.ReadInConfig() // read from configuration file
+	err := v.ReadInConfig()
 	if err != nil {
-		return errors.WithMessage(err, "failed to read from config file")
+		return fmt.Errorf("failed to read from config file: %v", err)
 	}
-	err = v.Unmarshal(config, opts...) // unmarshal into config struct
+	err = v.Unmarshal(config, opts...)
 	if err != nil {
-		return errors.WithMessage(err, "failed to parse configuration")
+		return fmt.Errorf("failed to parse configuration: %v", err)
 	}
-
 	return nil
 }

@@ -1,5 +1,10 @@
 name: CI
 
+env:
+  GOPRIVATE: 'github.com/okta'
+  GO111MODULE: on
+  GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
+
 on:
   push:
     branches:
@@ -7,25 +12,36 @@ on:
   pull_request:
 
 jobs:
-
   build:
     name: Build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        go: ['1.14', '1.15']
+        os: [ ubuntu-latest ]
+        go: [ '1.14', '1.15' ]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@main
         with:
           go-version: ${{ matrix.go }}
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@master
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/okta/okta-identity-engine-golang
+
+      - name: Dependencies
+        run: |
+          make dep
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
 
       - name: Lint
-        run: make lint
+        run: |
+          export PATH=$PATH:${GOPATH}/bin
+          make lint
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
 
       - name: Test
         run: make test
+        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang

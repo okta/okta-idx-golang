@@ -14,26 +14,17 @@
  * limitations under the License.
  */
 
-package idx
+package oktahttp
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"testing"
+	"net/http"
+	"runtime"
 )
 
-func TestIntrospectRequest(t *testing.T) {
-	client, err := NewIDXClient()
-	if err != nil {
-		log.Fatal(err)
-	}
+func WithOktaUserAgent(req *http.Request, packageVersion string) {
+	userAgentString := "okta-idx-golang/" + packageVersion + " "
+	userAgentString += "golang/" + runtime.Version() + " "
+	userAgentString += runtime.GOOS + "/" + runtime.GOARCH + " "
 
-	idxResponse, err := client.Start(context.TODO(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	idxResponse.Cancel(context.TODO())
-	fmt.Printf("%+s\n", idxResponse.Raw())
+	req.Header.Add("User-Agent", userAgentString)
 }
