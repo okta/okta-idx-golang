@@ -16,10 +16,6 @@
 
 package idx
 
-type InteractionHandleResponse struct {
-	InteractionHandle string `json:"interaction_handle"`
-}
-
 type InteractionHandle struct {
 	InteractionHandle string `json:"interactionHandle"`
 }

@@ -85,7 +85,7 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	return nil
 }
 
-func (c *Client) Interact(ctx context.Context) (*InteractionHandleResponse, error) {
+func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
 	data := url.Values{}
 	err := schema.NewEncoder().Encode(&c.config.Okta.IDX, data)
 	if err != nil {
@@ -103,12 +103,17 @@ func (c *Client) Interact(ctx context.Context) (*InteractionHandleResponse, erro
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %v", err)
 	}
-	var interactionHandle InteractionHandleResponse
+	type interactionHandleResponse struct {
+		InteractionHandle string `json:"interaction_handle"`
+	}
+	var interactionHandle interactionHandleResponse
 	err = unmarshalResponse(resp, &interactionHandle)
 	if err != nil {
 		return nil, err
 	}
-	return &interactionHandle, nil
+	return &InteractionHandle{
+		InteractionHandle: interactionHandle.InteractionHandle,
+	}, nil
 }
 
 func (c *Client) Introspect(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
