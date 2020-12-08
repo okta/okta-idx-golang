@@ -32,13 +32,13 @@ jobs:
 
       - name: Dependencies
         run: |
-          git config --global url."https://${TOKEN}:x-oauth-basic@github.com/okta".insteadOf "https://github.com/okta"
+          git config --global url."https://x-oauth-basic:${TOKEN}@github.com".insteadOf "https://github.com"
           export PATH=$PATH:$(go env GOPATH)/bin
           make dep
         working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
         env:
           GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ github.token }}
 
       - name: Lint
         run: make lint
