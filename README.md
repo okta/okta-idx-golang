@@ -56,6 +56,68 @@ if err != nil {
 }
 ```
 
+### Get Interation Handle
+```go
+InteractionHandleResponse, err := IDXClient.Interact(context.TODO())
+if err != nil {
+    fmt.Errorf("retriving an interaction handle failed", err)
+}
+
+InteractionHandle := InteractionHandleResponse.InteractionHandle
+```
+
+### Using Interaction Handle for Introspect
+```go
+IntrospectResponse, err := IDXClient.Introspect(context.TODO(), InteractionHandle)
+if err != nil {
+    fmt.Errorf("could not introspect IDX", err)
+}
+```
+
+## Configuration Reerence
+This library looks for configuration in the following sources:
+
+1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile%\.okta\okta.yaml)
+2. An okta.yaml file in a .okta folder in the application or project's root directory
+3. Environment variables
+4. Configuration explicitly passed to the constructor (see the example in [Getting started](#getting-started))
+
+Higher numbers win. In other words, configuration passed via the constructor will override configuration found in environment variables, which will override configuration in okta.yaml (if any), and so on.
+
+### Config Properties
+| Yaml Path             | Environment Key       | Description                                                                                                          |
+|-----------------------|-----------------------|----------------------------------------------------------------------------------------------------------------------|
+| okta.idx.issuer       | OKTA_IDX_ISSUER       | The issuer of the authorization server you want to use for authentication.                                           |
+| okta.idx.clientId     | OKTA_IDX_CLIENTID     | The client ID of the Okta Application.                                                                               |
+| okta.idx.clientSecret | OKTA_IDX_CLIENTSECRET | The client secret of the Okta Application. Required with confidential clients                                        |
+| okta.idx.scopes       | OKTA_IDX_SCOPES       | The scopes requested for the access token.                                                                           |
+| okta.idx.redirectUri  | OKTA_IDX_REDIRECTURI  | For most cases, this will not be used, but is still required to supply. You can put any configured redirectUri here. |
+
+#### Yaml Configuration
+The configuration would be expressed in our okta.yaml configuration for SDKs as follows:
+
+```yaml
+okta:
+  idx:
+    issuer: {issuerUrl}
+    clientId: {clientId}
+    clientSecret: {clientSecret}
+    scopes:
+    - {scope1}
+    - {scope2}
+    redirectUri: {configuredRedirectUri}
+```
+
+#### Environment Configuration
+The configuration would be expressed in environment variables for SDKs as follows:
+```env
+OKTA_IDX_ISSUER
+OKTA_IDX_CLIENTID
+OKTA_IDX_CLIENTSECRET
+OKTA_IDX_SCOPES
+OKTA_IDX_REDIRECTURI
+```
+
 
 [okta-library-versioning]: https://developer.okta.com/code/library-versions/
 [github-issues]: https://github.com/okta/okta-identity-engine-golang/issues
