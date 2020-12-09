@@ -43,7 +43,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewIDXClient(conf ...ConfigSetter) (*Client, error) {
+func NewClient(conf ...ConfigSetter) (*Client, error) {
 	oie := &Client{}
 	cfg := &config{}
 	err := ReadConfig(cfg)
