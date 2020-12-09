@@ -41,7 +41,7 @@ Once you initialize a `Client`, you can call methods to make requests to the Okt
 
 ### Create the Client
 ```go
-IDXClient, err := NewIDXClient(
+client, err := NewClient(
     WithClientId("{YOUR_CLIENT_ID}"),
     WithClientSecret("{YOUR_CLIENT_SECRET}"), // Required for confidential clients.
     WithIssuer("{YOUR_ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
@@ -58,17 +58,15 @@ if err != nil {
 
 ### Get Interation Handle
 ```go
-InteractionHandleResponse, err := IDXClient.Interact(context.TODO())
+interactionHandle, err := IDXClient.Interact(context.TODO())
 if err != nil {
     fmt.Errorf("retriving an interaction handle failed", err)
 }
-
-InteractionHandle := InteractionHandleResponse.InteractionHandle
 ```
 
 ### Using Interaction Handle for Introspect
 ```go
-IntrospectResponse, err := IDXClient.Introspect(context.TODO(), InteractionHandle)
+introspectResponse, err := IDXClient.Introspect(context.TODO(), interactionHandle)
 if err != nil {
     fmt.Errorf("could not introspect IDX", err)
 }
