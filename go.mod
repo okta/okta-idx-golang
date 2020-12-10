@@ -1,4 +1,4 @@
-module github.com/okta/okta-identity-engine-golang
+module github.com/okta/okta-idx-golang
 
 go 1.14
 

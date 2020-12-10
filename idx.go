@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
-	"github.com/okta/okta-identity-engine-golang/oktahttp"
+	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 /**
