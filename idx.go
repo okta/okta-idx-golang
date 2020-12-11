@@ -53,6 +53,10 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	for _, confSetter := range conf {
 		confSetter(cfg)
 	}
+	err = cfg.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
 	oie.config = cfg
 	oie.httpClient = &http.Client{Timeout: time.Second * 60}
 	idx = oie

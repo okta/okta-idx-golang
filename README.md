@@ -42,7 +42,7 @@ Once you initialize a `Client`, you can call methods to make requests to the Okt
 ### Create the Client
 ```go
 client, err := NewClient(
-    WithClientId("{YOUR_CLIENT_ID}"),
+    WithClientID("{YOUR_CLIENT_ID}"),
     WithClientSecret("{YOUR_CLIENT_SECRET}"), // Required for confidential clients.
     WithIssuer("{YOUR_ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
     WithScopes([]string{"openId"}), // Must include at least `openId`

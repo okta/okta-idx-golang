@@ -19,7 +19,9 @@ package idx
 import (
 	"fmt"
 	"strings"
+	"errors"
 
+	"github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/spf13/viper"
 )
 
@@ -36,6 +38,19 @@ type config struct {
 			State               string   `mapstrucutre:"state" schema:"state"`
 		} `mapstructure:"idx"`
 	} `mapstructure:"okta"`
+}
+
+func (c config) Validate() error {
+	return validation.ValidateStruct(&c.Okta.IDX,
+		validation.Field(&c.Okta.IDX.ClientID, validation.Required),
+		validation.Field(&c.Okta.IDX.ClientSecret, validation.Required),
+		validation.Field(&c.Okta.IDX.Issuer, validation.Required),
+		validation.Field(&c.Okta.IDX.Scopes, validation.Required),
+		validation.Field(&c.Okta.IDX.CodeChallenge, validation.Required),
+		validation.Field(&c.Okta.IDX.CodeChallengeMethod, validation.Required),
+		validation.Field(&c.Okta.IDX.RedirectURI, validation.Required),
+		validation.Field(&c.Okta.IDX.State, validation.Required),
+	)
 }
 
 type ConfigSetter func(*config)
@@ -90,6 +105,7 @@ func WithState(state string) ConfigSetter {
 
 // ReadConfig reads config from file and environment variables
 // Config file should be placed either in project root dir or in $HOME/.okta/
+// If no config file provided, you should use ConfigSetters to set config
 func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v := viper.New()
 	v.SetConfigName("okta")
@@ -100,7 +116,10 @@ func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v.SetTypeByDefaultValue(true)
 	err := v.ReadInConfig()
 	if err != nil {
-		return fmt.Errorf("failed to read from config file: %w", err)
+		var vErr viper.ConfigFileNotFoundError
+		if !errors.As(err, &vErr) { // skip reading from file if it's not present
+			return fmt.Errorf("failed to read from config file: %w", err)
+		}
 	}
 	err = v.Unmarshal(config, opts...)
 	if err != nil {
