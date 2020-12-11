@@ -35,7 +35,21 @@ type Response struct {
 	Remediation     *Remediation   `json:"remediation"`
 	CancelResponse  *Option        `json:"cancel"`
 	SuccessResponse *SuccessOption `json:"successWithInteractionCode"`
+	Messages        *Message       `json:"messages"`
 	raw             []byte
+}
+
+type Message struct {
+	Type   string         `json:"type"`
+	Values []MessageValue `json:"value"`
+}
+
+type MessageValue struct {
+	Message string `json:"message"`
+	I18N    struct {
+		Key string `json:"key"`
+	} `json:"i18n"`
+	Class string `json:"class"`
 }
 
 func (r *Response) UnmarshalJSON(data []byte) error {

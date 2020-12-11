@@ -29,7 +29,7 @@ type config struct {
 			ClientID            string   `mapstructure:"client_id" schema:"client_id"`
 			ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
 			Issuer              string   `mapstructure:"issuer" schema:"-"`
-			Scopes              []string `mapstructure:"scope" schema:"scope"`
+			Scopes              []string `mapstructure:"scopes" schema:"scope"`
 			CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
 			CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
 			RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
