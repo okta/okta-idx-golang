@@ -14,6 +14,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var validYAMLConfig = `okta:
+  idx:
+    client_id: "foo"
+    client_secret: "bar"
+    issuer: "https://okta.com"
+    scopes:
+      - "openid"
+      - "profile"
+    code_challenge: "1"
+    code_challenge_method: "S256"
+    redirect_uri: "https://okta.com"
+    state: "2"
+`
+
 func TestNewClient(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		file, err := os.Create("okta.yaml")
@@ -21,18 +35,7 @@ func TestNewClient(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Remove(file.Name())
-		s := `okta:
-  idx:
-    client_id: "foo"
-    client_secret: "bar"
-    issuer: "https://okta.com"
-    scopes: "openid,profile"
-    code_challenge: "1"
-    code_challenge_method: "S256"
-    redirect_uri: "https://okta.com"
-    state: "2"
-`
-		_, err = file.Write([]byte(s))
+		_, err = file.Write([]byte(validYAMLConfig))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,18 +56,7 @@ func TestNewClient(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Remove(file.Name())
-		s := `okta:
-  idx:
-    client_id: "foo"
-    client_secret: "bar"
-    issuer: "https://okta.com"
-    scopes: "openid,profile"
-    code_challenge: "1"
-    code_challenge_method: "S256"
-    redirect_uri: "https://okta.com"
-    state: "2"
-`
-		_, err = file.Write([]byte(s))
+		_, err = file.Write([]byte(validYAMLConfig))
 		if err != nil {
 			t.Fatal(err)
 		}

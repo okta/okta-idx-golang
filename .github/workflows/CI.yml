@@ -26,21 +26,15 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@master
-        #with:
-        #  fetch-depth: 1
-        #  path: go/src/github.com/okta/okta-idx-golang
 
       - name: Dependencies
         run: |
           make dep
-       # working-directory: /home/runner/work/okta-idx-golang/okta-idx-golang/go/src/github.com/okta/okta-idx-golang
 
       - name: Lint
         run: |
           export PATH=$PATH:${GOPATH}/bin
           make lint
-        #working-directory: /home/runner/work/okta-idx-golang/okta-idx-golang/go/src/github.com/okta/okta-idx-golang
 
       - name: Test
         run: make test
-       # working-directory: /home/runner/work/okta-idx-golang/okta-idx-golang/go/src/github.com/okta/okta-idx-golang

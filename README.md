@@ -73,7 +73,7 @@ if err != nil {
 ```
 
 ## Configuration Reerence
-This library looks for configuration in the following sources:
+This library looks for the configuration in the following sources:
 
 1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile%\.okta\okta.yaml)
 2. An okta.yaml file in a .okta folder in the application or project's root directory
