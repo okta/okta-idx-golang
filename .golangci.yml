@@ -38,6 +38,9 @@ linters:
     - godox
     - interfacer
     - godot
+    - goerr113
+    - exhaustivestruct
+    - nlreturn
 
 run:
   skip-dirs:

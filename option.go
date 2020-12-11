@@ -97,7 +97,7 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	input := make(map[string]interface{})
 	err := json.Unmarshal(data, &input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to input data: %v", err)
+		return nil, fmt.Errorf("failed to input data: %w", err)
 	}
 	output, err := form(input, nil, o.FormValues...)
 	if err != nil {
@@ -105,19 +105,18 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	}
 	body, err := json.Marshal(&output)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal proceed request: %v", err)
+		return nil, fmt.Errorf("failed to marshal proceed request: %w", err)
 	}
-	req, err := http.NewRequest(o.Method, o.Href, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, o.Method, o.Href, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cancel request: %v", err)
+		return nil, fmt.Errorf("failed to create cancel request: %w", err)
 	}
-	req = req.WithContext(ctx)
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
 	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %v", err)
+		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
 	var idxResponse Response
 	err = unmarshalResponse(resp, &idxResponse)
@@ -127,7 +126,7 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	return &idxResponse, nil
 }
 
-// nolint:gocyclo
+//nolint
 func form(input, output map[string]interface{}, f ...FormValue) (map[string]interface{}, error) {
 	if output == nil {
 		output = make(map[string]interface{})
@@ -189,17 +188,16 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context) (*Token, error) {
 		b, _ := json.Marshal(&output)
 		body = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(o.Method, o.Href, body)
+	req, err := http.NewRequestWithContext(ctx, o.Method, o.Href, body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create interact http request: %v", err)
+		return nil, fmt.Errorf("failed to create interact http request: %w", err)
 	}
-	req = req.WithContext(ctx)
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
 	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %v", err)
+		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
 	var token Token
 	err = unmarshalResponse(resp, &token)

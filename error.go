@@ -22,7 +22,7 @@ type ErrorResponse struct {
 func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 	type localIDX ErrorResponse
 	if err := json.Unmarshal(data, (*localIDX)(e)); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal ErrorResponse: %w", err)
 	}
 	e.raw = data
 	return nil
