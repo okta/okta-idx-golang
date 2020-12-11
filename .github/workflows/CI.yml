@@ -3,7 +3,6 @@ name: CI
 env:
   GOPRIVATE: 'github.com/okta'
   GO111MODULE: on
-  GOPATH: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go
 
 on:
   push:
@@ -27,21 +26,21 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@master
-        with:
-          fetch-depth: 1
-          path: go/src/github.com/okta/okta-identity-engine-golang
+        #with:
+        #  fetch-depth: 1
+        #  path: go/src/github.com/okta/okta-idx-golang
 
       - name: Dependencies
         run: |
           make dep
-        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
+       # working-directory: /home/runner/work/okta-idx-golang/okta-idx-golang/go/src/github.com/okta/okta-idx-golang
 
       - name: Lint
         run: |
           export PATH=$PATH:${GOPATH}/bin
           make lint
-        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
+        #working-directory: /home/runner/work/okta-idx-golang/okta-idx-golang/go/src/github.com/okta/okta-idx-golang
 
       - name: Test
         run: make test
-        working-directory: /home/runner/work/okta-identity-engine-golang/okta-identity-engine-golang/go/src/github.com/okta/okta-identity-engine-golang
+       # working-directory: /home/runner/work/okta-idx-golang/okta-idx-golang/go/src/github.com/okta/okta-idx-golang
