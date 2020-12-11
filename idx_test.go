@@ -8,10 +8,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"strings"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var validYAMLConfig = `okta:
@@ -28,82 +30,34 @@ var validYAMLConfig = `okta:
     state: "2"
 `
 
-func TestNewClient(t *testing.T) {
+func TestConfiguration(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
-		file, err := os.Create("okta.yaml")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(file.Name())
-		_, err = file.Write([]byte(validYAMLConfig))
-		if err != nil {
-			t.Fatal(err)
-		}
-		c, err := NewClient()
+		c := config{}
+		v := viper.New()
+		v.SetConfigType("yaml")
+		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
+		require.NoError(t, err)
+		err = v.Unmarshal(&c)
+		require.NoError(t, err)
+		err = c.Validate()
 		assert.NoError(t, err)
-		assert.Equal(t, "foo", c.config.Okta.IDX.ClientID)
-		assert.Equal(t, "bar", c.config.Okta.IDX.ClientSecret)
-		assert.Equal(t, "https://okta.com", c.config.Okta.IDX.Issuer)
-		assert.Equal(t, []string{"openid", "profile"}, c.config.Okta.IDX.Scopes)
-		assert.Equal(t, "1", c.config.Okta.IDX.CodeChallenge)
-		assert.Equal(t, "S256", c.config.Okta.IDX.CodeChallengeMethod)
-		assert.Equal(t, "https://okta.com", c.config.Okta.IDX.RedirectURI)
-		assert.Equal(t, "2", c.config.Okta.IDX.State)
-	})
-	t.Run("happy_path_rewrite", func(t *testing.T) {
-		file, err := os.Create("okta.yaml")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(file.Name())
-		_, err = file.Write([]byte(validYAMLConfig))
-		if err != nil {
-			t.Fatal(err)
-		}
-		c, err := NewClient(WithClientSecret("changed"))
-		assert.NoError(t, err)
-		assert.Equal(t, "foo", c.config.Okta.IDX.ClientID)
-		assert.Equal(t, "changed", c.config.Okta.IDX.ClientSecret)
-		assert.Equal(t, "https://okta.com", c.config.Okta.IDX.Issuer)
-		assert.Equal(t, []string{"openid", "profile"}, c.config.Okta.IDX.Scopes)
-		assert.Equal(t, "1", c.config.Okta.IDX.CodeChallenge)
-		assert.Equal(t, "S256", c.config.Okta.IDX.CodeChallengeMethod)
-		assert.Equal(t, "https://okta.com", c.config.Okta.IDX.RedirectURI)
-		assert.Equal(t, "2", c.config.Okta.IDX.State)
-	})
-	t.Run("invalid_configuration_file", func(t *testing.T) {
-		file, err := os.Create("okta.yaml")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(file.Name())
-		s := `%%%%%`
-		_, err = file.Write([]byte(s))
-		if err != nil {
-			t.Fatal(err)
-		}
-		c, err := NewClient(WithClientSecret("changed"))
-		assert.EqualError(t, err, "failed to create new Client: failed to read from config file: While parsing config: yaml: could not find expected directive name")
-		assert.Nil(t, c)
 	})
 	t.Run("invalid_configuration", func(t *testing.T) {
-		c, err := NewClient()
+		c := &config{}
+		err := c.Validate()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid configuration")
-		assert.Nil(t, c)
 	})
-	t.Run("invalid_configuration_missing_client_id", func(t *testing.T) {
-		c, err := NewClient(
-			WithClientSecret("foo"),
-			WithIssuer("bar"),
-			WithScopes([]string{"openId"}),
-			WithCodeChallenge("12345"),
-			WithCodeChallengeMethod("S256"),
-			WithRedirectURI("https://okta.com"),
-			WithState("qwerty"),
-		)
-		assert.EqualError(t, err, "invalid configuration: ClientID: cannot be blank.")
-		assert.Nil(t, c)
+	t.Run("missing_client_id", func(t *testing.T) {
+		c := config{}
+		v := viper.New()
+		v.SetConfigType("yaml")
+		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
+		require.NoError(t, err)
+		v.Set("okta.idx.client_id", "")
+		err = v.Unmarshal(&c)
+		require.NoError(t, err)
+		err = c.Validate()
+		assert.EqualError(t, err, "ClientID: cannot be blank.")
 	})
 }
 
