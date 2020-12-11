@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/okta/okta-identity-engine-golang/oktahttp"
+	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 type Response struct {
@@ -35,13 +35,27 @@ type Response struct {
 	Remediation     *Remediation   `json:"remediation"`
 	CancelResponse  *Option        `json:"cancel"`
 	SuccessResponse *SuccessOption `json:"successWithInteractionCode"`
+	Messages        *Message       `json:"messages"`
 	raw             []byte
+}
+
+type Message struct {
+	Type   string         `json:"type"`
+	Values []MessageValue `json:"value"`
+}
+
+type MessageValue struct {
+	Message string `json:"message"`
+	I18N    struct {
+		Key string `json:"key"`
+	} `json:"i18n"`
+	Class string `json:"class"`
 }
 
 func (r *Response) UnmarshalJSON(data []byte) error {
 	type localIDX Response
 	if err := json.Unmarshal(data, (*localIDX)(r)); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal ErrorResponse: %w", err)
 	}
 	r.raw = data
 	return nil
@@ -59,19 +73,18 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	}
 	body, err := json.Marshal(m)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal cancel request: %v", err)
+		return nil, fmt.Errorf("failed to marshal cancel request: %w", err)
 	}
-	req, err := http.NewRequest(r.CancelResponse.Method, r.CancelResponse.Href, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, r.CancelResponse.Method, r.CancelResponse.Href, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cancel request: %v", err)
+		return nil, fmt.Errorf("failed to create cancel request: %w", err)
 	}
 	req.Header.Set("Accepts", r.CancelResponse.Accepts)
 	req.Header.Set("Content-Type", r.CancelResponse.Accepts)
 	oktahttp.WithOktaUserAgent(req, packageVersion)
-	req = req.WithContext(ctx)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %v", err)
+		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
 	var idxResponse Response
 	err = unmarshalResponse(resp, &idxResponse)

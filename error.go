@@ -15,23 +15,14 @@ type ErrorResponse struct {
 	ErrorType        string                   `json:"error,omitempty"`
 	ErrorDescription string                   `json:"error_description,omitempty"`
 	Version          string                   `json:"version"`
-	Messages         struct {
-		Type  string `json:"type"`
-		Value []struct {
-			Message string `json:"message"`
-			I18N    struct {
-				Key string `json:"key"`
-			} `json:"i18n"`
-			Class string `json:"class"`
-		} `json:"value"`
-	} `json:"messages"`
-	raw []byte
+	Message          Message                  `json:"messages"`
+	raw              []byte
 }
 
 func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 	type localIDX ErrorResponse
 	if err := json.Unmarshal(data, (*localIDX)(e)); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal ErrorResponse: %w", err)
 	}
 	e.raw = data
 	return nil
@@ -52,10 +43,10 @@ func (e *ErrorResponse) Error() string {
 			}
 		}
 		return fmt.Sprintf(f+". Causes: %s", e.ErrorSummary, strings.Join(causes, ", "))
-	case len(e.Messages.Value) > 0:
-		messages := make([]string, len(e.Messages.Value))
-		for i := range e.Messages.Value {
-			messages[i] = e.Messages.Value[i].Message
+	case len(e.Message.Values) > 0:
+		messages := make([]string, len(e.Message.Values))
+		for i := range e.Message.Values {
+			messages[i] = e.Message.Values[i].Message
 		}
 		return fmt.Sprintf(f, strings.Join(messages, ","))
 	}

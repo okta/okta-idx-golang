@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
-	"github.com/okta/okta-identity-engine-golang/oktahttp"
+	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 /**
@@ -48,7 +48,7 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	cfg := &config{}
 	err := ReadConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new Client: %v", err)
+		return nil, fmt.Errorf("failed to create new Client: %w", err)
 	}
 	for _, confSetter := range conf {
 		confSetter(cfg)
@@ -68,19 +68,19 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %v", err)
+		return fmt.Errorf("failed to read response body: %w", err)
 	}
 	if r.StatusCode != http.StatusOK {
 		var respErr ErrorResponse
 		err = json.Unmarshal(body, &respErr)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %v", err)
+			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
 		return &respErr
 	}
 	err = json.Unmarshal(body, &i)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %v", err)
+		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 	return nil
 }
@@ -89,19 +89,18 @@ func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
 	data := url.Values{}
 	err := schema.NewEncoder().Encode(&c.config.Okta.IDX, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode interaction request: %v", err)
+		return nil, fmt.Errorf("failed to encode interaction request: %w", err)
 	}
 	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
-	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create interact http request: %v", err)
+		return nil, fmt.Errorf("failed to create interact http request: %w", err)
 	}
-	req = req.WithContext(ctx)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %v", err)
+		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
 	type interactionHandleResponse struct {
 		InteractionHandle string `json:"interaction_handle"`
@@ -119,24 +118,23 @@ func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
 func (c *Client) Introspect(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
 	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse issuer: %v", err)
+		return nil, fmt.Errorf("could not parse issuer: %w", err)
 	}
 	body, err := json.Marshal(interactionHandle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal interaction handle: %v", err)
+		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
 	}
 	endpoint := domain.Scheme + "://" + domain.Host + "/idp/idx/introspect"
-	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create introspect http request: %w", err)
 	}
-	req = req.WithContext(ctx)
 	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
 	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
 	oktahttp.WithOktaUserAgent(req, packageVersion)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %v", err)
+		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
 	var idxResponse Response
 	err = unmarshalResponse(resp, &idxResponse)

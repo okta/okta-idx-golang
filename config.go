@@ -29,7 +29,7 @@ type config struct {
 			ClientID            string   `mapstructure:"client_id" schema:"client_id"`
 			ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
 			Issuer              string   `mapstructure:"issuer" schema:"-"`
-			Scopes              []string `mapstructure:"scope" schema:"scope"`
+			Scopes              []string `mapstructure:"scopes" schema:"scope"`
 			CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
 			CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
 			RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
@@ -100,11 +100,11 @@ func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v.SetTypeByDefaultValue(true)
 	err := v.ReadInConfig()
 	if err != nil {
-		return fmt.Errorf("failed to read from config file: %v", err)
+		return fmt.Errorf("failed to read from config file: %w", err)
 	}
 	err = v.Unmarshal(config, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to parse configuration: %v", err)
+		return fmt.Errorf("failed to parse configuration: %w", err)
 	}
 	return nil
 }
