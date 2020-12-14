@@ -75,6 +75,14 @@ if err != nil {
 }
 ```
 
+#### Get New Tokens (access_token/id_token/refresh_token)
+In this example, the sign-on policy has no authenticators required.
+> Note: Steps to identify the user might change based on the Org configuration.
+
+```go
+
+```
+
 ## Configuration Reerence
 This library looks for the configuration in the following sources:
 

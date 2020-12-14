@@ -169,11 +169,17 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 type SuccessOption Option
 
 // Exchange the code from SuccessWithInteractionCode
-func (o *SuccessOption) ExchangeCode(ctx context.Context) (*Token, error) {
+func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
 	if o == nil {
 		return nil, errors.New("valid success response is missing from idx response")
 	}
-	output, err := form(map[string]interface{}{}, nil, o.FormValues...)
+	input := make(map[string]interface{})
+	err := json.Unmarshal(data, &input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to input data: %w", err)
+	}
+
+	output, err := form(input, nil, o.FormValues...)
 	if err != nil {
 		return nil, err
 	}
