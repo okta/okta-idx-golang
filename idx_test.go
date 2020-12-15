@@ -65,7 +65,7 @@ func TestClient_Interact(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, "foo", r.PostForm.Get("client_id"))
 			assert.Equal(t, "bar", r.PostForm.Get("client_secret"))
-			assert.Equal(t, []string{"openid", "profile"}, r.PostForm["scope"])
+			assert.Equal(t, []string{"openid profile"}, r.PostForm["scope"])
 			_, err = w.Write([]byte(`{"interaction_handle":"abcd"}`))
 			assert.NoError(t, err)
 		}))

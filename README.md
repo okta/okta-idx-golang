@@ -232,6 +232,33 @@ if err != nil {
 // From now on, you can use response to continue with a new flow. You will notice here that you have a new `stateHandle` which signals a new flow. Your `interaction_handle` will remain the same.
 ```
 
+### Check Remediation Options
+```go
+// check remediation options to continue the flow
+options := idxResponse.Remediation.RemediationOptions
+option := options[:0]
+formValues := option.Form()
+
+```
+
+### Cancel Flow
+You can cancel the current flow at any time. This will invalidate the current `stateHandle` and return a new remediation response with a new `stateHandle`.
+```go
+idxResponse, err := response.Cancel(context.TODO())
+```
+
+### Get Raw Response
+At times, you may need to access the full response. This can be done with any IDX response:
+```go
+raw := response.Raw()
+```
+
+### Determine When Login is Successful
+At any point during the login, you may be finished with remedidation. For this, we provide a `LoginSuccess()` method you can check which will return a boolean.
+```go
+isLoginSuccess := response.LoginSuccess()
+```
+
 ## Configuration Reerence
 This library looks for the configuration in the following sources:
 
