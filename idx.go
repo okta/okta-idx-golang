@@ -97,6 +97,10 @@ func (c *Client) GetState() string {
 	return c.state
 }
 
+func (c *Client) GetClientSecret() string {
+	return c.config.Okta.IDX.ClientSecret
+}
+
 func unmarshalResponse(r *http.Response, i interface{}) error {
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
