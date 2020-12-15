@@ -164,7 +164,20 @@ func (c *Client) Introspect(ctx context.Context, interactionHandle *InteractionH
 	if err != nil {
 		return nil, fmt.Errorf("could not parse issuer: %w", err)
 	}
-	body, err := json.Marshal(interactionHandle)
+
+	ih := interactionHandle
+
+	if ih == nil {
+		interactionHandle, err := c.Interact(ctx)
+
+		if err != nil {
+			return nil, fmt.Errorf("could not retrieve an interaction handle for you: %w", err)
+		}
+
+		ih = interactionHandle
+	}
+
+	body, err := json.Marshal(ih)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
 	}
