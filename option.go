@@ -36,11 +36,11 @@ type Remediation struct {
 }
 
 type Token struct {
-	AccessToken string `json:"accessToken"`
-	ExpiresIn   int    `json:"expiresIn"`
-	IDToken     string `json:"idToken"`
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	IDToken     string `json:"id_token"`
 	Scope       string `json:"scope"`
-	TokenType   string `json:"tokenType"`
+	TokenType   string `json:"token_type"`
 }
 
 // Allow you to continue the remediation with this option.
@@ -179,6 +179,7 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 		return nil, fmt.Errorf("failed to input data: %w", err)
 	}
 	output, err := form(input, nil, o.FormValues...)
+	fmt.Printf("%+v\n", output)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +187,6 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 	if strings.Contains(o.Accepts, "x-www-form-urlencoded") {
 		data := url.Values{}
 		for k, v := range output {
-			fmt.Printf("%+v", v)
 			switch val := v.(type) {
 			case string:
 				data[k] = []string{val}

@@ -77,7 +77,159 @@ In this example, the sign-on policy has no authenticators required.
 > Note: Steps to identify the user might change based on the Org configuration.
 
 ```go
+var response *Response
 
+client, err := NewClient(
+    WithClientID("{CLIENT_ID}"),
+    WithClientSecret("{CLIENT_SECRET}"),      // Required for confidential clients.
+    WithIssuer("{ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithScopes([]string{"openid", "profile"}),                         // Must include at least `openid`. Include `profile` if you want to do token exchange
+    WithRedirectURI("{REDIRECT_URI}"),                               // Must match the redirect uri in client app settings/console
+)
+if err != nil {
+    panic(err)
+}
+
+_, err = client.Interact(context.TODO())
+if err != nil {
+    panic(err)
+}
+
+interactHandle, err := client.Interact(context.TODO())
+if err != nil {
+    panic(err)
+}
+
+response, err = client.Introspect(context.TODO(), interactHandle)
+if err != nil {
+    panic(err)
+}
+
+for !response.LoginSuccess() {
+    for _, remediationOption := range response.Remediation.RemediationOptions {
+
+        switch remediationOption.Name {
+        case "identify":
+            identify := []byte(`{
+                    "identifier": "foo@example.com",
+                    "rememberMe": false
+                }`)
+
+            response, err = remediationOption.Proceed(context.TODO(), identify)
+            if err != nil {
+                panic(err)
+            }
+
+        case "challenge-authenticator":
+            credentials := []byte(`{
+                    "credentials": {
+                    "passcode": "Abcd1234"
+                    }
+                }`)
+
+            response, err = remediationOption.Proceed(context.TODO(), credentials)
+
+            if err != nil {
+                panic(err)
+            }
+
+        default:
+            fmt.Printf("%+v\n", response.Remediation)
+            panic("could not handle")
+        }
+
+    }
+}
+
+// These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
+exchangeForm := []byte(`{
+    "client_secret": "` + client.config.Okta.IDX.ClientSecret + `", // This should be available off the client config this way
+    "code_verifier": "` + string(client.GetCodeVerifier()) + `" // We generate your code_verfier for you and store it in the client struct. You can gain access to it through the method `GetCodeVerifier()` which willr eturn a string
+}`)
+tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
+if err != nil {
+    panic(err)
+}
+
+fmt.Printf("%+v\n", tokens)
+fmt.Printf("%+s\n", tokens.AccessToken)
+fmt.Printf("%+s\n", tokens.IDToken)
+```
+
+#### Cancel the OIE Transaction and Start a New One
+In this example the Org is configured to require email as a second authenticator. After answering password challenge, a cancel request is send right before answering the email challenge.
+
+```go
+var response *Response
+
+client, err := NewClient(
+    WithClientID("{CLIENT_ID}"),
+    WithClientSecret("{CLIENT_SECRET}"),      // Required for confidential clients.
+    WithIssuer("{ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithScopes([]string{"openid", "profile"}),                         // Must include at least `openid`. Include `profile` if you want to do token exchange
+    WithRedirectURI("{REDIRECT_URI}"),                               // Must match the redirect uri in client app settings/console
+)
+if err != nil {
+    panic(err)
+}
+
+_, err = client.Interact(context.TODO())
+if err != nil {
+    panic(err)
+}
+
+interactHandle, err := client.Interact(context.TODO())
+if err != nil {
+    panic(err)
+}
+
+response, err = client.Introspect(context.TODO(), interactHandle)
+if err != nil {
+    panic(err)
+}
+
+for _, remediationOption := range response.Remediation.RemediationOptions {
+
+    if remediationOption.Name == "identify" {
+        identify := []byte(`{
+                "identifier": "foo@example.com",
+                "rememberMe": false
+            }`)
+
+        response, err = remediationOption.Proceed(context.TODO(), identify)
+        if err != nil {
+            panic(err)
+        }
+    } else {
+        panic("we expected an `identify` option, but did not see one.")
+    }
+}
+
+for _, remediationOption := range response.Remediation.RemediationOptions {
+
+    if remediationOption.Name == "challenge-authenticator" {
+        credentials := []byte(`{
+                "credentials": {
+                "passcode": "Abcd1234"
+                }
+            }`)
+
+        response, err = remediationOption.Proceed(context.TODO(), credentials)
+
+        if err != nil {
+            panic(err)
+        }
+    } else {
+        panic("we expected an `identify` option, but did not see one.")
+    }
+}
+
+response, err := response.Cancel(context.TODO())
+if err != nil {
+    panic(err)
+}
+
+// From now on, you can use response to continue with a new flow. You will notice here that you have a new `stateHandle` which signals a new flow. Your `interaction_handle` will remain the same.
 ```
 
 ## Configuration Reerence
