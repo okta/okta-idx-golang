@@ -62,15 +62,15 @@ func (o *Option) Form() []FormValue {
 }
 
 type FormValue struct {
-	Name     string  `json:"name"`
-	Label    string  `json:"label,omitempty"`
-	Type     string  `json:"type,omitempty"`
-	Value    *string `json:"value,omitempty"`
-	Required *bool   `json:"required,omitempty"`
-	Visible  *bool   `json:"visible,omitempty"`
-	Mutable  *bool   `json:"mutable,omitempty"`
-	Secret   *bool   `json:"secret,omitempty"`
-	Form     *Form   `json:"form,omitempty"`
+	Name     string `json:"name"`
+	Label    string `json:"label,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Value    string `json:"value,omitempty"`
+	Required *bool  `json:"required,omitempty"`
+	Visible  *bool  `json:"visible,omitempty"`
+	Mutable  *bool  `json:"mutable,omitempty"`
+	Secret   *bool  `json:"secret,omitempty"`
+	Form     *Form  `json:"form,omitempty"`
 }
 
 type Form struct {
@@ -133,9 +133,9 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 	}
 	for _, v := range f {
 		switch {
-		case v.Value != nil:
+		case v.Value != "":
 			output[v.Name] = v.Value
-		case v.Value == nil && v.Form == nil:
+		case v.Value == "" && v.Form == nil:
 			vv, ok := input[v.Name]
 			if ok {
 				output[v.Name] = vv
