@@ -168,6 +168,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 
 type SuccessOption Option
 
+// nolint
 // Exchange the code from SuccessWithInteractionCode
 func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
 	if o == nil || len(o.FormValues) == 0 {
@@ -179,7 +180,6 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 		return nil, fmt.Errorf("failed to input data: %w", err)
 	}
 	output, err := form(input, nil, o.FormValues...)
-	fmt.Printf("%+v\n", output)
 	if err != nil {
 		return nil, err
 	}

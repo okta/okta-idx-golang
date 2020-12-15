@@ -70,7 +70,7 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 		return nil, fmt.Errorf("error creating code_verifier: %w", err)
 	}
 
-	oie.codeVerifier = base64.RawURLEncoding.EncodeToString(codeVerifier[:])
+	oie.codeVerifier = base64.RawURLEncoding.EncodeToString(codeVerifier)
 
 	state := make([]byte, 16)
 	_, err = crand.Read(state)
@@ -78,7 +78,7 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 		return nil, fmt.Errorf("error creating state: %w", err)
 	}
 
-	oie.state = base64.RawURLEncoding.EncodeToString(state[:])
+	oie.state = base64.RawURLEncoding.EncodeToString(state)
 
 	idx = oie
 	return oie, nil
@@ -120,7 +120,10 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 
 func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
 	h := sha256.New()
-	h.Write([]byte(c.GetCodeVerifier()))
+	_, err := h.Write([]byte(c.GetCodeVerifier()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
+	}
 
 	codeChallenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 

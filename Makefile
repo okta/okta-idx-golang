@@ -25,12 +25,10 @@ dep: # Download required dependencies
 
 .PHONY: check-lint
 check-lint:
-	@make heading
 	@which $(GOLINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.33.0
 
 .PHONY: lint
-lint: check-lint
-	@make heading
+lint: heading check-lint
 	$(GOLINT) run -c .golangci.yml
 
 test:
