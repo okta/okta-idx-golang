@@ -28,14 +28,11 @@ import (
 type config struct {
 	Okta struct {
 		IDX struct {
-			ClientID            string   `mapstructure:"client_id" schema:"client_id"`
-			ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
-			Issuer              string   `mapstructure:"issuer" schema:"-"`
-			Scopes              []string `mapstructure:"scopes" schema:"scope"`
-			CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
-			CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-			RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
-			State               string   `mapstrucutre:"state" schema:"state"`
+			ClientID     string   `mapstructure:"client_id" schema:"client_id"`
+			ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+			Issuer       string   `mapstructure:"issuer" schema:"-"`
+			Scopes       []string `mapstructure:"scopes" schema:"scope"`
+			RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 		} `mapstructure:"idx"`
 	} `mapstructure:"okta"`
 }
@@ -46,10 +43,7 @@ func (c config) Validate() error {
 		validation.Field(&c.Okta.IDX.ClientSecret, validation.Required),
 		validation.Field(&c.Okta.IDX.Issuer, validation.Required),
 		validation.Field(&c.Okta.IDX.Scopes, validation.Required),
-		validation.Field(&c.Okta.IDX.CodeChallenge, validation.Required),
-		validation.Field(&c.Okta.IDX.CodeChallengeMethod, validation.Required),
 		validation.Field(&c.Okta.IDX.RedirectURI, validation.Required),
-		validation.Field(&c.Okta.IDX.State, validation.Required),
 	)
 }
 
@@ -79,27 +73,9 @@ func WithScopes(scopes []string) ConfigSetter {
 	}
 }
 
-func WithCodeChallenge(codeChallenge string) ConfigSetter {
-	return func(c *config) {
-		c.Okta.IDX.CodeChallenge = codeChallenge
-	}
-}
-
-func WithCodeChallengeMethod(codeChallengeMethod string) ConfigSetter {
-	return func(c *config) {
-		c.Okta.IDX.CodeChallengeMethod = codeChallengeMethod
-	}
-}
-
 func WithRedirectURI(redirectURI string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.RedirectURI = redirectURI
-	}
-}
-
-func WithState(state string) ConfigSetter {
-	return func(c *config) {
-		c.Okta.IDX.State = state
 	}
 }
 

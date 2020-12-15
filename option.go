@@ -170,7 +170,7 @@ type SuccessOption Option
 
 // Exchange the code from SuccessWithInteractionCode
 func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
-	if o == nil {
+	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid success response is missing from idx response")
 	}
 	input := make(map[string]interface{})
@@ -178,7 +178,6 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to input data: %w", err)
 	}
-
 	output, err := form(input, nil, o.FormValues...)
 	if err != nil {
 		return nil, err

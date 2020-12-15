@@ -49,10 +49,7 @@ client, err := NewClient(
     WithClientSecret("{YOUR_CLIENT_SECRET}"), // Required for confidential clients.
     WithIssuer("{YOUR_ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
     WithScopes([]string{"openId"}), // Must include at least `openId`
-    WithCodeChallenge("{PKCE_CODE_CHALLENGE}"), // Base64url_encoded(sha256({code_verifier}))
-    WithCodeChallengeMethod("S256"), // PKCE challenge method, only supports S256
     WithRedirectURI("{YOUR_REDIRECT_URI}"), // Must match the redirect uri in client app settings/console
-    WithState("{APP_STATE}"),
 )
 if err != nil {
     fmt.Errorf("could not create a new IDX Client", err)

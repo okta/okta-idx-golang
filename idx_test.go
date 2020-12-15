@@ -24,10 +24,7 @@ var validYAMLConfig = `okta:
     scopes:
       - "openid"
       - "profile"
-    code_challenge: "1"
-    code_challenge_method: "S256"
     redirect_uri: "https://okta.com"
-    state: "2"
 `
 
 func TestConfiguration(t *testing.T) {
@@ -68,9 +65,6 @@ func TestClient_Interact(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, "foo", r.PostForm.Get("client_id"))
 			assert.Equal(t, "bar", r.PostForm.Get("client_secret"))
-			assert.Equal(t, "1", r.PostForm.Get("code_challenge"))
-			assert.Equal(t, "S256", r.PostForm.Get("code_challenge_method"))
-			assert.Equal(t, "2", r.PostForm.Get("state"))
 			assert.Equal(t, []string{"openid", "profile"}, r.PostForm["scope"])
 			_, err = w.Write([]byte(`{"interaction_handle":"abcd"}`))
 			assert.NoError(t, err)
@@ -309,34 +303,25 @@ func testConfig(url string) *config {
 	return &config{
 		Okta: struct {
 			IDX struct {
-				ClientID            string   `mapstructure:"client_id" schema:"client_id"`
-				ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
-				Issuer              string   `mapstructure:"issuer" schema:"-"`
-				Scopes              []string `mapstructure:"scopes" schema:"scope"`
-				CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
-				CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-				RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
-				State               string   `mapstrucutre:"state" schema:"state"`
+				ClientID     string   `mapstructure:"client_id" schema:"client_id"`
+				ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+				Issuer       string   `mapstructure:"issuer" schema:"-"`
+				Scopes       []string `mapstructure:"scopes" schema:"scope"`
+				RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 			} `mapstructure:"idx"`
 		}{
 			IDX: struct {
-				ClientID            string   `mapstructure:"client_id" schema:"client_id"`
-				ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
-				Issuer              string   `mapstructure:"issuer" schema:"-"`
-				Scopes              []string `mapstructure:"scopes" schema:"scope"`
-				CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
-				CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-				RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
-				State               string   `mapstrucutre:"state" schema:"state"`
+				ClientID     string   `mapstructure:"client_id" schema:"client_id"`
+				ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+				Issuer       string   `mapstructure:"issuer" schema:"-"`
+				Scopes       []string `mapstructure:"scopes" schema:"scope"`
+				RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 			}{
-				ClientID:            "foo",
-				ClientSecret:        "bar",
-				Issuer:              url,
-				Scopes:              []string{"openid", "profile"},
-				CodeChallenge:       "1",
-				CodeChallengeMethod: "S256",
-				RedirectURI:         url,
-				State:               "2",
+				ClientID:     "foo",
+				ClientSecret: "bar",
+				Issuer:       url,
+				Scopes:       []string{"openid", "profile"},
+				RedirectURI:  url,
 			},
 		},
 	}
