@@ -6,7 +6,7 @@ COLOR_OKTA=\x1B[34;01m
 
 GOLINT=golangci-lint
 
-VERSION=$(shell grep -E -o '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?' ./idx.go)
+VERSION=$(shell grep -E -o '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?' ./idx.go | head -n 1 )
 
 help:
 	@make heading
@@ -14,7 +14,11 @@ help:
 	@echo "$(COLOR_OK)  make [command]$(COLOR_NONE)"
 	@echo ""
 	@echo "$(COLOR_WARNING)Available commands:$(COLOR_NONE)"
-	@echo "$(COLOR_OK)  help$(COLOR_NONE)     Show this help message"
+	@echo "$(COLOR_OK)  help$(COLOR_NONE)       Show this help message"
+	@echo "$(COLOR_OK)  dep$(COLOR_NONE)        Download required dependencies"
+	@echo "$(COLOR_OK)  check-lint$(COLOR_NONE) Downloads golangci-lint if not installed on system"
+	@echo "$(COLOR_OK)  lint$(COLOR_NONE)       Run golint"
+	@echo ""
 	@echo "$(COLOR_WARNING)test$(COLOR_NONE)"
 	@echo "$(COLOR_OK)  test:all                Test All, Unit, and Integration$(COLOR_NONE)"
 	@echo "$(COLOR_OK)  test:integration        Run Integration Tests$(COLOR_NONE)"
