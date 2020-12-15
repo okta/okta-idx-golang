@@ -9,8 +9,7 @@
 This repository contains the Okta IDX SDK for Golang. This SDK can be used in your server-side code to assist in authenticating users against the Okta IDX.
 
 
-> :grey_exclamation: The use of this SDK requires you to be a part of our limited general availability (LGA) program with access to Okta Identity Engine. If you want to request to be a part of our LGA program for Okta Identity Engine, please reach out to your account manager. If you do not have an account manager, please reach out to oie@okta.com for more information.
-
+> :grey_exclamation: The use of this SDK requires the usage of the Okta Identity Engine. This functionality is in general availability but is being gradually rolled out to customers. If you want to request to gain access to the Okta Identity Engine, please reach out to your account manager. If you do not have an account manager, please reach out to oie@okta.com for more information.
 ## Release status
 
 This library uses semantic versioning and follows Okta's [Library Version Policy][okta-library-versioning].
@@ -46,10 +45,10 @@ Once you initialize a `Client`, you can call methods to make requests to the Okt
 ```go
 client, err := NewClient(
     WithClientID("{YOUR_CLIENT_ID}"),
-    WithClientSecret("{YOUR_CLIENT_SECRET}"), // Required for confidential clients.
-    WithIssuer("{YOUR_ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
-    WithScopes([]string{"openId"}), // Must include at least `openId`
-    WithRedirectURI("{YOUR_REDIRECT_URI}"), // Must match the redirect uri in client app settings/console
+    WithClientSecret("{YOUR_CLIENT_SECRET}"),   // Required for confidential clients.
+    WithIssuer("{YOUR_ISSUER}"),                // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
+    WithRedirectURI("{YOUR_REDIRECT_URI}"),     // Must match the redirect uri in client app settings/console
 )
 if err != nil {
     fmt.Errorf("could not create a new IDX Client", err)
@@ -81,10 +80,10 @@ var response *Response
 
 client, err := NewClient(
     WithClientID("{CLIENT_ID}"),
-    WithClientSecret("{CLIENT_SECRET}"),      // Required for confidential clients.
-    WithIssuer("{ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
-    WithScopes([]string{"openid", "profile"}),                         // Must include at least `openid`. Include `profile` if you want to do token exchange
-    WithRedirectURI("{REDIRECT_URI}"),                               // Must match the redirect uri in client app settings/console
+    WithClientSecret("{CLIENT_SECRET}"),        // Required for confidential clients.
+    WithIssuer("{ISSUER}"),                     // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
+    WithRedirectURI("{REDIRECT_URI}"),          // Must match the redirect uri in client app settings/console
 )
 if err != nil {
     panic(err)
@@ -164,10 +163,10 @@ var response *Response
 
 client, err := NewClient(
     WithClientID("{CLIENT_ID}"),
-    WithClientSecret("{CLIENT_SECRET}"),      // Required for confidential clients.
-    WithIssuer("{ISSUER}"), // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
-    WithScopes([]string{"openid", "profile"}),                         // Must include at least `openid`. Include `profile` if you want to do token exchange
-    WithRedirectURI("{REDIRECT_URI}"),                               // Must match the redirect uri in client app settings/console
+    WithClientSecret("{CLIENT_SECRET}"),       // Required for confidential clients.
+    WithIssuer("{ISSUER}"),                    // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithScopes([]string{"openid", "profile"}), // Must include at least `openid`. Include `profile` if you want to do token exchange
+    WithRedirectURI("{REDIRECT_URI}"),         // Must match the redirect uri in client app settings/console
 )
 if err != nil {
     panic(err)
