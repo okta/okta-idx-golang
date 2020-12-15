@@ -1,8 +1,8 @@
 [<img src=".github/images/logo.png" align="right" width="256px"/>](https://devforum.okta.com/)
-[![GitHub Workflow Status](https://github.com/okta/okta-identity-engine-golang/workflows/CI/badge.svg)](https://github.com/okta/okta-identity-engine-golang/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/okta/okta-identity-engine-golang?style=flat-square)](https://goreportcard.com/report/github.com/okta/okta-identity-engine-golang)
+[![GitHub Workflow Status](https://github.com/okta/okta-idx-golang/workflows/CI/badge.svg)](https://github.com/okta/okta-idx-golang/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/okta/okta-idx-golang?style=flat-square)](https://goreportcard.com/report/github.com/okta/okta-idx-golang)
 ![Go Version](https://img.shields.io/badge/go%20version-%3E=1.14-61CFDD.svg?style=flat-square)
-[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/okta/okta-identity-engine-golang)](https://pkg.go.dev/mod/github.com/okta/okta-identity-engine-golang)
+[![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/okta/okta-idx-golang)](https://pkg.go.dev/mod/github.com/okta/okta-idx-golang)
 
 # Okta IDX - Golang
 
@@ -89,11 +89,6 @@ if err != nil {
     panic(err)
 }
 
-_, err = client.Interact(context.TODO())
-if err != nil {
-    panic(err)
-}
-
 interactHandle, err := client.Interact(context.TODO())
 if err != nil {
     panic(err)
@@ -143,7 +138,7 @@ for !response.LoginSuccess() {
 // These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
 exchangeForm := []byte(`{
     "client_secret": "` + client.config.Okta.IDX.ClientSecret + `", // This should be available off the client config this way
-    "code_verifier": "` + string(client.GetCodeVerifier()) + `" // We generate your code_verfier for you and store it in the client struct. You can gain access to it through the method `GetCodeVerifier()` which willr eturn a string
+    "code_verifier": "` + string(client.GetCodeVerifier()) + `" // We generate your code_verfier for you and store it in the client struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
 }`)
 tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 if err != nil {
@@ -156,7 +151,7 @@ fmt.Printf("%+s\n", tokens.IDToken)
 ```
 
 #### Cancel the OIE Transaction and Start a New One
-In this example the Org is configured to require email as a second authenticator. After answering password challenge, a cancel request is send right before answering the email challenge.
+In this example the Org is configured to require email as a second authenticator. After answering the password challenge, a cancel request is sent right before answering the email challenge.
 
 ```go
 var response *Response
@@ -258,7 +253,7 @@ At any point during the login, you may be finished with remedidation. For this, 
 isLoginSuccess := response.LoginSuccess()
 ```
 
-## Configuration Reerence
+## Configuration Reference
 This library looks for the configuration in the following sources:
 
 1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or %userprofile%\.okta\okta.yaml)
@@ -304,6 +299,6 @@ OKTA_IDX_REDIRECTURI
 
 
 [okta-library-versioning]: https://developer.okta.com/code/library-versions/
-[github-issues]: https://github.com/okta/okta-identity-engine-golang/issues
+[github-issues]: https://github.com/okta/okta-idx-golang/issues
 [developer-edition-signup]: https://developer.okta.com/signup
 [support-email]: mailto://support@okta.com
