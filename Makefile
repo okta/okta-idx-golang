@@ -9,19 +9,16 @@ GOLINT=golangci-lint
 VERSION=$(shell grep -E -o '(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?' ./idx.go)
 
 help:
-	@echo "$(COLOR_OKTA)  ___  _  _______  _$(COLOR_NONE)"
-	@echo "$(COLOR_OKTA) / _ \| |/ /_   _|/ \ $(COLOR_NONE)"
-	@echo "$(COLOR_OKTA)| | | | ' /  | | / _ \ $(COLOR_NONE)"
-	@echo "$(COLOR_OKTA)| |_| | . \  | |/ ___ \ $(COLOR_NONE)"
-	@echo "$(COLOR_OKTA) \___/|_|\_\ |_/_/   \_\ $(COLOR_NONE)"
-	@echo ""
-	@echo "$(COLOR_OK)Okta IDX Golang$(COLOR_NONE) version $(COLOR_WARNING)$(VERSION)$(COLOR_NONE)"
-	@echo ""
+	@make heading
 	@echo "$(COLOR_WARNING)Usage:$(COLOR_NONE)"
 	@echo "$(COLOR_OK)  make [command]$(COLOR_NONE)"
 	@echo ""
 	@echo "$(COLOR_WARNING)Available commands:$(COLOR_NONE)"
 	@echo "$(COLOR_OK)  help$(COLOR_NONE)     Show this help message"
+	@echo "$(COLOR_WARNING)test$(COLOR_NONE)"
+	@echo "$(COLOR_OK)  test:all                Test All, Unit, and Integration$(COLOR_NONE)"
+	@echo "$(COLOR_OK)  test:integration        Run Integration Tests$(COLOR_NONE)"
+	@echo "$(COLOR_OK)  test:unit               Run Unit Tests$(COLOR_NONE)"
 
 dep: # Download required dependencies
 	go mod vendor
@@ -31,10 +28,12 @@ check-lint:
 	@which $(GOLINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.33.0
 
 .PHONY: lint
-lint: check-lint
+lint: heading check-lint
 	$(GOLINT) run -c .golangci.yml
 
 test:
+	@make heading
+	@make dep
 	make test:all
 
 test\:all:
@@ -49,3 +48,14 @@ test\:integration:
 test\:unit:
 	@echo "$(COLOR_OK)Running unit tests...$(COLOR_NONE)"
 	go test -tags unit -mod=vendor -test.v
+
+.PHONY: heading
+heading:
+	@echo "$(COLOR_OKTA)  ___  _  _______  _$(COLOR_NONE)"
+	@echo "$(COLOR_OKTA) / _ \| |/ /_   _|/ \ $(COLOR_NONE)"
+	@echo "$(COLOR_OKTA)| | | | ' /  | | / _ \ $(COLOR_NONE)"
+	@echo "$(COLOR_OKTA)| |_| | . \  | |/ ___ \ $(COLOR_NONE)"
+	@echo "$(COLOR_OKTA) \___/|_|\_\ |_/_/   \_\ $(COLOR_NONE)"
+	@echo ""
+	@echo "$(COLOR_OK)Okta IDX Golang$(COLOR_NONE) version $(COLOR_WARNING)$(VERSION)$(COLOR_NONE)"
+	@echo ""

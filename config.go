@@ -17,25 +17,34 @@
 package idx
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/spf13/viper"
 )
 
 type config struct {
 	Okta struct {
 		IDX struct {
-			ClientID            string   `mapstructure:"client_id" schema:"client_id"`
-			ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
-			Issuer              string   `mapstructure:"issuer" schema:"-"`
-			Scopes              []string `mapstructure:"scopes" schema:"scope"`
-			CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
-			CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-			RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
-			State               string   `mapstrucutre:"state" schema:"state"`
+			ClientID     string   `mapstructure:"client_id" schema:"client_id"`
+			ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+			Issuer       string   `mapstructure:"issuer" schema:"-"`
+			Scopes       []string `mapstructure:"scopes" schema:"scope"`
+			RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 		} `mapstructure:"idx"`
 	} `mapstructure:"okta"`
+}
+
+func (c config) Validate() error {
+	return validation.ValidateStruct(&c.Okta.IDX,
+		validation.Field(&c.Okta.IDX.ClientID, validation.Required),
+		validation.Field(&c.Okta.IDX.ClientSecret, validation.Required),
+		validation.Field(&c.Okta.IDX.Issuer, validation.Required),
+		validation.Field(&c.Okta.IDX.Scopes, validation.Required),
+		validation.Field(&c.Okta.IDX.RedirectURI, validation.Required),
+	)
 }
 
 type ConfigSetter func(*config)
@@ -64,32 +73,15 @@ func WithScopes(scopes []string) ConfigSetter {
 	}
 }
 
-func WithCodeChallenge(codeChallenge string) ConfigSetter {
-	return func(c *config) {
-		c.Okta.IDX.CodeChallenge = codeChallenge
-	}
-}
-
-func WithCodeChallengeMethod(codeChallengeMethod string) ConfigSetter {
-	return func(c *config) {
-		c.Okta.IDX.CodeChallengeMethod = codeChallengeMethod
-	}
-}
-
 func WithRedirectURI(redirectURI string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.RedirectURI = redirectURI
 	}
 }
 
-func WithState(state string) ConfigSetter {
-	return func(c *config) {
-		c.Okta.IDX.State = state
-	}
-}
-
 // ReadConfig reads config from file and environment variables
 // Config file should be placed either in project root dir or in $HOME/.okta/
+// If no config file provided, you should use ConfigSetters to set config
 func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v := viper.New()
 	v.SetConfigName("okta")
@@ -100,7 +92,10 @@ func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v.SetTypeByDefaultValue(true)
 	err := v.ReadInConfig()
 	if err != nil {
-		return fmt.Errorf("failed to read from config file: %w", err)
+		var vErr viper.ConfigFileNotFoundError
+		if !errors.As(err, &vErr) { // skip reading from file if it's not present
+			return fmt.Errorf("failed to read from config file: %w", err)
+		}
 	}
 	err = v.Unmarshal(config, opts...)
 	if err != nil {

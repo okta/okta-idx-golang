@@ -19,6 +19,9 @@ package idx
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,7 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/schema"
 	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
@@ -39,8 +41,10 @@ const packageVersion = "0.0.1-alpha.1"
 var idx *Client
 
 type Client struct {
-	config     *config
-	httpClient *http.Client
+	config       *config
+	httpClient   *http.Client
+	codeVerifier string
+	state        string
 }
 
 func NewClient(conf ...ConfigSetter) (*Client, error) {
@@ -53,8 +57,29 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	for _, confSetter := range conf {
 		confSetter(cfg)
 	}
+	err = cfg.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
 	oie.config = cfg
 	oie.httpClient = &http.Client{Timeout: time.Second * 60}
+
+	codeVerifier := make([]byte, 86)
+	_, err = crand.Read(codeVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("error creating code_verifier: %w", err)
+	}
+
+	oie.codeVerifier = base64.RawURLEncoding.EncodeToString(codeVerifier)
+
+	state := make([]byte, 16)
+	_, err = crand.Read(state)
+	if err != nil {
+		return nil, fmt.Errorf("error creating state: %w", err)
+	}
+
+	oie.state = base64.RawURLEncoding.EncodeToString(state)
+
 	idx = oie
 	return oie, nil
 }
@@ -62,6 +87,14 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 func (c *Client) WithHTTPClient(client *http.Client) *Client {
 	c.httpClient = client
 	return c
+}
+
+func (c *Client) GetCodeVerifier() string {
+	return c.codeVerifier
+}
+
+func (c *Client) GetState() string {
+	return c.state
 }
 
 func unmarshalResponse(r *http.Response, i interface{}) error {
@@ -86,11 +119,22 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 }
 
 func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
-	data := url.Values{}
-	err := schema.NewEncoder().Encode(&c.config.Okta.IDX, data)
+	h := sha256.New()
+	_, err := h.Write([]byte(c.GetCodeVerifier()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode interaction request: %w", err)
+		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
+
+	codeChallenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+
+	data := url.Values{}
+	data.Set("client_id", c.config.Okta.IDX.ClientID)
+	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
+	data.Set("code_challenge", codeChallenge)
+	data.Set("code_challenge_method", "S256")
+	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
+	data.Set("state", c.GetState())
+
 	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {

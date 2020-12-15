@@ -8,49 +8,53 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"strings"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNewClient(t *testing.T) {
-	t.Run("happy_path", func(t *testing.T) {
-		file, err := os.Create("okta.yaml")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(file.Name())
-		s := `okta:
+var validYAMLConfig = `okta:
   idx:
     client_id: "foo"
     client_secret: "bar"
     issuer: "https://okta.com"
-    scopes: "openid,profile"
-    code_challenge: "1"
-    code_challenge_method: "S256"
+    scopes:
+      - "openid"
+      - "profile"
     redirect_uri: "https://okta.com"
-    state: "2"
 `
-		_, err = file.Write([]byte(s))
-		if err != nil {
-			t.Fatal(err)
-		}
-		c, err := NewClient()
+
+func TestConfiguration(t *testing.T) {
+	t.Run("happy_path", func(t *testing.T) {
+		c := config{}
+		v := viper.New()
+		v.SetConfigType("yaml")
+		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
+		require.NoError(t, err)
+		err = v.Unmarshal(&c)
+		require.NoError(t, err)
+		err = c.Validate()
 		assert.NoError(t, err)
-		assert.Equal(t, "foo", c.config.Okta.IDX.ClientID)
-		assert.Equal(t, "bar", c.config.Okta.IDX.ClientSecret)
-		assert.Equal(t, "https://okta.com", c.config.Okta.IDX.Issuer)
-		assert.Equal(t, []string{"openid", "profile"}, c.config.Okta.IDX.Scopes)
-		assert.Equal(t, "1", c.config.Okta.IDX.CodeChallenge)
-		assert.Equal(t, "S256", c.config.Okta.IDX.CodeChallengeMethod)
-		assert.Equal(t, "https://okta.com", c.config.Okta.IDX.RedirectURI)
-		assert.Equal(t, "2", c.config.Okta.IDX.State)
 	})
-	t.Run("no_config_file", func(t *testing.T) {
-		c, err := NewClient()
+	t.Run("invalid_configuration", func(t *testing.T) {
+		c := &config{}
+		err := c.Validate()
 		assert.Error(t, err)
-		assert.Nil(t, c)
+	})
+	t.Run("missing_client_id", func(t *testing.T) {
+		c := config{}
+		v := viper.New()
+		v.SetConfigType("yaml")
+		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
+		require.NoError(t, err)
+		v.Set("okta.idx.client_id", "")
+		err = v.Unmarshal(&c)
+		require.NoError(t, err)
+		err = c.Validate()
+		assert.EqualError(t, err, "ClientID: cannot be blank.")
 	})
 }
 
@@ -60,18 +64,18 @@ func TestClient_Interact(t *testing.T) {
 			err := r.ParseForm()
 			assert.NoError(t, err)
 			assert.Equal(t, "foo", r.PostForm.Get("client_id"))
-			assert.Equal(t, "bar", r.PostForm.Get("client_secret"))
-			assert.Equal(t, "1", r.PostForm.Get("code_challenge"))
-			assert.Equal(t, "S256", r.PostForm.Get("code_challenge_method"))
-			assert.Equal(t, "2", r.PostForm.Get("state"))
-			assert.Equal(t, []string{"openid", "profile"}, r.PostForm["scope"])
+			assert.Equal(t, "LdAL134CIs7YgmZUganB2fkHMJ0W4F7QB6HqY5KEd6k", r.PostForm.Get("code_challenge"))
+			assert.Equal(t, "state", r.PostForm.Get("state"))
+			assert.Equal(t, []string{"openid profile"}, r.PostForm["scope"])
 			_, err = w.Write([]byte(`{"interaction_handle":"abcd"}`))
 			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 		client := Client{
-			config:     testConfig(ts.URL),
-			httpClient: ts.Client(),
+			config:       testConfig(ts.URL),
+			httpClient:   ts.Client(),
+			codeVerifier: "challenge",
+			state:        "state",
 		}
 		_, err := client.Interact(context.TODO())
 		assert.NoError(t, err)
@@ -302,34 +306,25 @@ func testConfig(url string) *config {
 	return &config{
 		Okta: struct {
 			IDX struct {
-				ClientID            string   `mapstructure:"client_id" schema:"client_id"`
-				ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
-				Issuer              string   `mapstructure:"issuer" schema:"-"`
-				Scopes              []string `mapstructure:"scopes" schema:"scope"`
-				CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
-				CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-				RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
-				State               string   `mapstrucutre:"state" schema:"state"`
+				ClientID     string   `mapstructure:"client_id" schema:"client_id"`
+				ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+				Issuer       string   `mapstructure:"issuer" schema:"-"`
+				Scopes       []string `mapstructure:"scopes" schema:"scope"`
+				RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 			} `mapstructure:"idx"`
 		}{
 			IDX: struct {
-				ClientID            string   `mapstructure:"client_id" schema:"client_id"`
-				ClientSecret        string   `mapstructure:"client_secret" schema:"client_secret"`
-				Issuer              string   `mapstructure:"issuer" schema:"-"`
-				Scopes              []string `mapstructure:"scopes" schema:"scope"`
-				CodeChallenge       string   `mapstructure:"code_challenge" schema:"code_challenge"`
-				CodeChallengeMethod string   `mapstructure:"code_challenge_method" schema:"code_challenge_method"`
-				RedirectURI         string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
-				State               string   `mapstrucutre:"state" schema:"state"`
+				ClientID     string   `mapstructure:"client_id" schema:"client_id"`
+				ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+				Issuer       string   `mapstructure:"issuer" schema:"-"`
+				Scopes       []string `mapstructure:"scopes" schema:"scope"`
+				RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
 			}{
-				ClientID:            "foo",
-				ClientSecret:        "bar",
-				Issuer:              url,
-				Scopes:              []string{"openid", "profile"},
-				CodeChallenge:       "1",
-				CodeChallengeMethod: "S256",
-				RedirectURI:         url,
-				State:               "2",
+				ClientID:     "foo",
+				ClientSecret: "bar",
+				Issuer:       url,
+				Scopes:       []string{"openid", "profile"},
+				RedirectURI:  url,
 			},
 		},
 	}

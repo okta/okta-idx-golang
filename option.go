@@ -36,11 +36,11 @@ type Remediation struct {
 }
 
 type Token struct {
-	AccessToken string `json:"accessToken"`
-	ExpiresIn   int    `json:"expiresIn"`
-	IDToken     string `json:"idToken"`
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	IDToken     string `json:"id_token"`
 	Scope       string `json:"scope"`
-	TokenType   string `json:"tokenType"`
+	TokenType   string `json:"token_type"`
 }
 
 // Allow you to continue the remediation with this option.
@@ -62,15 +62,15 @@ func (o *Option) Form() []FormValue {
 }
 
 type FormValue struct {
-	Name     string  `json:"name"`
-	Label    string  `json:"label,omitempty"`
-	Type     string  `json:"type,omitempty"`
-	Value    *string `json:"value,omitempty"`
-	Required *bool   `json:"required,omitempty"`
-	Visible  *bool   `json:"visible,omitempty"`
-	Mutable  *bool   `json:"mutable,omitempty"`
-	Secret   *bool   `json:"secret,omitempty"`
-	Form     *Form   `json:"form,omitempty"`
+	Name     string `json:"name"`
+	Label    string `json:"label,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Value    string `json:"value,omitempty"`
+	Required *bool  `json:"required,omitempty"`
+	Visible  *bool  `json:"visible,omitempty"`
+	Mutable  *bool  `json:"mutable,omitempty"`
+	Secret   *bool  `json:"secret,omitempty"`
+	Form     *Form  `json:"form,omitempty"`
 }
 
 type Form struct {
@@ -133,9 +133,9 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 	}
 	for _, v := range f {
 		switch {
-		case v.Value != nil:
+		case v.Value != "":
 			output[v.Name] = v.Value
-		case v.Value == nil && v.Form == nil:
+		case v.Value == "" && v.Form == nil:
 			vv, ok := input[v.Name]
 			if ok {
 				output[v.Name] = vv
@@ -169,11 +169,16 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 type SuccessOption Option
 
 // Exchange the code from SuccessWithInteractionCode
-func (o *SuccessOption) ExchangeCode(ctx context.Context) (*Token, error) {
-	if o == nil {
+func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
+	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid success response is missing from idx response")
 	}
-	output, err := form(map[string]interface{}{}, nil, o.FormValues...)
+	input := make(map[string]interface{})
+	err := json.Unmarshal(data, &input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to input data: %w", err)
+	}
+	output, err := form(input, nil, o.FormValues...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +186,14 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context) (*Token, error) {
 	if strings.Contains(o.Accepts, "x-www-form-urlencoded") {
 		data := url.Values{}
 		for k, v := range output {
-			data[k] = []string{*v.(*string)}
+			switch val := v.(type) {
+			case string:
+				data[k] = []string{val}
+			case *string:
+				data[k] = []string{*val}
+			default:
+				return nil, fmt.Errorf("%s should be of type string, got: %T", k, v)
+			}
 		}
 		body = strings.NewReader(data.Encode())
 	} else {
