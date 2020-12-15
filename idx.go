@@ -119,7 +119,6 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 }
 
 func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
-
 	h := sha256.New()
 	h.Write([]byte(c.GetCodeVerifier()))
 

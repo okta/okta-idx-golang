@@ -186,7 +186,15 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 	if strings.Contains(o.Accepts, "x-www-form-urlencoded") {
 		data := url.Values{}
 		for k, v := range output {
-			data[k] = []string{*v.(*string)}
+			fmt.Printf("%+v", v)
+			switch val := v.(type) {
+			case string:
+				data[k] = []string{val}
+			case *string:
+				data[k] = []string{*val}
+			default:
+				return nil, fmt.Errorf("%s should be of type string, got: %T", k, v)
+			}
 		}
 		body = strings.NewReader(data.Encode())
 	} else {
