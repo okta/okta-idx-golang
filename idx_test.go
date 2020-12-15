@@ -64,15 +64,18 @@ func TestClient_Interact(t *testing.T) {
 			err := r.ParseForm()
 			assert.NoError(t, err)
 			assert.Equal(t, "foo", r.PostForm.Get("client_id"))
-			assert.Equal(t, "bar", r.PostForm.Get("client_secret"))
+			assert.Equal(t, "LdAL134CIs7YgmZUganB2fkHMJ0W4F7QB6HqY5KEd6k", r.PostForm.Get("code_challenge"))
+			assert.Equal(t, "state", r.PostForm.Get("state"))
 			assert.Equal(t, []string{"openid profile"}, r.PostForm["scope"])
 			_, err = w.Write([]byte(`{"interaction_handle":"abcd"}`))
 			assert.NoError(t, err)
 		}))
 		defer ts.Close()
 		client := Client{
-			config:     testConfig(ts.URL),
-			httpClient: ts.Client(),
+			config:       testConfig(ts.URL),
+			httpClient:   ts.Client(),
+			codeVerifier: "challenge",
+			state:        "state",
 		}
 		_, err := client.Interact(context.TODO())
 		assert.NoError(t, err)

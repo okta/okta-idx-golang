@@ -168,7 +168,6 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 
 type SuccessOption Option
 
-// nolint
 // Exchange the code from SuccessWithInteractionCode
 func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
 	if o == nil || len(o.FormValues) == 0 {
