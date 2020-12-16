@@ -1,0 +1,40 @@
+name: CI
+
+env:
+  GOPRIVATE: 'github.com/okta'
+  GO111MODULE: on
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        go: [ '1.14', '1.15' ]
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@main
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Checkout code
+        uses: actions/checkout@master
+
+      - name: Dependencies
+        run: |
+          make dep
+
+      - name: Lint
+        run: |
+          export PATH=$PATH:${GOPATH}/bin
+          make lint
+
+      - name: Test
+        run: make test
