@@ -62,19 +62,34 @@ func (o *Option) Form() []FormValue {
 }
 
 type FormValue struct {
-	Name     string `json:"name"`
-	Label    string `json:"label,omitempty"`
-	Type     string `json:"type,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Required *bool  `json:"required,omitempty"`
-	Visible  *bool  `json:"visible,omitempty"`
-	Mutable  *bool  `json:"mutable,omitempty"`
-	Secret   *bool  `json:"secret,omitempty"`
-	Form     *Form  `json:"form,omitempty"`
+	Name     string        `json:"name"`
+	Label    string        `json:"label,omitempty"`
+	Type     string        `json:"type,omitempty"`
+	Value    string        `json:"value,omitempty"`
+	Required *bool         `json:"required,omitempty"`
+	Visible  *bool         `json:"visible,omitempty"`
+	Mutable  *bool         `json:"mutable,omitempty"`
+	Secret   *bool         `json:"secret,omitempty"`
+	Form     *Form         `json:"form,omitempty"`
+	Options  []FormOptions `json:"options,omitempty"`
 }
 
 type Form struct {
 	FormValues []FormValue `json:"value"`
+}
+
+type FormOptions struct {
+	Label     string           `json:"label"`
+	Value     FormOptionsValue `json:"value"`
+	RelatesTo string           `json:"relatesTo"`
+}
+
+type FormOptionsValue struct {
+	Form FormOptionsValueForm `json:"form"`
+}
+
+type FormOptionsValueForm struct {
+	Value []FormValue `json:"value"`
 }
 
 type RemediationOption Option
@@ -135,7 +150,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 		switch {
 		case v.Value != "":
 			output[v.Name] = v.Value
-		case v.Value == "" && v.Form == nil:
+		case v.Value == "" && v.Form == nil && len(v.Options) == 0:
 			vv, ok := input[v.Name]
 			if ok {
 				output[v.Name] = vv
@@ -161,6 +176,31 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 			if err != nil {
 				return nil, err
 			}
+		case len(v.Options) != 0:
+			vv, ok := input[v.Name]
+			for _, o := range v.Options {
+				for _, vv := range o.Value.Form.Value {
+					if !ok && vv.Required != nil && *vv.Required && vv.Value == ""{
+						return nil, fmt.Errorf("missing '%s.%s' property from input", v.Name, vv.Name)
+					}
+				}
+			}
+			var im map[string]interface{}
+			if ok {
+				im, ok = vv.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("%s should be of type map[string]interface{}, got: %T", v.Name, vv)
+				}
+			}
+			var err error
+			gg := map[string]interface{}{}
+			for _, o := range v.Options {
+				gg, err = form(im, gg, o.Value.Form.Value...)
+				if err != nil {
+					return nil, err
+				}
+			}
+			output[v.Name] = gg
 		}
 	}
 	return output, nil

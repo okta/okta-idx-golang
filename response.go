@@ -68,8 +68,8 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 		return nil, errors.New("valid cancel is missing from idx response")
 	}
 	m := make(map[string]interface{})
-	for _, v := range r.CancelResponse.FormValues {
-		m[v.Name] = v.Value
+	for i := range r.CancelResponse.FormValues {
+		m[r.CancelResponse.FormValues[i].Name] = r.CancelResponse.FormValues[i].Value
 	}
 	body, err := json.Marshal(m)
 	if err != nil {

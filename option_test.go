@@ -31,6 +31,60 @@ import (
 )
 
 var (
+	r2 = `{
+   "remediation":{
+      "type":"array",
+      "value":[
+         {
+            "rel":[
+               "create-form"
+            ],
+            "name":"select-authenticator-authenticate",
+            "href":"%s/idp/idx/challenge",
+            "method":"POST",
+            "value":[
+               {
+                  "name":"authenticator",
+                  "type":"object",
+                  "options":[
+                     {
+                        "label":"Email",
+                        "value":{
+                           "form":{
+                              "value":[
+                                 {
+                                    "name":"id",
+                                    "required":true,
+                                    "value":"qwerty",
+                                    "mutable":false
+                                 },
+                                 {
+                                    "name":"methodType",
+                                    "required":false,
+                                    "value":"email",
+                                    "mutable":false
+                                 }
+                              ]
+                           }
+                        },
+                        "relatesTo":"$.authenticatorEnrollments.value[0]"
+                     }
+                  ]
+               },
+               {
+                  "name":"stateHandle",
+                  "required":true,
+                  "value":"efg",
+                  "visible":false,
+                  "mutable":false
+               }
+            ],
+            "accepts":"application/ion+json; okta-version=1.0.0"
+         }
+      ]
+   }
+}`
+
 	remediation = `{
     "remediation": {
         "type": "array",
@@ -82,7 +136,7 @@ func TestRemediationOption_Proceed(t *testing.T) {
 			ih := make(map[string]interface{})
 			err = json.Unmarshal(body, &ih)
 			assert.NoError(t, err)
-			assert.Equal(t, "qwerty", ih["credentials"].(map[string]interface{})["passcode"])
+			assert.Equal(t, "qwerty", ih["authenticator"].(map[string]interface{})["id"])
 			assert.Equal(t, "efg", ih["stateHandle"])
 			b := `{
     "successWithInteractionCode": {
@@ -126,7 +180,7 @@ func TestRemediationOption_Proceed(t *testing.T) {
 		idx = &Client{
 			httpClient: ts.Client(),
 		}
-		rem := fmt.Sprintf(remediation, ts.URL)
+		rem := fmt.Sprintf(r2, ts.URL)
 		var resp Response
 		err := json.Unmarshal([]byte(rem), &resp)
 		assert.NoError(t, err)
