@@ -28,11 +28,11 @@ import (
 type config struct {
 	Okta struct {
 		IDX struct {
-			ClientID     string   `mapstructure:"client_id" schema:"client_id"`
-			ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+			ClientID     string   `mapstructure:"clientId" schema:"client_id"`
+			ClientSecret string   `mapstructure:"clientSecret" schema:"client_secret"`
 			Issuer       string   `mapstructure:"issuer" schema:"-"`
 			Scopes       []string `mapstructure:"scopes" schema:"scope"`
-			RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
+			RedirectURI  string   `mapstructure:"redirectUri" schema:"redirect_uri"`
 		} `mapstructure:"idx"`
 	} `mapstructure:"okta"`
 }

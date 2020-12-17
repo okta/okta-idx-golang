@@ -34,13 +34,13 @@ import (
 
 var validYAMLConfig = `okta:
   idx:
-    client_id: "foo"
-    client_secret: "bar"
+    clientId: "foo"
+    clientSecret: "bar"
     issuer: "https://okta.com"
     scopes:
       - "openid"
       - "profile"
-    redirect_uri: "https://okta.com"
+    redirectUri: "https://okta.com"
 `
 
 func TestConfiguration(t *testing.T) {
@@ -322,19 +322,19 @@ func testConfig(url string) *config {
 	return &config{
 		Okta: struct {
 			IDX struct {
-				ClientID     string   `mapstructure:"client_id" schema:"client_id"`
-				ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+				ClientID     string   `mapstructure:"clientId" schema:"client_id"`
+				ClientSecret string   `mapstructure:"clientSecret" schema:"client_secret"`
 				Issuer       string   `mapstructure:"issuer" schema:"-"`
 				Scopes       []string `mapstructure:"scopes" schema:"scope"`
-				RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
+				RedirectURI  string   `mapstructure:"redirectUri" schema:"redirect_uri"`
 			} `mapstructure:"idx"`
 		}{
 			IDX: struct {
-				ClientID     string   `mapstructure:"client_id" schema:"client_id"`
-				ClientSecret string   `mapstructure:"client_secret" schema:"client_secret"`
+				ClientID     string   `mapstructure:"clientId" schema:"client_id"`
+				ClientSecret string   `mapstructure:"clientSecret" schema:"client_secret"`
 				Issuer       string   `mapstructure:"issuer" schema:"-"`
 				Scopes       []string `mapstructure:"scopes" schema:"scope"`
-				RedirectURI  string   `mapstructure:"redirect_uri" schema:"redirect_uri"`
+				RedirectURI  string   `mapstructure:"redirectUri" schema:"redirect_uri"`
 			}{
 				ClientID:     "foo",
 				ClientSecret: "bar",
