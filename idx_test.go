@@ -66,7 +66,7 @@ func TestConfiguration(t *testing.T) {
 		v.SetConfigType("yaml")
 		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
 		require.NoError(t, err)
-		v.Set("okta.idx.client_id", "")
+		v.Set("okta.idx.clientId", "")
 		err = v.Unmarshal(&c)
 		require.NoError(t, err)
 		err = c.Validate()
