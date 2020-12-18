@@ -150,7 +150,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 		switch {
 		case v.Value != "":
 			output[v.Name] = v.Value
-		case v.Value == "" && v.Form == nil && len(v.Options) == 0:
+		case v.Value == "" && v.Form == nil:
 			vv, ok := input[v.Name]
 			if ok {
 				output[v.Name] = vv
@@ -179,9 +179,9 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 		case len(v.Options) != 0:
 			vv, ok := input[v.Name]
 			for _, o := range v.Options {
-				for _, vv := range o.Value.Form.Value {
-					if !ok && vv.Required != nil && *vv.Required && vv.Value == ""{
-						return nil, fmt.Errorf("missing '%s.%s' property from input", v.Name, vv.Name)
+				for _, vfv := range o.Value.Form.Value {
+					if !ok && vfv.Required != nil && *vfv.Required && vfv.Value == "" {
+						return nil, fmt.Errorf("missing '%s.%s' property from input", v.Name, vfv.Name)
 					}
 				}
 			}
