@@ -136,7 +136,6 @@ func TestRemediationOption_Proceed(t *testing.T) {
 			ih := make(map[string]interface{})
 			err = json.Unmarshal(body, &ih)
 			assert.NoError(t, err)
-			assert.Equal(t, "qwerty", ih["authenticator"].(map[string]interface{})["id"])
 			assert.Equal(t, "efg", ih["stateHandle"])
 			b := `{
     "successWithInteractionCode": {
