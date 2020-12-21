@@ -79,14 +79,43 @@ type Form struct {
 }
 
 type FormOptions struct {
-	Label     string           `json:"label"`
-	Value     FormOptionsValue `json:"value"`
-	RelatesTo string           `json:"relatesTo"`
+	Label        string           `json:"label"`
+	Value        FormOptionsValue `json:"-"`
+	DynamicValue interface{}      `json:"value"`
+	RelatesTo    string           `json:"relatesTo"`
 }
 
-type FormOptionsValue struct {
+func (r *FormOptions) UnmarshalJSON(data []byte) error {
+	type localIDX FormOptions
+	r.Value = FormOptionsValueObject{}
+	if err := json.Unmarshal(data, (*localIDX)(r)); err != nil {
+		return fmt.Errorf("failed to unmarshal FormOptions: %w", err)
+	}
+	switch dv := r.DynamicValue.(type) {
+	case string:
+		r.Value = FormOptionsValueString(dv)
+	case map[string]interface{}:
+		b, _ := json.Marshal(dv)
+		var res FormOptionsValueObject
+		_ = json.Unmarshal(b, &res)
+		r.Value = res
+	}
+	return nil
+}
+
+type FormOptionsValue interface {
+	isFormOptionsValue()
+}
+
+type FormOptionsValueString string
+
+func (FormOptionsValueString) isFormOptionsValue() {}
+
+type FormOptionsValueObject struct {
 	Form FormOptionsValueForm `json:"form"`
 }
+
+func (FormOptionsValueObject) isFormOptionsValue() {}
 
 type FormOptionsValueForm struct {
 	Value []FormValue `json:"value"`
@@ -177,36 +206,54 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				return nil, err
 			}
 		case len(v.Options) != 0:
-			vv, ok := input[v.Name]
-			for _, o := range v.Options {
-				for _, vfv := range o.Value.Form.Value {
-					if !ok && vfv.Required != nil && *vfv.Required && vfv.Value == "" {
-						return nil, fmt.Errorf("missing '%s.%s' property from input", v.Name, vfv.Name)
+			if v.Type == "string" {
+				vv, ok := input[v.Name]
+				if !ok && v.Required != nil && *v.Required {
+					return nil, fmt.Errorf("missing '%s' property from input", v.Name)
+				}
+				presentInOptions := false
+				for _, o := range v.Options {
+					if vv == o.Value {
+						presentInOptions = true
+						break
 					}
 				}
-			}
-			var im map[string]interface{}
-			if ok {
-				im, ok = vv.(map[string]interface{})
-				if !ok {
-					return nil, fmt.Errorf("%s should be of type map[string]interface{}, got: %T", v.Name, vv)
+				if !presentInOptions {
+					return nil, fmt.Errorf("provided value '%s' for '%s' is missing from options", vv, v.Name)
 				}
-			}
-			var err error
-			gg := map[string]interface{}{}
-		loop:
-			for _, o := range v.Options {
-				for _, a := range o.Value.Form.Value {
-					n, ok := im[a.Name]
-					if !ok || n != a.Value {
-						continue
+				output[v.Name] = vv
+			} else if v.Type == "object" {
+				vv, ok := input[v.Name]
+				for _, o := range v.Options {
+					for _, vfv := range o.Value.(FormOptionsValueObject).Form.Value {
+						if !ok && vfv.Required != nil && *vfv.Required && vfv.Value == "" {
+							return nil, fmt.Errorf("missing '%s.%s' property from input", v.Name, vfv.Name)
+						}
 					}
-					gg, err = form(im, gg, o.Value.Form.Value...)
-					if err != nil {
-						return nil, err
+				}
+				var im map[string]interface{}
+				if ok {
+					im, ok = vv.(map[string]interface{})
+					if !ok {
+						return nil, fmt.Errorf("%s should be of type map[string]interface{}, got: %T", v.Name, vv)
 					}
-					output[v.Name] = gg
-					break loop
+				}
+				var err error
+				gg := map[string]interface{}{}
+			loop:
+				for _, o := range v.Options {
+					for _, a := range o.Value.(FormOptionsValueObject).Form.Value {
+						n, ok := im[a.Name]
+						if !ok || n != a.Value {
+							continue
+						}
+						gg, err = form(im, gg, o.Value.(FormOptionsValueObject).Form.Value...)
+						if err != nil {
+							return nil, err
+						}
+						output[v.Name] = gg
+						break loop
+					}
 				}
 			}
 		}
