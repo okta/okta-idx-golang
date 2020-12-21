@@ -150,7 +150,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 		switch {
 		case v.Value != "":
 			output[v.Name] = v.Value
-		case v.Value == "" && v.Form == nil:
+		case v.Value == "" && v.Form == nil && len(v.Options) == 0:
 			vv, ok := input[v.Name]
 			if ok {
 				output[v.Name] = vv
@@ -194,13 +194,21 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 			}
 			var err error
 			gg := map[string]interface{}{}
+		loop:
 			for _, o := range v.Options {
-				gg, err = form(im, gg, o.Value.Form.Value...)
-				if err != nil {
-					return nil, err
+				for _, a := range o.Value.Form.Value {
+					n, ok := im[a.Name]
+					if !ok || n != a.Value {
+						continue
+					}
+					gg, err = form(im, gg, o.Value.Form.Value...)
+					if err != nil {
+						return nil, err
+					}
+					output[v.Name] = gg
+					break loop
 				}
 			}
-			output[v.Name] = gg
 		}
 	}
 	return output, nil
