@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/okta/okta-idx-golang/oktahttp"
@@ -248,10 +249,9 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				for _, o := range v.Options {
 					for _, a := range o.Value.(FormOptionsValueObject).Form.Value {
 						n, ok := im[a.Name]
-						if !ok  {
+						if !ok || (a.Value != "" && !reflect.DeepEqual(n, a.Value)) {
 							continue
 						}
-						_ = n
 						gg, err = form(im, gg, o.Value.(FormOptionsValueObject).Form.Value...)
 						if err != nil {
 							return nil, err
