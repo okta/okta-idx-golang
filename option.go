@@ -211,9 +211,13 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				if !ok && v.Required != nil && *v.Required {
 					return nil, fmt.Errorf("missing '%s' property from input", v.Name)
 				}
+				strVal, ok := vv.(string)
+				if !ok {
+					return nil, fmt.Errorf("%s should be of type string, got: %T", v.Name, vv)
+				}
 				presentInOptions := false
 				for _, o := range v.Options {
-					if vv == o.Value {
+					if strVal == string(o.Value.(FormOptionsValueString)) {
 						presentInOptions = true
 						break
 					}
@@ -244,9 +248,10 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				for _, o := range v.Options {
 					for _, a := range o.Value.(FormOptionsValueObject).Form.Value {
 						n, ok := im[a.Name]
-						if !ok || n != a.Value {
+						if !ok  {
 							continue
 						}
+						_ = n
 						gg, err = form(im, gg, o.Value.(FormOptionsValueObject).Form.Value...)
 						if err != nil {
 							return nil, err
