@@ -47,7 +47,7 @@ client, err := NewClient(
     WithClientID("{YOUR_CLIENT_ID}"),
     WithClientSecret("{YOUR_CLIENT_SECRET}"),   // Required for confidential clients.
     WithIssuer("{YOUR_ISSUER}"),                // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
-    WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
+    WithScopes([]string{"openid", "profile", "offline_access"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange, and `offline_access` if you want refresh_token
     WithRedirectURI("{YOUR_REDIRECT_URI}"),     // Must match the redirect uri in client app settings/console
 )
 if err != nil {
@@ -148,6 +148,7 @@ if err != nil {
 fmt.Printf("%+v\n", tokens)
 fmt.Printf("%+s\n", tokens.AccessToken)
 fmt.Printf("%+s\n", tokens.IDToken)
+fmt.Printf("%+s\n", tokens.RefreshToken)
 ```
 
 #### Cancel the OIE Transaction and Start a New One
