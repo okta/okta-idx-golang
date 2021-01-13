@@ -46,7 +46,7 @@ Once you initialize a `Client`, you can call methods to make requests to the Okt
 client, err := NewClient(
     WithClientID("{YOUR_CLIENT_ID}"),
     WithClientSecret("{YOUR_CLIENT_SECRET}"),   // Required for confidential clients.
-    WithIssuer("{YOUR_ISSUER}"),                // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithIssuer("{YOUR_ISSUER}"),                // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/busar5vgt5TSDsfcJ0h7
     WithScopes([]string{"openid", "profile", "offline_access"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange, and `offline_access` if you want refresh_token
     WithRedirectURI("{YOUR_REDIRECT_URI}"),     // Must match the redirect uri in client app settings/console
 )
@@ -81,7 +81,7 @@ var response *Response
 client, err := NewClient(
     WithClientID("{CLIENT_ID}"),
     WithClientSecret("{CLIENT_SECRET}"),        // Required for confidential clients.
-    WithIssuer("{ISSUER}"),                     // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithIssuer("{ISSUER}"),                     // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/busar5vgt5TSDsfcJ0h7
     WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
     WithRedirectURI("{REDIRECT_URI}"),          // Must match the redirect uri in client app settings/console
 )
@@ -149,6 +149,296 @@ fmt.Printf("%+v\n", tokens)
 fmt.Printf("%+s\n", tokens.AccessToken)
 fmt.Printf("%+s\n", tokens.IDToken)
 fmt.Printf("%+s\n", tokens.RefreshToken)
+```
+
+#### Enroll + Login using password + email authenticator
+
+```go
+   var response *Response
+
+    client, err := NewClient(
+        WithClientID("{CLIENT_ID}"),
+        WithClientSecret("{CLIENT_SECRET}"),        // Required for confidential clients.
+        WithIssuer("{ISSUER}"),                     // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/busar5vgt5TSDsfcJ0h7
+        WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
+        WithRedirectURI("{REDIRECT_URI}"),          // Must match the redirect uri in client app settings/console
+    )
+	if err != nil {
+		panic(err)
+	}
+
+	interactHandle, err := client.Interact(context.TODO())
+	if err != nil {
+		panic(err)
+	}
+
+	response, err = client.Introspect(context.TODO(), interactHandle)
+	if err != nil {
+		panic(err)
+	}
+
+	// First remediation will be "identify"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "identify" {
+			identify := []byte(`{
+                    "identifier": "foo@example.com",
+                    "rememberMe": false
+                }`)
+
+			response, err = remediationOption.Proceed(context.TODO(), identify)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			panic("we expected an `identify` option, but did not see one.")
+		}
+	}
+
+	// choosing password as an authenticator
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string
+
+		for _, options := range remediationOption.FormValues[0].Options {
+			if options.Label == "Password" {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+			}
+		}
+
+		authenticator := []byte(`{
+			"authenticator": {
+			"id": "` + id + `"
+			}
+		}`)
+
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// challenge-authenticator
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "challenge-authenticator" {
+			credentials := []byte(`{
+				"credentials": {
+					"passcode": "Abcd1234"
+				}
+			}`)
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+    // choosing email as an authenticator
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string
+		for _, options := range remediationOption.FormValues[0].Options {
+			fmt.Printf("%+v\n", options)
+
+			if options.Label == "Email" {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+			}
+		}
+
+		authenticator := []byte(`{
+			"authenticator": {
+			"id": "` + id + `"
+			}
+		}`)
+
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Next remediation will be "challenge-authenticator"
+	// You should receive an email with the passcode and then enter it here
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		fmt.Println("Enter Your Email Passcode: ")
+
+		// var then variable name then variable type
+		var passcode string
+
+		// Taking input from user
+		fmt.Scanln(&passcode)
+		
+		if remediationOption.Name == "challenge-authenticator" {
+			credentials := []byte(`{
+				"credentials": {
+					"passcode": "` + passcode + `"
+				}
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			panic("we expected an `challenge-authenticator` option, but did not see one.")
+		}
+	}
+
+	if response.LoginSuccess() {
+		fmt.Println("Successful login!")
+		// These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
+		exchangeForm := []byte(`{
+            "client_secret": "` + client.config.Okta.IDX.ClientSecret + `", // This should be available off the client config this way
+            "code_verifier": "` + string(client.GetCodeVerifier()) + `" // We generate your code_verfier for you and store it in the client struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+        }`)
+		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
+		if err != nil {
+		    panic(err)
+		}
+
+		fmt.Printf("%+v\n", tokens)
+		fmt.Printf("%+s\n", tokens.AccessToken)
+		fmt.Printf("%+s\n", tokens.IDToken)
+        fmt.Printf("%+s\n", tokens.RefreshToken)
+	} else {
+        panic("we expected successful login")
+    }
+```
+
+#### Enroll + Login using password + security question authenticator
+```go
+    // here goes the part same as for 'Enroll + Login using password + email authenticator'
+    // up to  'choosing email as an authenticator'
+    
+    // choosing security question as an authenticator
+    for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "select-authenticator-enroll" {
+			var id string
+			for _, options := range remediationOption.FormValues[0].Options {
+				if (options.Label == "Security Question") {
+					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				}
+			}
+
+			authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + id + `"
+				},
+				"method_type": "security_question"
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), authenticator)
+			if err != nil {
+				panic(err)
+			}
+
+		} else {
+			panic("we expected an `select-authenticator-enroll` option, but did not see one.")
+		}
+	}
+
+	// Next remediation will be "enroll-authenticator"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-authenticator" {
+			var question string
+
+			for _, options := range remediationOption.FormValues[0].Options {
+				if (options.Label == "Choose a security question") {
+					question = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Name
+				}
+			}
+			answer := []byte(`{
+				"credentials": {
+					"questionKey": "disliked_food",
+					"answer": "salad"
+				}
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), answer)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+	}
+
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "skip" {
+			skip := []byte(`{}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), skip)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+	
+	if response.LoginSuccess() {
+        fmt.Println("Successful login!")
+        // get the token
+    }
+```
+
+#### Enroll + Login using password + SMS authenticator
+
+```go
+    // here goes the part same as for 'Enroll + Login using password + email authenticator'
+    // up to  'choosing email as an authenticator'
+
+    // choosing phone as an authenticator
+    for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string 
+		var enrollmentId string 
+		for _, options := range remediationOption.FormValues[0].Options {
+			fmt.Printf("%+v\n", options)
+
+			if (options.Label == "Phone") {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				enrollmentId = options.Value.(idx.FormOptionsValueObject).Form.Value[2].Value
+			}
+		}
+
+		authenticator := []byte(`{
+			"authenticator": {
+				"id": "` + id + `",
+				"enrollmentId": "` + enrollmentId + `",
+				"methodType": "sms"
+			}
+		}`)
+
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Next remediation will be "challenge-authenticator"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		fmt.Println("Enter Your SMS Passcode: ") 
+  
+		// var then variable name then variable type 
+		var passcode string 
+	  
+		fmt.Printf("%+v\n", remediationOption.Form())
+	    if remediationOption.Name == "challenge-authenticator" {
+			// Taking input from user 
+			fmt.Scanln(&passcode) 
+
+			credentials := []byte(`{
+				"credentials": {
+					"passcode": "` + passcode + `"
+				}
+			}`)
+			
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+	    } 
+	}
+
+	if (response.LoginSuccess()) {
+		fmt.Println("Successful login!")
+        // get the token
+	}
+    
 ```
 
 #### Cancel the OIE Transaction and Start a New One
