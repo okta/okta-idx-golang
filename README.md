@@ -264,7 +264,7 @@ fmt.Printf("%+s\n", tokens.RefreshToken)
 
 		// Taking input from user
 		fmt.Scanln(&passcode)
-		
+
 		if remediationOption.Name == "challenge-authenticator" {
 			credentials := []byte(`{
 				"credentials": {
@@ -306,7 +306,7 @@ fmt.Printf("%+s\n", tokens.RefreshToken)
 ```go
     // here goes the part same as for 'Enroll + Login using password + email authenticator'
     // up to  'choosing email as an authenticator'
-    
+
     // choosing security question as an authenticator
     for _, remediationOption := range response.Remediation.RemediationOptions {
 		if remediationOption.Name == "select-authenticator-enroll" {
@@ -369,7 +369,7 @@ fmt.Printf("%+s\n", tokens.RefreshToken)
 			}
 		}
 	}
-	
+
 	if response.LoginSuccess() {
         fmt.Println("Successful login!")
         // get the token
@@ -384,8 +384,8 @@ fmt.Printf("%+s\n", tokens.RefreshToken)
 
     // choosing phone as an authenticator
     for _, remediationOption := range response.Remediation.RemediationOptions {
-		var id string 
-		var enrollmentId string 
+		var id string
+		var enrollmentId string
 		for _, options := range remediationOption.FormValues[0].Options {
 			fmt.Printf("%+v\n", options)
 
@@ -411,34 +411,34 @@ fmt.Printf("%+s\n", tokens.RefreshToken)
 
 	// Next remediation will be "challenge-authenticator"
 	for _, remediationOption := range response.Remediation.RemediationOptions {
-		fmt.Println("Enter Your SMS Passcode: ") 
-  
-		// var then variable name then variable type 
-		var passcode string 
-	  
+		fmt.Println("Enter Your SMS Passcode: ")
+
+		// var then variable name then variable type
+		var passcode string
+
 		fmt.Printf("%+v\n", remediationOption.Form())
 	    if remediationOption.Name == "challenge-authenticator" {
-			// Taking input from user 
-			fmt.Scanln(&passcode) 
+			// Taking input from user
+			fmt.Scanln(&passcode)
 
 			credentials := []byte(`{
 				"credentials": {
 					"passcode": "` + passcode + `"
 				}
 			}`)
-			
+
 			response, err = remediationOption.Proceed(context.TODO(), credentials)
 			if err != nil {
 				panic(err)
 			}
-	    } 
+	    }
 	}
 
 	if (response.LoginSuccess()) {
 		fmt.Println("Successful login!")
         // get the token
 	}
-    
+
 ```
 
 #### Cancel the OIE Transaction and Start a New One
@@ -515,6 +515,258 @@ if err != nil {
 }
 
 // From now on, you can use response to continue with a new flow. You will notice here that you have a new `stateHandle` which signals a new flow. Your `interaction_handle` will remain the same.
+```
+
+#### Self Service Registration
+
+```go
+	var response *Response
+
+    client, err := NewClient(
+        WithClientID("{CLIENT_ID}"),
+        WithClientSecret("{CLIENT_SECRET}"),        // Required for confidential clients.
+        WithIssuer("{ISSUER}"),                     // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/busar5vgt5TSDsfcJ0h7
+        WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
+        WithRedirectURI("{REDIRECT_URI}"),          // Must match the redirect uri in client app settings/console
+    )
+	if err != nil {
+		panic(err)
+	}
+
+	interactHandle, err := client.Interact(context.TODO())
+	if err != nil {
+		panic(err)
+	}
+
+	response, err = client.Introspect(context.TODO(), interactHandle)
+	if err != nil {
+		panic(err)
+	}
+
+	// First remediation will be "identify"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+	    if remediationOption.Name == "select-enroll-profile" {
+	        enroll := []byte(`{}`)
+
+	        response, err = remediationOption.Proceed(context.TODO(), enroll)
+	        if err != nil {
+	            panic(err)
+	        }
+	    }
+	}
+
+	// Next remediation will be "enroll-profile"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+
+		fmt.Printf("%+v\n", remediationOption.Form())
+		if remediationOption.Name == "enroll-profile" {
+			userProfile := []byte(`{
+				"userProfile": {
+					"lastName": "User",
+					"firstName": "Test",
+					"email": "john.doe@acme.com"
+				}
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), userProfile)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// Next remediation will be "select-authenticator-enroll"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "select-authenticator-enroll" {
+			var id string
+
+			for _, options := range remediationOption.FormValues[0].Options {
+				fmt.Printf("%+v\n", options)
+
+				if (options.Label == "Security Question") {
+					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				}
+			}
+
+			authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + id + `"
+				},
+				"method_type": "security_question"
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), authenticator)
+			if err != nil {
+				panic(err)
+			}
+
+		} else {
+			panic("we expected an `select-authenticator-enroll` option, but did not see one.")
+		}
+	}
+
+	// Next remediation will be "enroll-authenticator"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-authenticator" {
+			var question string
+
+			for _, options := range remediationOption.FormValues[0].Options {
+				fmt.Printf("%+v\n", options)
+
+				if (options.Label == "Choose a security question") {
+					question = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Name
+				}
+			}
+
+			fmt.Printf(question)
+
+			answer := []byte(`{
+				"credentials": {
+					"questionKey": "disliked_food",
+					"answer": "Mushrooms"
+				}
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), answer)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+	}
+
+	// Next remediation will be "select-authenticator-enroll"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "select-authenticator-enroll" {
+			var id string
+
+			for _, options := range remediationOption.FormValues[0].Options {
+				fmt.Printf("%+v\n", options)
+
+				if (options.Label == "Password") {
+					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				}
+			}
+
+			authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + id + `"
+				},
+				"method_type": "password"
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), authenticator)
+			if err != nil {
+				panic(err)
+			}
+
+		} else {
+			panic("we expected an `select-authenticator-enroll` option, but did not see one.")
+		}
+	}
+
+	// Next remediation will be "enroll-authenticator"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-authenticator" {
+			var question string
+
+			for _, options := range remediationOption.FormValues[0].Options {
+				fmt.Printf("%+v\n", options)
+
+				if (options.Label == "Choose a security question") {
+					question = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Name
+				}
+			}
+
+			fmt.Printf(question)
+
+			answer := []byte(`{
+				"credentials": {
+					"passcode": "Password!"
+				}
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), answer)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+	}
+
+	// Next remediation will be "select-authenticator-enroll"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "select-authenticator-enroll" {
+			var id string
+
+			for _, options := range remediationOption.FormValues[0].Options {
+				fmt.Printf("%+v\n", options)
+
+				if (options.Label == "Email") {
+					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				}
+			}
+
+			authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + id + `"
+				},
+				"method_type": "email"
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), authenticator)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// Next remediation will be "challenge-authenticator"
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+
+		fmt.Printf("%+v\n", remediationOption.Form())
+	    if remediationOption.Name == "enroll-authenticator" {
+			fmt.Println("Enter Your Email Passcode: ")
+
+			var passcode string
+
+			// Taking input from user
+			fmt.Scanln(&passcode)
+
+			credentials := []byte(`{
+				"credentials": {
+					"passcode": "` + passcode + `"
+				}
+			}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+
+			if err != nil {
+				panic(err)
+			}
+	    }
+	}
+
+
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+
+		fmt.Printf("%+v\n", remediationOption.Form())
+	    if remediationOption.Name == "skip" {
+			skip := []byte(`{}`)
+
+			response, err = remediationOption.Proceed(context.TODO(), skip)
+	        if err != nil {
+	            panic(err)
+	        }
+	    }
+	}
+
+	fmt.Println(string(response.Raw()))
+
+	if (response.LoginSuccess()) {
+		fmt.Println("Successful login!")
+		exchangeCodeForTokens(response, client)
+	}
 ```
 
 ### Check Remediation Options
