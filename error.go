@@ -88,12 +88,12 @@ func gatherMessages(fv []FormValue, messages []MessageValue) []MessageValue {
 	if len(fv) == 0 {
 		return messages
 	}
-	for _, f := range fv {
-		if f.Message != nil {
-			messages = append(messages, f.Message.Values...)
+	for i := range fv {
+		if fv[i].Message != nil {
+			messages = append(messages, fv[i].Message.Values...)
 		}
-		if f.Form != nil {
-			return gatherMessages(f.Form.FormValues, messages)
+		if fv[i].Form != nil {
+			return gatherMessages(fv[i].Form.FormValues, messages)
 		}
 	}
 	return messages
