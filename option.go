@@ -37,12 +37,11 @@ type Remediation struct {
 }
 
 type Token struct {
-	AccessToken  string `json:"access_token"`
-	ExpiresIn    int    `json:"expires_in"`
-	IDToken      string `json:"id_token"`
-	RefreshToken string `json:"refresh_token"`
-	Scope        string `json:"scope"`
-	TokenType    string `json:"token_type"`
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	IDToken     string `json:"id_token"`
+	Scope       string `json:"scope"`
+	TokenType   string `json:"token_type"`
 }
 
 // Allow you to continue the remediation with this option.
@@ -74,6 +73,7 @@ type FormValue struct {
 	Secret   *bool         `json:"secret,omitempty"`
 	Form     *Form         `json:"form,omitempty"`
 	Options  []FormOptions `json:"options,omitempty"`
+	Message  *Message      `json:"messages"`
 }
 
 type Form struct {
@@ -318,4 +318,69 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 		return nil, err
 	}
 	return &token, nil
+}
+
+type RecoverOption Option
+
+type CurrentAuthenticatorEnrollment struct {
+	Type  string `json:"type"`
+	Value struct {
+		Recover     *RecoverOption `json:"recover"`
+		Type        string         `json:"type"`
+		Key         string         `json:"key"`
+		ID          string         `json:"id"`
+		DisplayName string         `json:"displayName"`
+		Methods     []struct {
+			Type string `json:"type"`
+		} `json:"methods"`
+	} `json:"value"`
+}
+
+// Form gets all form values
+func (o *RecoverOption) Form() []FormValue {
+	if o == nil {
+		return nil
+	}
+	return o.FormValues
+}
+
+// Proceed allows you to continue the remediation with this option.
+// It will return error when provided data does not contain all required values to proceed call.
+// Data should be in JSON format.
+func (o *RecoverOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
+	if o == nil || len(o.FormValues) == 0 {
+		return nil, errors.New("valid proceed is missing from idx response")
+	}
+	input := make(map[string]interface{})
+	if len(data) != 0 {
+		err := json.Unmarshal(data, &input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal input data: %w", err)
+		}
+	}
+	output, err := form(input, nil, o.FormValues...)
+	if err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(&output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal proceed request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, o.Method, o.Href, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cancel request: %w", err)
+	}
+	req.Header.Set("Accepts", o.Accepts)
+	req.Header.Set("Content-Type", o.Accepts)
+	oktahttp.WithOktaUserAgent(req, packageVersion)
+	resp, err := idx.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http call has failed: %w", err)
+	}
+	var idxResponse Response
+	err = unmarshalResponse(resp, &idxResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &idxResponse, nil
 }

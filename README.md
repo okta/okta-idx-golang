@@ -46,8 +46,8 @@ Once you initialize a `Client`, you can call methods to make requests to the Okt
 client, err := NewClient(
     WithClientID("{YOUR_CLIENT_ID}"),
     WithClientSecret("{YOUR_CLIENT_SECRET}"),   // Required for confidential clients.
-    WithIssuer("{YOUR_ISSUER}"),                // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/busar5vgt5TSDsfcJ0h7
-    WithScopes([]string{"openid", "profile", "offline_access"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange, and `offline_access` if you want refresh_token
+    WithIssuer("{YOUR_ISSUER}"),                // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+    WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
     WithRedirectURI("{YOUR_REDIRECT_URI}"),     // Must match the redirect uri in client app settings/console
 )
 if err != nil {
@@ -148,7 +148,6 @@ if err != nil {
 fmt.Printf("%+v\n", tokens)
 fmt.Printf("%+s\n", tokens.AccessToken)
 fmt.Printf("%+s\n", tokens.IDToken)
-fmt.Printf("%+s\n", tokens.RefreshToken)
 ```
 
 #### Enroll + Login using password + email authenticator
@@ -439,6 +438,120 @@ fmt.Printf("%+s\n", tokens.RefreshToken)
         // get the token
 	}
     
+```
+
+#### Password reset flow
+
+```go
+    // here goes the part same as in Enroll + Login using password + email authenticator'
+    // up to  'choosing password as an authenticator'
+
+	// this step is different from others, because we want to reset the password
+	if response.CurrentAuthenticatorEnrollment != nil {
+		response, err = response.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(context.TODO(), nil)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		panic("we expected an `CurrentAuthenticatorEnrollment` to reset the password, but did not see one.")
+	}
+
+	// send me reset code on email
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string
+		for _, options := range remediationOption.FormValues[0].Options {
+			if options.Label == "Email" {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				break
+			}
+		}
+		if id == "" {
+			continue
+		}
+		authenticator := []byte(`{
+			"authenticator": {
+			"id": "` + id + `"
+			}
+		}`)
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+		break
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter the code from email: ")
+	text, _ := reader.ReadString('\n')
+
+	// Next remediation will be "challenge-authenticator". In this case entering code from email
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "challenge-authenticator" {
+			credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"passcode": "%s"
+				}
+			}`, strings.TrimSpace(text)))
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+			break
+		}
+	}
+
+	// Next remediation will be "challenge-authenticator". In this case answering the question
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		fmt.Printf("%+v\n", remediationOption.Form())
+		if remediationOption.Name == "challenge-authenticator" {
+			fmt.Print("Enter the food you dislike: ")
+			text, _ = reader.ReadString('\n')
+			credentials := []byte(`{
+				"credentials": {
+					"answer": "` + strings.TrimSpace(text) + `"
+				}
+			}`)
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// Next remediation will be "reset-authenticator" as we want to enter new passcode
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "reset-authenticator" {
+			fmt.Print("Enter new password: ")
+			text, _ = reader.ReadString('\n')
+			credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"passcode": "%s"
+				}
+			}`, strings.TrimSpace(text)))
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+			break
+		}
+	}
+
+	// if new password was set, we should get successful login!
+	if response.LoginSuccess() {
+		fmt.Println("Successful login!")
+        // get the token
+		exchangeForm := []byte(`{
+		"client_secret": "` + client.GetClientSecret() + `",
+		"code_verifier": "` + string(client.GetCodeVerifier()[:]) + `"
+	}`)
+		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
+		if err != nil {
+		    panic(err)
+		}
+		fmt.Printf("%+v\n", tokens)
+		fmt.Printf("%+s\n", tokens.AccessToken)
+        fmt.Printf("%+s\n", tokens.IDToken)
+	}
 ```
 
 #### Cancel the OIE Transaction and Start a New One

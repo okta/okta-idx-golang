@@ -65,6 +65,36 @@ func (e *ErrorResponse) Error() string {
 			messages[i] = e.Message.Values[i].Message
 		}
 		return fmt.Sprintf(f, strings.Join(messages, ","))
+	default:
+		var idxResponse Response
+		_ = json.Unmarshal(e.raw, &idxResponse)
+		if idxResponse.Remediation != nil {
+			for _, v := range idxResponse.Remediation.RemediationOptions {
+				e.Message.Values = append(e.Message.Values, gatherMessages(v.Form(), e.Message.Values)...)
+			}
+		}
+		if len(e.Message.Values) > 0 {
+			messages := make([]string, len(e.Message.Values))
+			for i := range e.Message.Values {
+				messages[i] = e.Message.Values[i].Message
+			}
+			return fmt.Sprintf(f, strings.Join(messages, ","))
+		}
+		return fmt.Sprintf(f, string(e.raw))
 	}
-	return fmt.Sprintf(f, string(e.raw))
+}
+
+func gatherMessages(fv []FormValue, messages []MessageValue) []MessageValue {
+	if len(fv) == 0 {
+		return messages
+	}
+	for i := range fv {
+		if fv[i].Message != nil {
+			messages = append(messages, fv[i].Message.Values...)
+		}
+		if fv[i].Form != nil {
+			return gatherMessages(fv[i].Form.FormValues, messages)
+		}
+	}
+	return messages
 }
