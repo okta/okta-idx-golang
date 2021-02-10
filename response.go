@@ -28,15 +28,16 @@ import (
 )
 
 type Response struct {
-	StateHandle     string         `json:"stateHandle"`
-	Version         string         `json:"version"`
-	ExpiresAt       string         `json:"expiresAt"`
-	Intent          string         `json:"intent"`
-	Remediation     *Remediation   `json:"remediation"`
-	CancelResponse  *Option        `json:"cancel"`
-	SuccessResponse *SuccessOption `json:"successWithInteractionCode"`
-	Messages        *Message       `json:"messages"`
-	raw             []byte
+	StateHandle                    string                          `json:"stateHandle"`
+	Version                        string                          `json:"version"`
+	ExpiresAt                      string                          `json:"expiresAt"`
+	Intent                         string                          `json:"intent"`
+	Remediation                    *Remediation                    `json:"remediation"`
+	CancelResponse                 *Option                         `json:"cancel"`
+	SuccessResponse                *SuccessOption                  `json:"successWithInteractionCode"`
+	CurrentAuthenticatorEnrollment *CurrentAuthenticatorEnrollment `json:"currentAuthenticatorEnrollment"`
+	Messages                       *Message                        `json:"messages"`
+	raw                            []byte
 }
 
 type Message struct {
