@@ -37,7 +37,7 @@ import (
 /**
  * Current version of the package. This is used mainly for our User-Agent
  */
-const packageVersion = "0.1.0-beta.1"
+const packageVersion = "0.1.0-beta.2"
 
 var idx *Client
 
