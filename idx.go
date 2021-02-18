@@ -27,7 +27,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -46,7 +45,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-type IdxContext struct {
+type Context struct {
 	codeVerifier      string
 	interactionHandle *InteractionHandle
 	state             string
@@ -82,15 +81,15 @@ func (c *Client) GetClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
 }
 
-func (ictx *IdxContext) GetCodeVerifier() string {
+func (ictx *Context) GetCodeVerifier() string {
 	return ictx.codeVerifier
 }
 
-func (ictx *IdxContext) GetInteractionHandle() *InteractionHandle {
+func (ictx *Context) GetInteractionHandle() *InteractionHandle {
 	return ictx.interactionHandle
 }
 
-func (ictx *IdxContext) GetState() string {
+func (ictx *Context) GetState() string {
 	return ictx.state
 }
 
@@ -115,30 +114,45 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	return nil
 }
 
-func (c *Client) Interact(ctx context.Context, state *string) (*IdxContext, error) {
-	h := sha256.New()
-	var err error
-
-	idxContext := &IdxContext{}
-
+func (c *Client) createCodeVerifier() (*string, error) {
 	codeVerifier := make([]byte, 86)
-	_, err = crand.Read(codeVerifier)
+	_, err := crand.Read(codeVerifier)
 	if err != nil {
 		return nil, fmt.Errorf("error creating code_verifier: %w", err)
 	}
 
-	idxContext.codeVerifier = base64.RawURLEncoding.EncodeToString(codeVerifier)
+	s := base64.RawURLEncoding.EncodeToString(codeVerifier)
+	return &s, nil
+}
+
+func (c *Client) createState() (*string, error) {
+	localState := make([]byte, 16)
+	_, err := crand.Read(localState)
+	if err != nil {
+		return nil, fmt.Errorf("error creating state: %w", err)
+	}
+	s := base64.RawURLEncoding.EncodeToString(localState)
+	return &s, nil
+}
+
+func (c *Client) Interact(ctx context.Context, state *string) (*Context, error) {
+	h := sha256.New()
+	var err error
+
+	idxContext := &Context{}
+
+	codeVerifier, err := c.createCodeVerifier()
+	if err != nil {
+		return nil, err
+	}
+	idxContext.codeVerifier = *codeVerifier
 
 	if state == nil {
-		localState := make([]byte, 16)
-		_, err = crand.Read(localState)
+		state, err = c.createState()
 		if err != nil {
-			return nil, fmt.Errorf("error creating state: %w", err)
+			return nil, err
 		}
-		s := base64.RawURLEncoding.EncodeToString(localState)
-		state = &s
 	}
-
 	idxContext.state = *state
 
 	_, err = h.Write([]byte(idxContext.GetCodeVerifier()))
@@ -183,7 +197,7 @@ func (c *Client) Interact(ctx context.Context, state *string) (*IdxContext, erro
 	return idxContext, nil
 }
 
-func (c *Client) Introspect(ctx context.Context, idxContext *IdxContext) (*Response, error) {
+func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response, error) {
 	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse issuer: %w", err)
@@ -222,30 +236,4 @@ func (c *Client) Introspect(ctx context.Context, idxContext *IdxContext) (*Respo
 		return nil, err
 	}
 	return &idxResponse, nil
-}
-
-func printcURL(req *http.Request) error {
-	var (
-		command string
-		b       []byte
-		err     error
-	)
-	if req.URL != nil {
-		command = fmt.Sprintf("curl -X %s '%s'", req.Method, req.URL.String())
-	}
-	for k, v := range req.Header {
-		command += fmt.Sprintf(" -H '%s: %s'", k, strings.Join(v, ", "))
-	}
-	if req.Body != nil {
-		b, err = ioutil.ReadAll(req.Body)
-		if err != nil {
-			return err
-		}
-		command += fmt.Sprintf(" -d %q", string(b))
-	}
-	fmt.Fprintf(os.Stderr, "cURL Command: %s\n", command)
-	// reset body
-	body := bytes.NewBuffer(b)
-	req.Body = ioutil.NopCloser(body)
-	return nil
 }

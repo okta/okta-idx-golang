@@ -243,7 +243,7 @@ func TestClient_Introspect(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		resp, err := client.Introspect(context.TODO(), &IdxContext{interactionHandle: &InteractionHandle{"abcd"}})
+		resp, err := client.Introspect(context.TODO(), &Context{interactionHandle: &InteractionHandle{"abcd"}})
 		assert.NoError(t, err)
 		assert.Equal(t, 1, len(resp.Remediation.RemediationOptions))
 		assert.Equal(t, 4, len(resp.Remediation.RemediationOptions[0].FormValues))
@@ -268,7 +268,7 @@ func TestClient_Introspect(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Introspect(context.TODO(), &IdxContext{interactionHandle: &InteractionHandle{"abcd"}})
+		_, err := client.Introspect(context.TODO(), &Context{interactionHandle: &InteractionHandle{"abcd"}})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "http call has failed")
 	})
@@ -282,7 +282,7 @@ func TestClient_Introspect(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Introspect(context.TODO(), &IdxContext{interactionHandle: &InteractionHandle{"abcd"}})
+		_, err := client.Introspect(context.TODO(), &Context{interactionHandle: &InteractionHandle{"abcd"}})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to unmarshal response body")
 	})
@@ -310,7 +310,7 @@ func TestClient_Introspect(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Introspect(context.TODO(), &IdxContext{interactionHandle: &InteractionHandle{"abcd"}})
+		_, err := client.Introspect(context.TODO(), &Context{interactionHandle: &InteractionHandle{"abcd"}})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), `the API returned an error: The session has expired.`)
 	})
