@@ -55,9 +55,10 @@ if err != nil {
 }
 ```
 
-### Get Interation Handle
+### Get IdxContext
+The IdxContext is where we store the interactionHandle, state, and codeVerifier for your application for you.
 ```go
-interactionHandle, err := IDXClient.Interact(context.TODO())
+idxContext, err := IDXClient.Interact(context.TODO(), nil)
 if err != nil {
     fmt.Errorf("retriving an interaction handle failed", err)
 }
@@ -89,12 +90,12 @@ if err != nil {
     panic(err)
 }
 
-interactHandle, err := client.Interact(context.TODO())
+idxContext, err := client.Interact(context.TODO(), nil)
 if err != nil {
     panic(err)
 }
 
-response, err = client.Introspect(context.TODO(), interactHandle)
+response, err = client.Introspect(context.TODO(), idxContext)
 if err != nil {
     panic(err)
 }
@@ -137,17 +138,17 @@ for !response.LoginSuccess() {
 
 // These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
 exchangeForm := []byte(`{
-    "client_secret": "` + client.config.Okta.IDX.ClientSecret + `", // This should be available off the client config this way
-    "code_verifier": "` + string(client.GetCodeVerifier()) + `" // We generate your code_verfier for you and store it in the client struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+    "client_secret": "` + client.GetClientSecret() + `",
+    "code_verifier": "` + idxContext.GetCodeVerifier() + `" // We generate your code_verfier for you and store it in the IdxContext struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
 }`)
 tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 if err != nil {
     panic(err)
 }
 
-fmt.Printf("%+v\n", tokens)
-fmt.Printf("%+s\n", tokens.AccessToken)
-fmt.Printf("%+s\n", tokens.IDToken)
+fmt.Printf("Tokens: %+v\n", tokens)
+fmt.Printf("Access Token: %+s\n", tokens.AccessToken)
+fmt.Printf("ID Token: %+s\n", tokens.IDToken)
 ```
 
 #### Enroll + Login using password + email authenticator
@@ -166,12 +167,12 @@ fmt.Printf("%+s\n", tokens.IDToken)
 		panic(err)
 	}
 
-	interactHandle, err := client.Interact(context.TODO())
+	idxContext, err := client.Interact(context.TODO(), nil)
 	if err != nil {
 		panic(err)
 	}
 
-	response, err = client.Introspect(context.TODO(), interactHandle)
+	response, err = client.Introspect(context.TODO(), idxContext)
 	if err != nil {
 		panic(err)
 	}
@@ -284,9 +285,9 @@ fmt.Printf("%+s\n", tokens.IDToken)
 		fmt.Println("Successful login!")
 		// These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
 		exchangeForm := []byte(`{
-            "client_secret": "` + client.config.Okta.IDX.ClientSecret + `", // This should be available off the client config this way
-            "code_verifier": "` + string(client.GetCodeVerifier()) + `" // We generate your code_verfier for you and store it in the client struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
-        }`)
+			"client_secret": "` + client.GetClientSecret() + `",
+			"code_verifier": "` + idxContext.GetCodeVerifier() + `" // We generate your code_verfier for you and store it in the IdxContext struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+		}`)
 		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 		if err != nil {
 		    panic(err)
@@ -541,9 +542,9 @@ fmt.Printf("%+s\n", tokens.IDToken)
 		fmt.Println("Successful login!")
         // get the token
 		exchangeForm := []byte(`{
-		"client_secret": "` + client.GetClientSecret() + `",
-		"code_verifier": "` + string(client.GetCodeVerifier()[:]) + `"
-	}`)
+			"client_secret": "` + client.GetClientSecret() + `",
+			"code_verifier": "` + idxContext.GetCodeVerifier() + `" // We generate your code_verfier for you and store it in the IdxContext struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+		}`)
 		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 		if err != nil {
 		    panic(err)
@@ -576,12 +577,12 @@ if err != nil {
     panic(err)
 }
 
-interactHandle, err := client.Interact(context.TODO())
+idxContext, err := client.Interact(context.TODO(), nil)
 if err != nil {
     panic(err)
 }
 
-response, err = client.Introspect(context.TODO(), interactHandle)
+response, err = client.Introspect(context.TODO(), idxContext)
 if err != nil {
     panic(err)
 }
@@ -646,12 +647,12 @@ if err != nil {
 		panic(err)
 	}
 
-	interactHandle, err := client.Interact(context.TODO())
+	idxContext, err := client.Interact(context.TODO(), nil)
 	if err != nil {
 		panic(err)
 	}
 
-	response, err = client.Introspect(context.TODO(), interactHandle)
+	response, err = client.Introspect(context.TODO(), idxContext)
 	if err != nil {
 		panic(err)
 	}
