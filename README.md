@@ -138,8 +138,8 @@ for !response.LoginSuccess() {
 
 // These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
 exchangeForm := []byte(`{
-    "client_secret": "` + client.GetClientSecret() + `",
-    "code_verifier": "` + idxContext.GetCodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+    "client_secret": "` + client.ClientSecret() + `",
+    "code_verifier": "` + idxContext.CodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `CodeVerifier()` which will return a string
 }`)
 tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 if err != nil {
@@ -285,8 +285,8 @@ fmt.Printf("ID Token: %+s\n", tokens.IDToken)
 		fmt.Println("Successful login!")
 		// These properties are based on the `successWithInteractionCode` object, and the properties that you are required to fill out
 		exchangeForm := []byte(`{
-			"client_secret": "` + client.GetClientSecret() + `",
-			"code_verifier": "` + idxContext.GetCodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+			"client_secret": "` + client.ClientSecret() + `",
+			"code_verifier": "` + idxContext.CodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `CodeVerifier()` which will return a string
 		}`)
 		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 		if err != nil {
@@ -542,8 +542,8 @@ fmt.Printf("ID Token: %+s\n", tokens.IDToken)
 		fmt.Println("Successful login!")
         // get the token
 		exchangeForm := []byte(`{
-			"client_secret": "` + client.GetClientSecret() + `",
-			"code_verifier": "` + idxContext.GetCodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `GetCodeVerifier()` which will return a string
+			"client_secret": "` + client.ClientSecret() + `",
+			"code_verifier": "` + idxContext.CodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `CodeVerifier()` which will return a string
 		}`)
 		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
 		if err != nil {

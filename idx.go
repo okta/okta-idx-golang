@@ -77,19 +77,19 @@ func (c *Client) WithHTTPClient(client *http.Client) *Client {
 	return c
 }
 
-func (c *Client) GetClientSecret() string {
+func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
 }
 
-func (ictx *Context) GetCodeVerifier() string {
+func (ictx *Context) CodeVerifier() string {
 	return ictx.codeVerifier
 }
 
-func (ictx *Context) GetInteractionHandle() *InteractionHandle {
+func (ictx *Context) InteractionHandle() *InteractionHandle {
 	return ictx.interactionHandle
 }
 
-func (ictx *Context) GetState() string {
+func (ictx *Context) State() string {
 	return ictx.state
 }
 
@@ -155,7 +155,7 @@ func (c *Client) Interact(ctx context.Context, state *string) (*Context, error) 
 	}
 	idxContext.state = *state
 
-	_, err = h.Write([]byte(idxContext.GetCodeVerifier()))
+	_, err = h.Write([]byte(idxContext.CodeVerifier()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
@@ -168,7 +168,7 @@ func (c *Client) Interact(ctx context.Context, state *string) (*Context, error) 
 	data.Set("code_challenge", codeChallenge)
 	data.Set("code_challenge_method", "S256")
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", idxContext.GetState())
+	data.Set("state", idxContext.State())
 
 	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
@@ -214,7 +214,7 @@ func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response
 		ictx = idxContext
 	}
 
-	body, err := json.Marshal(ictx.GetInteractionHandle())
+	body, err := json.Marshal(ictx.InteractionHandle())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
 	}
