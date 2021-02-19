@@ -36,15 +36,19 @@ import (
 /**
  * Current version of the package. This is used mainly for our User-Agent
  */
-const packageVersion = "0.1.0-beta.1"
+const packageVersion = "0.1.0-beta.2"
 
 var idx *Client
 
 type Client struct {
-	config       *config
-	httpClient   *http.Client
-	codeVerifier string
-	state        string
+	config     *config
+	httpClient *http.Client
+}
+
+type Context struct {
+	codeVerifier      string
+	interactionHandle *InteractionHandle
+	state             string
 }
 
 func NewClient(conf ...ConfigSetter) (*Client, error) {
@@ -64,22 +68,6 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	oie.config = cfg
 	oie.httpClient = &http.Client{Timeout: time.Second * 60}
 
-	codeVerifier := make([]byte, 86)
-	_, err = crand.Read(codeVerifier)
-	if err != nil {
-		return nil, fmt.Errorf("error creating code_verifier: %w", err)
-	}
-
-	oie.codeVerifier = base64.RawURLEncoding.EncodeToString(codeVerifier)
-
-	state := make([]byte, 16)
-	_, err = crand.Read(state)
-	if err != nil {
-		return nil, fmt.Errorf("error creating state: %w", err)
-	}
-
-	oie.state = base64.RawURLEncoding.EncodeToString(state)
-
 	idx = oie
 	return oie, nil
 }
@@ -89,16 +77,20 @@ func (c *Client) WithHTTPClient(client *http.Client) *Client {
 	return c
 }
 
-func (c *Client) GetCodeVerifier() string {
-	return c.codeVerifier
-}
-
-func (c *Client) GetState() string {
-	return c.state
-}
-
-func (c *Client) GetClientSecret() string {
+func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
+}
+
+func (ictx *Context) CodeVerifier() string {
+	return ictx.codeVerifier
+}
+
+func (ictx *Context) InteractionHandle() *InteractionHandle {
+	return ictx.interactionHandle
+}
+
+func (ictx *Context) State() string {
+	return ictx.state
 }
 
 func unmarshalResponse(r *http.Response, i interface{}) error {
@@ -122,9 +114,48 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	return nil
 }
 
-func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
+func (c *Client) createCodeVerifier() (*string, error) {
+	codeVerifier := make([]byte, 86)
+	_, err := crand.Read(codeVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("error creating code_verifier: %w", err)
+	}
+
+	s := base64.RawURLEncoding.EncodeToString(codeVerifier)
+	return &s, nil
+}
+
+func (c *Client) createState() (*string, error) {
+	localState := make([]byte, 16)
+	_, err := crand.Read(localState)
+	if err != nil {
+		return nil, fmt.Errorf("error creating state: %w", err)
+	}
+	s := base64.RawURLEncoding.EncodeToString(localState)
+	return &s, nil
+}
+
+func (c *Client) Interact(ctx context.Context, state *string) (*Context, error) {
 	h := sha256.New()
-	_, err := h.Write([]byte(c.GetCodeVerifier()))
+	var err error
+
+	idxContext := &Context{}
+
+	codeVerifier, err := c.createCodeVerifier()
+	if err != nil {
+		return nil, err
+	}
+	idxContext.codeVerifier = *codeVerifier
+
+	if state == nil {
+		state, err = c.createState()
+		if err != nil {
+			return nil, err
+		}
+	}
+	idxContext.state = *state
+
+	_, err = h.Write([]byte(idxContext.CodeVerifier()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
@@ -137,7 +168,7 @@ func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
 	data.Set("code_challenge", codeChallenge)
 	data.Set("code_challenge_method", "S256")
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", c.GetState())
+	data.Set("state", idxContext.State())
 
 	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
@@ -158,29 +189,32 @@ func (c *Client) Interact(ctx context.Context) (*InteractionHandle, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &InteractionHandle{
+
+	idxContext.interactionHandle = &InteractionHandle{
 		InteractionHandle: interactionHandle.InteractionHandle,
-	}, nil
+	}
+
+	return idxContext, nil
 }
 
-func (c *Client) Introspect(ctx context.Context, interactionHandle *InteractionHandle) (*Response, error) {
+func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response, error) {
 	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse issuer: %w", err)
 	}
 
-	ih := interactionHandle
+	ictx := idxContext
 
-	if ih == nil {
-		interactionHandle, err = c.Interact(ctx)
+	if ictx == nil {
+		idxContext, err = c.Interact(ctx, nil)
 		if err != nil {
 			return nil, fmt.Errorf("could not retrieve an interaction handle for you: %w", err)
 		}
 
-		ih = interactionHandle
+		ictx = idxContext
 	}
 
-	body, err := json.Marshal(ih)
+	body, err := json.Marshal(ictx.InteractionHandle())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
 	}
