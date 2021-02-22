@@ -581,7 +581,7 @@ In this example a new user is being created. Not here, that the flow might be di
 					  "userProfile": {
 						"lastName": "Nolan",
 						"firstName": "Christopher",
-						"email": "bigbo4ek+138@gmail.com"
+						"email": "nolan.christopher@gmail.com"
 					  }
 					}`)
 			response, err = remediationOption.Proceed(context.TODO(), userProfile)
