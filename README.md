@@ -305,7 +305,7 @@ fmt.Printf("ID Token: %+s\n", tokens.IDToken)
 #### Enroll + Login using password + security question authenticator
 ```go
     // here goes the part same as for 'Enroll + Login using password + email authenticator'
-    // up to  'choosing email as an authenticator'
+    // up to 'choosing email as an authenticator'
 
     // choosing security question as an authenticator
     for _, remediationOption := range response.Remediation.RemediationOptions {
@@ -552,6 +552,199 @@ fmt.Printf("ID Token: %+s\n", tokens.IDToken)
 		fmt.Printf("%+v\n", tokens)
 		fmt.Printf("%+s\n", tokens.AccessToken)
         fmt.Printf("%+s\n", tokens.IDToken)
+	}
+```
+
+#### Enroll new user
+
+In this example a new user is being created. Not here, that the flow might be different in yor organization.
+
+```go
+    // here goes the part same as for 'Enroll + Login using password + email authenticator'
+    // up to choosing the first remediation option
+    
+	// First remediation will be 'select-enroll-profile' to get the form for a new user creation
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "select-enroll-profile" {
+			response, err = remediationOption.Proceed(context.TODO(), nil)
+			if err != nil {
+				panic(err)
+			}
+			break
+		}
+	}
+
+	// Next will be setting values for a new profile
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-profile" {
+			userProfile := []byte(`{
+					  "userProfile": {
+						"lastName": "Nolan",
+						"firstName": "Christopher",
+						"email": "bigbo4ek+138@gmail.com"
+					  }
+					}`)
+			response, err = remediationOption.Proceed(context.TODO(), userProfile)
+			if err != nil {
+				panic(err)
+			}
+			break
+		}
+	}
+
+	// Picking Email as the first enrollment authenticator
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string
+		for _, options := range remediationOption.FormValues[0].Options {
+			if options.Label == "Email" {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				break
+			}
+		}
+		if id == "" {
+			continue
+		}
+		authenticator := []byte(`{
+			"authenticator": {
+			"id": "` + id + `"
+			}
+		}`)
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+		break
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	// Pick `enroll-authenticator` to enter the code from your email
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-authenticator" {
+			fmt.Print("Enter the code from email: ")
+			text, _ := reader.ReadString('\n')
+			credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"passcode": "%s"
+				}
+			}`, strings.TrimSpace(text)))
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+			break
+		}
+	}
+
+	// Next select password setup
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string
+		for _, options := range remediationOption.FormValues[0].Options {
+			if options.Label == "Password" {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				break
+			}
+		}
+		if id == "" {
+			continue
+		}
+		authenticator := []byte(`{
+			"authenticator": {
+			"id": "` + id + `"
+			}
+		}`)
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+		break
+	}
+
+	// Pick `enroll-authenticator` to setup your new password. Use complicated one :)
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-authenticator" {
+			fmt.Print("Enter your new password: ")
+			text, _ := reader.ReadString('\n')
+			credentials := []byte(`{
+				"credentials": {
+					"passcode": "` + strings.TrimSpace(text) + `"
+				}
+			}`)
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// Next (in this case) we need to answer security question
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		var id string
+		for _, options := range remediationOption.FormValues[0].Options {
+			if options.Label == "Security Question" {
+				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
+				break
+			}
+		}
+		if id == "" {
+			continue
+		}
+		authenticator := []byte(`{
+			"authenticator": {
+			"id": "` + id + `"
+			}
+		}`)
+		response, err = remediationOption.Proceed(context.TODO(), authenticator)
+		if err != nil {
+			panic(err)
+		}
+		break
+	}
+
+	// Now we need to answer the security question. In this case the first one was choosen - `disliked_food`
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "enroll-authenticator" {
+			fmt.Print("Enter the food you dislike: ")
+			text, _ := reader.ReadString('\n')
+			credentials := []byte(`{
+				"credentials": {
+					"questionKey": "disliked_food",
+					"answer": "` + strings.TrimSpace(text) + `"
+				}
+			}`)
+			response, err = remediationOption.Proceed(context.TODO(), credentials)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	// If there are optional things like in this case 'Phone' or 'Security Key or Biometric Authenticator',
+	// the can be just skipped
+	for _, remediationOption := range response.Remediation.RemediationOptions {
+		if remediationOption.Name == "skip" {
+			response, err = remediationOption.Proceed(context.TODO(), nil)
+			if err != nil {
+				panic(err)
+			}
+			break
+		}
+	}
+
+	// You should be set up!
+	if response.LoginSuccess() {
+		fmt.Println("Successful login!")
+		exchangeForm := []byte(`{
+		"client_secret": "` + client.ClientSecret() + `",
+		"code_verifier": "` + string(idxCtx.CodeVerifier()[:]) + `"
+	}`)
+		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("%+v\n", tokens)
+		fmt.Printf("%+s\n", tokens.AccessToken)
+		fmt.Printf("%+s\n", tokens.IDToken)
 	}
 ```
 
