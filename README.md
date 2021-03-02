@@ -441,6 +441,11 @@ fmt.Printf("ID Token: %+s\n", tokens.IDToken)
 
 ```
 
+#### Login using authenticator required for an app sign-on policy
+
+The flow for this scenario is exactly the same as previous ones. The only difference, is that each app can have its 
+own set of sign-on policies and thus affect the remediation options.
+
 #### Password reset flow
 
 ```go
