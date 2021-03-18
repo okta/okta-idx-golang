@@ -48,6 +48,7 @@ type Token struct {
 type Option struct {
 	Rel        []string    `json:"rel"`
 	Name       string      `json:"name"`
+	Type       string      `json:"type"`
 	Href       string      `json:"href"`
 	Method     string      `json:"method"`
 	FormValues []FormValue `json:"value"`
