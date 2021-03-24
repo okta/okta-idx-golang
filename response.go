@@ -46,11 +46,13 @@ type Message struct {
 }
 
 type MessageValue struct {
-	Message string `json:"message"`
-	I18N    struct {
-		Key string `json:"key"`
-	} `json:"i18n"`
-	Class string `json:"class"`
+	Message string           `json:"message"`
+	I18N    MessageValueI18N `json:"i18n,omitempty"`
+	Class   string           `json:"class"`
+}
+
+type MessageValueI18N struct {
+	Key string `json:"key"`
 }
 
 func (r *Response) UnmarshalJSON(data []byte) error {
@@ -93,6 +95,17 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 		return nil, err
 	}
 	return &idxResponse, nil
+}
+
+// get a remediation option by its name
+func (r *Response) getRemediationOption(optionName string) (*RemediationOption, error) {
+	for _, option := range r.Remediation.RemediationOptions {
+		if option.Name == optionName {
+			return &option, nil
+		}
+	}
+
+	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'\n", optionName)
 }
 
 // Returns the raw JSON body of the Okta Identity Engine response.

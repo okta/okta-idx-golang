@@ -135,7 +135,7 @@ func (c *Client) createState() (*string, error) {
 	return &s, nil
 }
 
-func (c *Client) Interact(ctx context.Context, state *string) (*Context, error) {
+func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	h := sha256.New()
 	var err error
 
@@ -147,12 +147,11 @@ func (c *Client) Interact(ctx context.Context, state *string) (*Context, error) 
 	}
 	idxContext.codeVerifier = *codeVerifier
 
-	if state == nil {
-		state, err = c.createState()
-		if err != nil {
-			return nil, err
-		}
+	state, err := c.createState()
+	if err != nil {
+		return nil, err
 	}
+
 	idxContext.state = *state
 
 	_, err = h.Write([]byte(idxContext.CodeVerifier()))
@@ -206,7 +205,7 @@ func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response
 	ictx := idxContext
 
 	if ictx == nil {
-		idxContext, err = c.Interact(ctx, nil)
+		idxContext, err = c.Interact(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not retrieve an interaction handle for you: %w", err)
 		}
@@ -236,4 +235,126 @@ func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response
 		return nil, err
 	}
 	return &idxResponse, nil
+}
+
+// Auth Status Constants
+const (
+	AuthStatusSuccess         = "SUCCESS"
+	AuthStatusPasswordExpired = "PASSWORD_EXPIRED"
+	AuthStatusUnhandled       = "UNHANDLED_RESPONSE"
+)
+
+type AuthenticationOptions struct {
+	Username string
+	Password string
+}
+
+type ChangePasswordOptions struct {
+	NewPassword string
+}
+
+type AuthenticationResponse struct {
+	idxContext           *Context
+	token                *Token
+	authenticationStatus string
+}
+
+func (c *Client) Authenticate(ctx context.Context, options AuthenticationOptions) (*AuthenticationResponse, error) {
+	var authenticationResponse AuthenticationResponse
+
+	idxContext, err := c.Interact(ctx)
+	if err != nil {
+		return nil, err
+	}
+	authenticationResponse.idxContext = idxContext
+
+	response, err := c.Introspect(ctx, idxContext)
+	if err != nil {
+		return nil, err
+	}
+
+	remediationOption, err := response.getRemediationOption("identify")
+	if err != nil {
+		return nil, err
+	}
+
+	identityFirst, err := remediationOption.IsIdentityFirst()
+	if err != nil {
+		return nil, err
+	}
+
+	if identityFirst {
+		response, err := c.handleIdentityFirst(ctx, options, remediationOption)
+		if err != nil {
+			return nil, err
+		}
+
+		return c.handleRemediation(ctx, idxContext, response)
+	}
+
+	return nil, nil
+}
+
+func (c *Client) handleRemediation(ctx context.Context, idxContext *Context, response *Response) (*AuthenticationResponse, error) {
+	authenticationResponse := &AuthenticationResponse{
+		idxContext: idxContext,
+	}
+
+	if response.LoginSuccess() {
+		exchangeForm := []byte(`{
+			"client_secret": "` + c.ClientSecret() + `",
+			"code_verifier": "` + idxContext.CodeVerifier() + `"
+		}`)
+
+		tokens, err := response.SuccessResponse.ExchangeCode(ctx, exchangeForm)
+		if err != nil {
+			return nil, err
+		}
+		authenticationResponse.token = tokens
+		authenticationResponse.authenticationStatus = AuthStatusSuccess
+
+		return authenticationResponse, nil
+	}
+
+	return authenticationResponse, nil
+}
+
+func (c *Client) ChangePassword(options ChangePasswordOptions) (*AuthenticationResponse, error) {
+
+	return nil, nil
+}
+
+func (c *Client) handleIdentityFirst(ctx context.Context, options AuthenticationOptions, remediationOption *RemediationOption) (*Response, error) {
+	identify := []byte(`{
+		"identifier": "` + options.Username + `"
+	}`)
+
+	response, err := remediationOption.Proceed(context.TODO(), identify)
+	if err != nil {
+		return nil, err
+	}
+
+	remediationOption, err = response.getRemediationOption("challenge-authenticator")
+	if err != nil {
+		return nil, err
+	}
+
+	credentials := []byte(`{
+		"credentials": {
+			"passcode": "` + options.Password + `"
+		}
+	}`)
+
+	return remediationOption.Proceed(context.TODO(), credentials)
+}
+
+func (c *Client) handleSingleStepIdentity(ctx context.Context, options AuthenticationOptions, remediationOption *RemediationOption) (*Response, error) {
+	identify := []byte(`{
+		"identifier": "` + options.Username + `",
+		"credentials": {
+			"passcode": "` + options.Password + `"
+		}
+	}`)
+
+	return remediationOption.Proceed(context.TODO(), identify)
 }

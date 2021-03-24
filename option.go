@@ -172,6 +172,27 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	return &idxResponse, nil
 }
 
+// Determine if the remediation form has an item based on form value name
+func (o *RemediationOption) formHas(val string) bool {
+	for _, formval := range o.FormValues {
+		if formval.Name == val {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Help determine if the remediation option is identifier first
+// This method should only be called with the identify remediation
+func (remediation *RemediationOption) IsIdentityFirst() (bool, error) {
+	if remediation.Name != "identify" {
+		return false, fmt.Errorf("expected `identify` remediation option, got `%s`", remediation.Name)
+	}
+
+	return !remediation.formHas("credentials"), nil
+}
+
 //nolint
 func form(input, output map[string]interface{}, f ...FormValue) (map[string]interface{}, error) {
 	if output == nil {

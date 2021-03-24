@@ -76,12 +76,10 @@ func TestConfiguration(t *testing.T) {
 
 func TestClient_Interact(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
-		state := "state"
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := r.ParseForm()
 			assert.NoError(t, err)
 			assert.Equal(t, "foo", r.PostForm.Get("client_id"))
-			assert.Equal(t, state, r.PostForm.Get("state"))
 			assert.Equal(t, []string{"openid profile"}, r.PostForm["scope"])
 			_, err = w.Write([]byte(`{"interaction_handle":"abcd"}`))
 			assert.NoError(t, err)
@@ -91,14 +89,14 @@ func TestClient_Interact(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Interact(context.TODO(), &state)
+		_, err := client.Interact(context.TODO())
 		assert.NoError(t, err)
 	})
 	t.Run("invalid_config_url", func(t *testing.T) {
 		client := Client{
 			config: testConfig("%$^@&@&^$"),
 		}
-		_, err := client.Interact(context.TODO(), nil)
+		_, err := client.Interact(context.TODO())
 		assert.EqualError(t, err, `failed to create interact http request: parse "%$^@&@&^$/v1/interact": invalid URL escape "%$^"`)
 	})
 	t.Run("http_client_error", func(t *testing.T) {
@@ -108,7 +106,7 @@ func TestClient_Interact(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Interact(context.TODO(), nil)
+		_, err := client.Interact(context.TODO())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "http call has failed")
 	})
@@ -122,7 +120,7 @@ func TestClient_Interact(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Interact(context.TODO(), nil)
+		_, err := client.Interact(context.TODO())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to unmarshal response body")
 	})
@@ -153,7 +151,7 @@ func TestClient_Interact(t *testing.T) {
 			config:     testConfig(ts.URL),
 			httpClient: ts.Client(),
 		}
-		_, err := client.Interact(context.TODO(), nil)
+		_, err := client.Interact(context.TODO())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), `the API returned an error: 'stateHandle' is required.`)
 	})

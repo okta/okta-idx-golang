@@ -45,7 +45,7 @@ func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 }
 
 func (e *ErrorResponse) Error() string {
-	f := "the API returned an error: %s"
+	f := "%s"
 	switch {
 	case e == nil:
 		return ""
