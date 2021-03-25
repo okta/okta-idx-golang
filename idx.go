@@ -250,6 +250,7 @@ type AuthenticationOptions struct {
 }
 
 type ChangePasswordOptions struct {
+	OldPassword string
 	NewPassword string
 }
 
@@ -257,6 +258,18 @@ type AuthenticationResponse struct {
 	idxContext           *Context
 	token                *Token
 	authenticationStatus string
+}
+
+func (ar *AuthenticationResponse) AuthenticationStatus() string {
+	return ar.authenticationStatus
+}
+
+func (ar *AuthenticationResponse) Token() *Token {
+	return ar.token
+}
+
+func (ar *AuthenticationResponse) IdxContext() *Context {
+	return ar.idxContext
 }
 
 func (c *Client) Authenticate(ctx context.Context, options AuthenticationOptions) (*AuthenticationResponse, error) {
@@ -298,6 +311,7 @@ func (c *Client) Authenticate(ctx context.Context, options AuthenticationOptions
 func (c *Client) handleRemediation(ctx context.Context, idxContext *Context, response *Response) (*AuthenticationResponse, error) {
 	authenticationResponse := &AuthenticationResponse{
 		idxContext: idxContext,
+		authenticationStatus: AuthStatusUnhandled,
 	}
 
 	if response.LoginSuccess() {
@@ -316,12 +330,39 @@ func (c *Client) handleRemediation(ctx context.Context, idxContext *Context, res
 		return authenticationResponse, nil
 	}
 
+	_, err := response.getRemediationOption("reenroll-authenticator")
+	if err == nil {
+		// We have a reenroll-authenticator remediation option
+		authenticationResponse.authenticationStatus = AuthStatusPasswordExpired
+		return authenticationResponse, nil
+	}
+
+
 	return authenticationResponse, nil
 }
 
-func (c *Client) ChangePassword(options ChangePasswordOptions) (*AuthenticationResponse, error) {
+func (c *Client) ChangePassword(ctx context.Context, idxContext *Context, options ChangePasswordOptions) (*AuthenticationResponse, error) {
+	creds := []byte(`{
+		"credentials": {
+			"passcode": "` + options.NewPassword + `"
+		}
+	}`)
+	response, err := c.Introspect(ctx, idxContext)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	remediationOption, err := response.getRemediationOption("reenroll-authenticator")
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := remediationOption.Proceed(ctx, creds)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.handleRemediation(ctx, idxContext, resp)
 }
 
 func (c *Client) handleIdentityFirst(ctx context.Context, options AuthenticationOptions, remediationOption *RemediationOption) (*Response, error) {
@@ -329,7 +370,7 @@ func (c *Client) handleIdentityFirst(ctx context.Context, options Authentication
 		"identifier": "` + options.Username + `"
 	}`)
 
-	response, err := remediationOption.Proceed(context.TODO(), identify)
+	response, err := remediationOption.Proceed(ctx, identify)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +386,7 @@ func (c *Client) handleIdentityFirst(ctx context.Context, options Authentication
 		}
 	}`)
 
-	return remediationOption.Proceed(context.TODO(), credentials)
+	return remediationOption.Proceed(ctx, credentials)
 }
 
 func (c *Client) handleSingleStepIdentity(ctx context.Context, options AuthenticationOptions, remediationOption *RemediationOption) (*Response, error) {
