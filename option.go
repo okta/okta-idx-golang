@@ -141,9 +141,11 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 		return nil, errors.New("valid proceed is missing from idx response")
 	}
 	input := make(map[string]interface{})
-	err := json.Unmarshal(data, &input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to input data: %w", err)
+	if len(data) != 0 {
+		err := json.Unmarshal(data, &input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal input data: %w", err)
+		}
 	}
 	output, err := form(input, nil, o.FormValues...)
 	if err != nil {
@@ -183,14 +185,22 @@ func (o *RemediationOption) formHas(val string) bool {
 	return false
 }
 
+func (o *RemediationOption) value(name string) (*FormValue, error) {
+	for _, v := range o.FormValues {
+		if v.Name == name {
+			return &v, nil
+		}
+	}
+	return nil, fmt.Errorf("could not locate a form value with the name '%s'\n", name)
+}
+
 // Help determine if the remediation option is identifier first
 // This method should only be called with the identify remediation
-func (remediation *RemediationOption) IsIdentityFirst() (bool, error) {
-	if remediation.Name != "identify" {
-		return false, fmt.Errorf("expected `identify` remediation option, got `%s`", remediation.Name)
+func (o *RemediationOption) IsIdentityFirst() (bool, error) {
+	if o.Name != "identify" {
+		return false, fmt.Errorf("expected `identify` remediation option, got `%s`", o.Name)
 	}
-
-	return !remediation.formHas("credentials"), nil
+	return !o.formHas("credentials"), nil
 }
 
 //nolint

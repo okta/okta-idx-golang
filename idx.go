@@ -43,6 +43,7 @@ var idx *Client
 type Client struct {
 	config     *config
 	httpClient *http.Client
+	idxContext *Context
 }
 
 type Context struct {
@@ -79,6 +80,13 @@ func (c *Client) WithHTTPClient(client *http.Client) *Client {
 
 func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
+}
+
+func (c *Client) IdXContext() *Context {
+	if c != nil {
+		return c.idxContext
+	}
+	return nil
 }
 
 func (ictx *Context) CodeVerifier() string {
@@ -201,19 +209,15 @@ func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response
 	if err != nil {
 		return nil, fmt.Errorf("could not parse issuer: %w", err)
 	}
-
-	ictx := idxContext
-
-	if ictx == nil {
-		idxContext, err = c.Interact(ctx)
+	if idxContext == nil {
+		c.idxContext, err = c.Interact(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not retrieve an interaction handle for you: %w", err)
 		}
-
-		ictx = idxContext
+	} else {
+		c.idxContext = idxContext
 	}
-
-	body, err := json.Marshal(ictx.InteractionHandle())
+	body, err := json.Marshal(c.idxContext.InteractionHandle())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
 	}
@@ -286,7 +290,7 @@ func (c *Client) Authenticate(ctx context.Context, options AuthenticationOptions
 		return nil, err
 	}
 
-	remediationOption, err := response.getRemediationOption("identify")
+	remediationOption, err := response.remediationOption("identify")
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +314,7 @@ func (c *Client) Authenticate(ctx context.Context, options AuthenticationOptions
 
 func (c *Client) handleRemediation(ctx context.Context, idxContext *Context, response *Response) (*AuthenticationResponse, error) {
 	authenticationResponse := &AuthenticationResponse{
-		idxContext: idxContext,
+		idxContext:           idxContext,
 		authenticationStatus: AuthStatusUnhandled,
 	}
 
@@ -330,13 +334,12 @@ func (c *Client) handleRemediation(ctx context.Context, idxContext *Context, res
 		return authenticationResponse, nil
 	}
 
-	_, err := response.getRemediationOption("reenroll-authenticator")
+	_, err := response.remediationOption("reenroll-authenticator")
 	if err == nil {
 		// We have a reenroll-authenticator remediation option
 		authenticationResponse.authenticationStatus = AuthStatusPasswordExpired
 		return authenticationResponse, nil
 	}
-
 
 	return authenticationResponse, nil
 }
@@ -352,7 +355,7 @@ func (c *Client) ChangePassword(ctx context.Context, idxContext *Context, option
 		return nil, err
 	}
 
-	remediationOption, err := response.getRemediationOption("reenroll-authenticator")
+	remediationOption, err := response.remediationOption("reenroll-authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +378,7 @@ func (c *Client) handleIdentityFirst(ctx context.Context, options Authentication
 		return nil, err
 	}
 
-	remediationOption, err = response.getRemediationOption("challenge-authenticator")
+	remediationOption, err = response.remediationOption("challenge-authenticator")
 	if err != nil {
 		return nil, err
 	}

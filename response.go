@@ -98,13 +98,12 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 }
 
 // get a remediation option by its name
-func (r *Response) getRemediationOption(optionName string) (*RemediationOption, error) {
+func (r *Response) remediationOption(optionName string) (*RemediationOption, error) {
 	for _, option := range r.Remediation.RemediationOptions {
 		if option.Name == optionName {
 			return &option, nil
 		}
 	}
-
 	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'\n", optionName)
 }
 
