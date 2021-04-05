@@ -133,10 +133,7 @@ func (o *RemediationOption) Form() []FormValue {
 	return o.FormValues
 }
 
-// Proceed allows you to continue the remediation with this option.
-// It will return error when provided data does not contain all required values to proceed call.
-// Data should be in JSON format.
-func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
+func (o *Option) proceed(ctx context.Context, data []byte) (*Response, error) {
 	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid proceed is missing from idx response")
 	}
@@ -174,24 +171,31 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	return &idxResponse, nil
 }
 
+// Proceed allows you to continue the remediation with this option.
+// It will return error when provided data does not contain all required values to proceed call.
+// Data should be in JSON format.
+func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
+	op := Option(*o)
+	return op.proceed(ctx, data)
+}
+
 // Determine if the remediation form has an item based on form value name
 func (o *RemediationOption) formHas(val string) bool {
-	for _, formval := range o.FormValues {
-		if formval.Name == val {
+	for i := range o.FormValues {
+		if o.FormValues[i].Name == val {
 			return true
 		}
 	}
-
 	return false
 }
 
 func (o *RemediationOption) value(name string) (*FormValue, error) {
-	for _, v := range o.FormValues {
-		if v.Name == name {
-			return &v, nil
+	for i := range o.FormValues {
+		if o.FormValues[i].Name == name {
+			return &o.FormValues[i], nil
 		}
 	}
-	return nil, fmt.Errorf("could not locate a form value with the name '%s'\n", name)
+	return nil, fmt.Errorf("could not locate a form value with the name '%s'", name)
 }
 
 // Help determine if the remediation option is identifier first
@@ -379,39 +383,6 @@ func (o *RecoverOption) Form() []FormValue {
 // It will return error when provided data does not contain all required values to proceed call.
 // Data should be in JSON format.
 func (o *RecoverOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
-	if o == nil || len(o.FormValues) == 0 {
-		return nil, errors.New("valid proceed is missing from idx response")
-	}
-	input := make(map[string]interface{})
-	if len(data) != 0 {
-		err := json.Unmarshal(data, &input)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal input data: %w", err)
-		}
-	}
-	output, err := form(input, nil, o.FormValues...)
-	if err != nil {
-		return nil, err
-	}
-	body, err := json.Marshal(&output)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal proceed request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, o.Method, o.Href, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cancel request: %w", err)
-	}
-	req.Header.Set("Accepts", o.Accepts)
-	req.Header.Set("Content-Type", o.Accepts)
-	oktahttp.WithOktaUserAgent(req, packageVersion)
-	resp, err := idx.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %w", err)
-	}
-	var idxResponse Response
-	err = unmarshalResponse(resp, &idxResponse)
-	if err != nil {
-		return nil, err
-	}
-	return &idxResponse, nil
+	op := Option(*o)
+	return op.proceed(ctx, data)
 }

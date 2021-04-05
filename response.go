@@ -104,7 +104,7 @@ func (r *Response) remediationOption(optionName string) (*RemediationOption, err
 			return &option, nil
 		}
 	}
-	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'\n", optionName)
+	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'", optionName)
 }
 
 // Returns the raw JSON body of the Okta Identity Engine response.

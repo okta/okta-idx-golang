@@ -82,7 +82,7 @@ func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
 }
 
-func (c *Client) IdXContext() *Context {
+func (c *Client) IdxContext() *Context {
 	if c != nil {
 		return c.idxContext
 	}
@@ -392,13 +392,13 @@ func (c *Client) handleIdentityFirst(ctx context.Context, options Authentication
 	return remediationOption.Proceed(ctx, credentials)
 }
 
-func (c *Client) handleSingleStepIdentity(ctx context.Context, options AuthenticationOptions, remediationOption *RemediationOption) (*Response, error) {
+// nolint
+func (c *Client) handleSingleStepIdentity(ctx context.Context, ao AuthenticationOptions, ro *RemediationOption) (*Response, error) {
 	identify := []byte(`{
-		"identifier": "` + options.Username + `",
+		"identifier": "` + ao.Username + `",
 		"credentials": {
-			"passcode": "` + options.Password + `"
+			"passcode": "` + ao.Password + `"
 		}
 	}`)
-
-	return remediationOption.Proceed(context.TODO(), identify)
+	return ro.Proceed(ctx, identify)
 }
