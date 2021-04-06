@@ -35,7 +35,7 @@ func (r *Response) EnrollProfile(ctx context.Context, up *UserProfile) (*Respons
 }
 
 func (r *Response) SetPasswordOnEnroll(ctx context.Context, password string) (*Response, error) {
-	ro, authID, err := r.optionWithAuthID("select-authenticator-enroll", "authenticator", "Password")
+	ro, authID, err := r.authenticatorOption("select-authenticator-enroll", "Password")
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (r *Response) Skip(ctx context.Context) (*Response, error) {
 }
 
 func (r *Response) sendPhoneVerificationCode(ctx context.Context, phoneNumber, methodType string) (*PhoneResponse, error) {
-	ro, authID, err := r.optionWithAuthID("select-authenticator-enroll", "authenticator", "Phone")
+	ro, authID, err := r.authenticatorOption("select-authenticator-enroll", "Phone")
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +115,12 @@ func (r *Response) sendPhoneVerificationCode(ctx context.Context, phoneNumber, m
 	return &PhoneResponse{resp: resp}, nil
 }
 
-func (r *Response) optionWithAuthID(optionName, valueName, label string) (*RemediationOption, string, error) {
+func (r *Response) authenticatorOption(optionName, label string) (*RemediationOption, string, error) {
 	ro, err := r.remediationOption(optionName)
 	if err != nil {
 		return nil, "", err
 	}
-	v, err := ro.value(valueName)
+	v, err := ro.value("authenticator")
 	if err != nil {
 		return nil, "", err
 	}

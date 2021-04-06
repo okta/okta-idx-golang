@@ -11,7 +11,7 @@ type EmailResponse struct {
 }
 
 func (r *Response) SendEnrollmentEmailVerificationCode(ctx context.Context) (*EmailResponse, error) {
-	ro, authID, err := r.optionWithAuthID("select-authenticator-enroll", "authenticator", "Email")
+	ro, authID, err := r.authenticatorOption("select-authenticator-enroll", "Email")
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (r *Response) SendEnrollmentEmailVerificationCode(ctx context.Context) (*Em
 }
 
 func (r *Response) SendPasswordResetEmailVerificationCode(ctx context.Context) (*EmailResponse, error) {
-	ro, authID, err := r.optionWithAuthID("select-authenticator-authenticate", "authenticator", "Email")
+	ro, authID, err := r.authenticatorOption("select-authenticator-authenticate", "Email")
 	if err != nil {
 		return nil, err
 	}
