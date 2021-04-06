@@ -256,6 +256,6 @@ func TestRemediationOption_Proceed(t *testing.T) {
 		respNext, err := resp.Remediation.RemediationOptions[0].Proceed(context.TODO(), data)
 		assert.Nil(t, respNext)
 		assert.Error(t, err)
-		assert.EqualError(t, err, "the API returned an error: Password is incorrect")
+		assert.EqualError(t, err, "Password is incorrect")
 	})
 }

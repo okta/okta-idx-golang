@@ -153,7 +153,7 @@ func TestClient_Interact(t *testing.T) {
 		}
 		_, err := client.Interact(context.TODO())
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), `the API returned an error: 'stateHandle' is required.`)
+		assert.Contains(t, err.Error(), `'stateHandle' is required.`)
 	})
 }
 
@@ -310,7 +310,7 @@ func TestClient_Introspect(t *testing.T) {
 		}
 		_, err := client.Introspect(context.TODO(), &Context{interactionHandle: &InteractionHandle{"abcd"}})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), `the API returned an error: The session has expired.`)
+		assert.Contains(t, err.Error(), `The session has expired.`)
 	})
 }
 
