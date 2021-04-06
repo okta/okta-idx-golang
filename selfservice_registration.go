@@ -34,7 +34,7 @@ func (r *Response) EnrollProfile(ctx context.Context, up *UserProfile) (*Respons
 	return ro.Proceed(ctx, b)
 }
 
-func (r *Response) SetPassword(ctx context.Context, password string) (*Response, error) {
+func (r *Response) SetPasswordOnEnroll(ctx context.Context, password string) (*Response, error) {
 	ro, authID, err := r.optionWithAuthID("select-authenticator-enroll", "authenticator", "Password")
 	if err != nil {
 		return nil, err
@@ -60,43 +60,6 @@ func (r *Response) SetPassword(ctx context.Context, password string) (*Response,
 	return ro.Proceed(ctx, credentials)
 }
 
-type EmailResponse struct {
-	resp *Response
-}
-
-func (r *Response) SendEmailVerificationCode(ctx context.Context) (*EmailResponse, error) {
-	ro, authID, err := r.optionWithAuthID("select-authenticator-enroll", "authenticator", "Email")
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	resp, err := ro.Proceed(ctx, authenticator)
-	if err != nil {
-		return nil, err
-	}
-	return &EmailResponse{resp: resp}, nil
-}
-
-func (e *EmailResponse) Confirm(ctx context.Context, code string) (*Response, error) {
-	if e == nil || e.resp == nil {
-		return nil, fmt.Errorf("'SendEmailVerificationCode' should be executed prior to email confirmation")
-	}
-	ro, err := e.resp.remediationOption("enroll-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(code)))
-	return ro.Proceed(ctx, credentials)
-}
-
 type PhoneResponse struct {
 	resp *Response
 }
@@ -109,7 +72,7 @@ func (r *Response) SendSMSVerificationCode(ctx context.Context, phoneNumber stri
 	return r.sendPhoneVerificationCode(ctx, phoneNumber, "sms")
 }
 
-func (r *PhoneResponse) Confirm(ctx context.Context, sms string) (*Response, error) {
+func (r *PhoneResponse) ConfirmEnrollment(ctx context.Context, sms string) (*Response, error) {
 	if r == nil || r.resp == nil {
 		return nil, fmt.Errorf("'SendSMSVerificationCode' or 'SendVoiceCallVerificationCode` should be executed prior to phone confirmation")
 	}
