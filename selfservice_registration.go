@@ -60,6 +60,32 @@ func (r *Response) SetPasswordOnEnroll(ctx context.Context, password string) (*R
 	return ro.Proceed(ctx, credentials)
 }
 
+func (r *Response) SetPasswordOnLogin(ctx context.Context, password string) (*Response, error) {
+	ro, authID, err := r.authenticatorOption("select-authenticator-authenticate", "Email")
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err := ro.Proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	ro, err = resp.remediationOption("challenge-authenticator")
+	if err != nil {
+		return nil, err
+	}
+	credentials := []byte(`{
+				"credentials": {
+					"passcode": "` + strings.TrimSpace(password) + `"
+				}
+			}`)
+	return ro.Proceed(ctx, credentials)
+}
+
 type PhoneResponse struct {
 	resp *Response
 }
