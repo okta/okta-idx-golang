@@ -96,6 +96,11 @@ func (r *Response) Skip(ctx context.Context) (*Response, error) {
 	return ro.Proceed(ctx, nil)
 }
 
+func (r *Response) CanSkip() bool {
+	_, err := r.remediationOption("skip")
+	return err == nil
+}
+
 func (r *Response) sendPhoneVerificationCode(ctx context.Context, phoneNumber, methodType string) (*PhoneResponse, error) {
 	ro, authID, err := r.authenticatorOption("select-authenticator-enroll", "Phone")
 	if err != nil {
