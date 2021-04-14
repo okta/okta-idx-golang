@@ -66,7 +66,7 @@ func (c *Client) VerifyEmailOnPasswordReset(ctx context.Context, idxContext *Con
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	_, err = ro.Proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
