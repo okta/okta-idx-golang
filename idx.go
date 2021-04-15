@@ -128,7 +128,6 @@ func (c *Client) createCodeVerifier() (*string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating code_verifier: %w", err)
 	}
-
 	s := base64.RawURLEncoding.EncodeToString(codeVerifier)
 	return &s, nil
 }

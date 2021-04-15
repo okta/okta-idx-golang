@@ -116,3 +116,24 @@ func (r *Response) Raw() []byte {
 func (r *Response) LoginSuccess() bool {
 	return r.SuccessResponse != nil
 }
+
+func (r *Response) authenticatorOption(optionName, label string) (*RemediationOption, string, error) {
+	ro, err := r.remediationOption(optionName)
+	if err != nil {
+		return nil, "", err
+	}
+	v, err := ro.value("authenticator")
+	if err != nil {
+		return nil, "", err
+	}
+	var authID string
+	for _, v := range v.Options {
+		if v.Label == label {
+			authID = v.Value.(FormOptionsValueObject).Form.Value[0].Value
+		}
+	}
+	if authID == "" {
+		return nil, "", fmt.Errorf("could not locate authenticator with the '%s' label", label)
+	}
+	return ro, authID, nil
+}

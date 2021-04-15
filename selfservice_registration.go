@@ -3,9 +3,17 @@ package idx
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
+
+type EnrollmentResponse struct {
+	client          *Client
+	idxContext      *Context
+	token           *Token
+	enrollmentSteps []int
+}
 
 type UserProfile struct {
 	LastName  string `json:"lastName"`
@@ -13,16 +21,20 @@ type UserProfile struct {
 	Email     string `json:"email"`
 }
 
-type userProfileRequest struct {
-	UserProfile *UserProfile `json:"userProfile"`
-}
-
-func (r *Response) EnrollProfile(ctx context.Context, up *UserProfile) (*Response, error) {
-	ro, err := r.remediationOption("select-enroll-profile")
+func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*EnrollmentResponse, error) {
+	idxContext, err := c.Interact(ctx)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := ro.Proceed(ctx, nil)
+	resp, err := c.Introspect(context.TODO(), idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("select-enroll-profile")
+	if err != nil {
+		return nil, err
+	}
+	resp, err = ro.Proceed(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -30,12 +42,33 @@ func (r *Response) EnrollProfile(ctx context.Context, up *UserProfile) (*Respons
 	if err != nil {
 		return nil, err
 	}
-	b, _ := json.Marshal(&userProfileRequest{UserProfile: up})
-	return ro.Proceed(ctx, b)
+	b, _ := json.Marshal(&struct {
+		UserProfile *UserProfile `json:"userProfile"`
+	}{UserProfile: up})
+	resp, err = ro.Proceed(ctx, b)
+	if err != nil {
+		return nil, err
+	}
+	er := &EnrollmentResponse{
+		idxContext: idxContext,
+		client:     c,
+	}
+	err = er.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return er, nil
 }
 
-func (r *Response) SetPasswordOnEnroll(ctx context.Context, password string) (*Response, error) {
-	ro, authID, err := r.authenticatorOption("select-authenticator-enroll", "Password")
+func (r *EnrollmentResponse) SetNewPasswordOnProfileEnroll(ctx context.Context, password string) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepPasswordSetup) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Password")
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +77,7 @@ func (r *Response) SetPasswordOnEnroll(ctx context.Context, password string) (*R
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err := ro.Proceed(ctx, authenticator)
+	resp, err = ro.Proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
@@ -57,26 +90,51 @@ func (r *Response) SetPasswordOnEnroll(ctx context.Context, password string) (*R
 					"passcode": "` + strings.TrimSpace(password) + `"
 				}
 			}`)
-	return ro.Proceed(ctx, credentials)
-}
-
-type PhoneResponse struct {
-	resp *Response
-}
-
-func (r *Response) SendVoiceCallVerificationCode(ctx context.Context, phoneNumber string) (*PhoneResponse, error) {
-	return r.sendPhoneVerificationCode(ctx, phoneNumber, "voice")
-}
-
-func (r *Response) SendSMSVerificationCode(ctx context.Context, phoneNumber string) (*PhoneResponse, error) {
-	return r.sendPhoneVerificationCode(ctx, phoneNumber, "sms")
-}
-
-func (r *PhoneResponse) ConfirmEnrollment(ctx context.Context, sms string) (*Response, error) {
-	if r == nil || r.resp == nil {
-		return nil, fmt.Errorf("'SendSMSVerificationCode' or 'SendVoiceCallVerificationCode` should be executed prior to phone confirmation")
+	resp, err = ro.Proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
 	}
-	ro, err := r.resp.remediationOption("enroll-authenticator")
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *EnrollmentResponse) VerifyEmailOnProfileEnroll(ctx context.Context) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepEmailVerification) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Email")
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.Proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	r.enrollmentSteps = []int{EnrollmentStepEmailConfirmation}
+	return r, nil
+}
+
+func (r *EnrollmentResponse) ConfirmEmailOnProfileEnroll(ctx context.Context, code string) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepEmailConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("enroll-authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -84,59 +142,303 @@ func (r *PhoneResponse) ConfirmEnrollment(ctx context.Context, sms string) (*Res
 				"credentials": {
 					"passcode": "%s"
 				}
-			}`, strings.TrimSpace(sms)))
-	return ro.Proceed(ctx, credentials)
-}
-
-func (r *Response) Skip(ctx context.Context) (*Response, error) {
-	ro, err := r.remediationOption("skip")
+			}`, strings.TrimSpace(code)))
+	resp, err = ro.Proceed(ctx, credentials)
 	if err != nil {
 		return nil, err
 	}
-	return ro.Proceed(ctx, nil)
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
-func (r *Response) CanSkip() bool {
-	_, err := r.remediationOption("skip")
-	return err == nil
-}
+type PhoneMethod string
 
-func (r *Response) sendPhoneVerificationCode(ctx context.Context, phoneNumber, methodType string) (*PhoneResponse, error) {
-	ro, authID, err := r.authenticatorOption("select-authenticator-enroll", "Phone")
+const (
+	PhoneMethodVoiceCall PhoneMethod = "voice"
+	PhoneMethodSMS       PhoneMethod = "sms"
+)
+
+func (r *EnrollmentResponse) VerifyPhoneOnProfileEnroll(ctx context.Context, method PhoneMethod, phoneNumber string) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepPhoneVerification) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	if method != PhoneMethodVoiceCall && method != PhoneMethodSMS {
+		return nil, fmt.Errorf("%s is invalid phone verification method, plese use %s or %s", method, PhoneMethodVoiceCall, PhoneMethodSMS)
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Phone")
 	if err != nil {
 		return nil, err
 	}
 	authenticator := []byte(`{
 				"authenticator": {
 					"id": "` + authID + `",
-					"methodType": "` + methodType + `",
+					"methodType": "` + string(method) + `",
 					"phoneNumber": "` + phoneNumber + `"
 				}
 			}`)
-	resp, err := ro.Proceed(ctx, authenticator)
+	resp, err = ro.Proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
-	return &PhoneResponse{resp: resp}, nil
+	r.enrollmentSteps = []int{EnrollmentStepPhoneConfirmation}
+	return r, nil
 }
 
-func (r *Response) authenticatorOption(optionName, label string) (*RemediationOption, string, error) {
-	ro, err := r.remediationOption(optionName)
-	if err != nil {
-		return nil, "", err
+func (r *EnrollmentResponse) ConfirmPhoneOnProfileEnroll(ctx context.Context, code string) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepPhoneConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	v, err := ro.value("authenticator")
+	resp, err := r.client.Introspect(ctx, r.idxContext)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	var authID string
-	for _, v := range v.Options {
-		if v.Label == label {
-			authID = v.Value.(FormOptionsValueObject).Form.Value[0].Value
+	ro, err := resp.remediationOption("enroll-authenticator")
+	if err != nil {
+		return nil, err
+	}
+	credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"passcode": "%s"
+				}
+			}`, strings.TrimSpace(code)))
+	resp, err = ro.Proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepSkip) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("skip")
+	if err != nil {
+		return nil, err
+	}
+	resp, err = ro.Proceed(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepCancel) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	resp, err = resp.Cancel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+type SecurityQuestions map[string]string
+
+func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*EnrollmentResponse, SecurityQuestions, error) {
+	if !r.hasStep(EnrollmentStepSecurityQuestionOption) {
+		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Security Question")
+	if err != nil {
+		return nil, nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.Proceed(ctx, authenticator)
+	if err != nil {
+		return nil, nil, err
+	}
+	m := make(map[string]string)
+	ro, err = resp.remediationOption("enroll-authenticator")
+	if err != nil {
+		return nil, nil, err
+	}
+	v, err := ro.value("credentials")
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, vo := range v.Options {
+		if vo.Label == "Choose a security question" {
+			for _, fv := range vo.Value.(FormOptionsValueObject).Form.Value {
+				if fv.Name == "questionKey" {
+					for _, o := range fv.Options {
+						m[string(o.Value.(FormOptionsValueString))] = o.Label
+					}
+				}
+			}
 		}
 	}
-	if authID == "" {
-		return nil, "", fmt.Errorf("could not locate authenticator with the '%s' label", label)
+	m["custom"] = "Create a security question"
+	r.enrollmentSteps = []int{EnrollmentStepSecurityQuestionSetup}
+	return r, m, nil
+}
+
+type SecurityQuestion struct {
+	QuestionKey string `json:"questionKey"`
+	Question    string `json:"question"`
+	Answer      string `json:"answer"`
+}
+
+func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *SecurityQuestion) (*EnrollmentResponse, error) {
+	if !r.hasStep(EnrollmentStepSecurityQuestionSetup) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	return ro, authID, nil
+	if sq.QuestionKey == "" {
+		return nil, errors.New("missing security question key")
+	}
+	if sq.Answer == "" {
+		return nil, errors.New("missing answer for the security question key")
+	}
+	if sq.QuestionKey == "custom" && sq.Question == "" {
+		return nil, errors.New("missing custom question")
+	}
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("enroll-authenticator")
+	if err != nil {
+		return nil, err
+	}
+	credentials, _ := json.Marshal(&struct {
+		Credentials *SecurityQuestion `json:"credentials"`
+	}{Credentials: sq})
+	resp, err = ro.Proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *EnrollmentResponse) AvailableSteps() []string {
+	s := make([]string, len(r.enrollmentSteps))
+	for i := range r.enrollmentSteps {
+		s[i] = stepText[r.enrollmentSteps[i]]
+	}
+	return s
+}
+
+func (r *EnrollmentResponse) IsAuthenticated() bool {
+	return r.hasStep(EnrollmentStepSuccess)
+}
+
+func (r *EnrollmentResponse) Token() *Token {
+	return r.token
+}
+
+const (
+	EnrollmentStepEmailVerification = iota
+	EnrollmentStepEmailConfirmation
+	EnrollmentStepPasswordSetup
+	EnrollmentStepPhoneVerification
+	EnrollmentStepPhoneConfirmation
+	EnrollmentStepSecurityQuestionOption
+	EnrollmentStepSecurityQuestionSetup
+	EnrollmentStepCancel
+	EnrollmentStepSkip
+	EnrollmentStepSuccess
+)
+
+var stepText = map[int]string{
+	EnrollmentStepEmailVerification:      "EMAIL_VERIFICATION",
+	EnrollmentStepEmailConfirmation:      "EMAIL_CONFIRMATION",
+	EnrollmentStepPasswordSetup:          "PASSWORD_SETUP",
+	EnrollmentStepPhoneVerification:      "PHONE_VERIFICATION",
+	EnrollmentStepPhoneConfirmation:      "PHONE_CONFIRMATION",
+	EnrollmentStepSecurityQuestionOption: "SECURITY_QUESTION_OPTION",
+	EnrollmentStepSecurityQuestionSetup:  "SECURITY_QUESTION_SETUP",
+	EnrollmentStepSkip:                   "SKIP",
+	EnrollmentStepSuccess:                "SUCCESS",
+	EnrollmentStepCancel:                 "CANCEL",
+}
+
+func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
+	if resp.LoginSuccess() {
+		exchangeForm := []byte(`{
+			"client_secret": "` + r.client.ClientSecret() + `",
+			"code_verifier": "` + r.idxContext.CodeVerifier() + `"
+		}`)
+		tokens, err := resp.SuccessResponse.ExchangeCode(ctx, exchangeForm)
+		if err != nil {
+			return err
+		}
+		r.token = tokens
+		r.enrollmentSteps = []int{EnrollmentStepSuccess}
+		return nil
+	}
+	var steps []int
+	if resp.CancelResponse != nil {
+		steps = append(steps, EnrollmentStepCancel)
+	}
+	_, _, err := resp.authenticatorOption("select-authenticator-enroll", "Password")
+	if err == nil {
+		steps = append(steps, EnrollmentStepPasswordSetup)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Email")
+	if err == nil {
+		steps = append(steps, EnrollmentStepEmailVerification)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone")
+	if err == nil {
+		steps = append(steps, EnrollmentStepPhoneVerification)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question")
+	if err == nil {
+		steps = append(steps, EnrollmentStepSecurityQuestionOption)
+	}
+	_, err = resp.remediationOption("skip")
+	if err == nil {
+		steps = append(steps, EnrollmentStepSkip)
+	}
+	r.enrollmentSteps = steps
+	return nil
+}
+
+func (r *EnrollmentResponse) hasStep(s int) bool {
+	for i := range r.enrollmentSteps {
+		if r.enrollmentSteps[i] == s {
+			return true
+		}
+	}
+	return false
 }

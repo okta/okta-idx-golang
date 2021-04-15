@@ -106,11 +106,6 @@ func (c *Client) ConfirmEmailOnPasswordReset(ctx context.Context, idxContext *Co
 }
 
 func (c *Client) SetNewPasswordOnPasswordReset(ctx context.Context, idxContext *Context, password string) (*AuthenticationResponse, error) {
-	credentials := []byte(`{
-		"credentials": {
-			"passcode": "` + strings.TrimSpace(password) + `"
-		}
-	}`)
 	resp, err := c.Introspect(ctx, idxContext)
 	if err != nil {
 		return nil, err
@@ -119,6 +114,11 @@ func (c *Client) SetNewPasswordOnPasswordReset(ctx context.Context, idxContext *
 	if err != nil {
 		return nil, err
 	}
+	credentials := []byte(`{
+		"credentials": {
+			"passcode": "` + strings.TrimSpace(password) + `"
+		}
+	}`)
 	resp, err = ro.Proceed(ctx, credentials)
 	if err != nil {
 		return nil, err
