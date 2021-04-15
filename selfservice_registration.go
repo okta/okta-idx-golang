@@ -122,7 +122,11 @@ func (r *EnrollmentResponse) VerifyEmailOnProfileEnroll(ctx context.Context) (*E
 	if err != nil {
 		return nil, err
 	}
-	r.enrollmentSteps = []int{EnrollmentStepEmailConfirmation}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.enrollmentSteps = append(r.enrollmentSteps, EnrollmentStepEmailConfirmation)
 	return r, nil
 }
 
@@ -130,28 +134,7 @@ func (r *EnrollmentResponse) ConfirmEmailOnProfileEnroll(ctx context.Context, co
 	if !r.hasStep(EnrollmentStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("enroll-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(code)))
-	resp, err = ro.Proceed(ctx, credentials)
-	if err != nil {
-		return nil, err
-	}
-	err = r.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
+	return r.confirmWithCode(ctx, code)
 }
 
 type PhoneMethod string
@@ -187,7 +170,11 @@ func (r *EnrollmentResponse) VerifyPhoneOnProfileEnroll(ctx context.Context, met
 	if err != nil {
 		return nil, err
 	}
-	r.enrollmentSteps = []int{EnrollmentStepPhoneConfirmation}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.enrollmentSteps = append(r.enrollmentSteps, EnrollmentStepPhoneConfirmation)
 	return r, nil
 }
 
@@ -195,28 +182,7 @@ func (r *EnrollmentResponse) ConfirmPhoneOnProfileEnroll(ctx context.Context, co
 	if !r.hasStep(EnrollmentStepPhoneConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("enroll-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(code)))
-	resp, err = ro.Proceed(ctx, credentials)
-	if err != nil {
-		return nil, err
-	}
-	err = r.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
+	return r.confirmWithCode(ctx, code)
 }
 
 func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
@@ -293,19 +259,24 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, vo := range v.Options {
-		if vo.Label == "Choose a security question" {
-			for _, fv := range vo.Value.(FormOptionsValueObject).Form.Value {
-				if fv.Name == "questionKey" {
-					for _, o := range fv.Options {
-						m[string(o.Value.(FormOptionsValueString))] = o.Label
+	for i := range v.Options {
+		if v.Options[i].Label == "Choose a security question" {
+			obj := v.Options[i].Value.(FormOptionsValueObject).Form.Value
+			for j := range obj {
+				if obj[j].Name == "questionKey" {
+					for k := range obj[j].Options {
+						m[string(obj[j].Options[k].Value.(FormOptionsValueString))] = obj[j].Options[k].Label
 					}
 				}
 			}
 		}
 	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, nil, err
+	}
+	r.enrollmentSteps = append(r.enrollmentSteps, EnrollmentStepSecurityQuestionSetup)
 	m["custom"] = "Create a security question"
-	r.enrollmentSteps = []int{EnrollmentStepSecurityQuestionSetup}
 	return r, m, nil
 }
 
@@ -441,4 +412,29 @@ func (r *EnrollmentResponse) hasStep(s int) bool {
 		}
 	}
 	return false
+}
+
+func (r *EnrollmentResponse) confirmWithCode(ctx context.Context, code string) (*EnrollmentResponse, error) {
+	resp, err := r.client.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("enroll-authenticator")
+	if err != nil {
+		return nil, err
+	}
+	credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"passcode": "%s"
+				}
+			}`, strings.TrimSpace(code)))
+	resp, err = ro.Proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
