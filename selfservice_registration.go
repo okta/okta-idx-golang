@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+// EnrollmentResponse is used for the profile enrolment flow.
+// It holds the initial IdX context object and the list of the available steps.
+// At the end of the successful flow, the only enrollment step will be `EnrollmentStepSuccess`
+// and tokens will be available
 type EnrollmentResponse struct {
 	client          *Client
 	idxContext      *Context
@@ -15,12 +19,14 @@ type EnrollmentResponse struct {
 	enrollmentSteps []int
 }
 
+// UserProfile holds the necessary information to init the enrollment process`
 type UserProfile struct {
 	LastName  string `json:"lastName"`
 	FirstName string `json:"firstName"`
 	Email     string `json:"email"`
 }
 
+// InitProfileEnroll starts the enrollment process.
 func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*EnrollmentResponse, error) {
 	idxContext, err := c.Interact(ctx)
 	if err != nil {
@@ -60,6 +66,7 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	return er, nil
 }
 
+// SetNewPassword sets new password for the user.
 func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPasswordSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -101,6 +108,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	return r, nil
 }
 
+// VerifyEmail sends verification code to the email provided at the first step
 func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -130,6 +138,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	return r, nil
 }
 
+// ConfirmEmail confirms email address using the provided code
 func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -137,6 +146,7 @@ func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*En
 	return r.confirmWithCode(ctx, code)
 }
 
+// PhoneMethod represents the method by which the code will be sent to your phone
 type PhoneMethod string
 
 const (
@@ -144,6 +154,8 @@ const (
 	PhoneMethodSMS       PhoneMethod = "sms"
 )
 
+// VerifyPhone sends verification code to the provided phone.
+// Your phone number should contain a country code
 func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod, phoneNumber string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -178,6 +190,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod
 	return r, nil
 }
 
+// ConfirmPhone confirms phone number using the provided code
 func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -185,6 +198,8 @@ func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*En
 	return r.confirmWithCode(ctx, code)
 }
 
+// Skip represents general step to proceed with no action
+// It usually appears when other steps are optional
 func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSkip) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -208,6 +223,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 	return r, nil
 }
 
+// Cancel the whole enrollment process.
 func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -227,10 +243,13 @@ func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, e
 	return r, nil
 }
 
+// SecurityQuestions represents dict of available security questions.
+// Each key represents unique `QuestionKey`, and value represents the human readable question.
 type SecurityQuestions map[string]string
 
+// SecurityQuestionOptions returns list of available security questions
 func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*EnrollmentResponse, SecurityQuestions, error) {
-	if !r.HasStep(EnrollmentStepSecurityQuestionOption) {
+	if !r.HasStep(EnrollmentStepSecurityQuestionOptions) {
 		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := r.client.Introspect(ctx, r.idxContext)
@@ -280,6 +299,9 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	return r, m, nil
 }
 
+// SecurityQuestion represents security question to be used for the account verification
+// In case when 'questionKey'=='custom' the 'question' field should be non-empty and contain custom
+// security question.
 type SecurityQuestion struct {
 	QuestionKey string `json:"questionKey"`
 	Question    string `json:"question"`
@@ -321,6 +343,8 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	return r, nil
 }
 
+// AvailableSteps returns list of human readable steps that can be executed next.
+// In case of successful authentication, list will contain only one "SUCCESS" step.
 func (r *EnrollmentResponse) AvailableSteps() []string {
 	s := make([]string, len(r.enrollmentSteps))
 	for i := range r.enrollmentSteps {
@@ -329,38 +353,53 @@ func (r *EnrollmentResponse) AvailableSteps() []string {
 	return s
 }
 
+// HasStep checks if the provided step is present in the list of available steps.
+//
+func (r *EnrollmentResponse) HasStep(s int) bool {
+	for i := range r.enrollmentSteps {
+		if r.enrollmentSteps[i] == s {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAuthenticated returns true in case "SUCCESS"is present in the list of available steps.
 func (r *EnrollmentResponse) IsAuthenticated() bool {
 	return r.HasStep(EnrollmentStepSuccess)
 }
 
+// Token returns authorization token. This method should be called when there is "SUCCESS" step
+// present in the list of available steps.
 func (r *EnrollmentResponse) Token() *Token {
 	return r.token
 }
 
+// These codes indicate what method(s) can be called in the next step.
 const (
-	EnrollmentStepEmailVerification = iota
-	EnrollmentStepEmailConfirmation
-	EnrollmentStepPasswordSetup
-	EnrollmentStepPhoneVerification
-	EnrollmentStepPhoneConfirmation
-	EnrollmentStepSecurityQuestionOption
-	EnrollmentStepSecurityQuestionSetup
-	EnrollmentStepCancel
-	EnrollmentStepSkip
-	EnrollmentStepSuccess
+	EnrollmentStepEmailVerification       = iota // 'VerifyEmail'
+	EnrollmentStepEmailConfirmation              // 'ConfirmEmail'
+	EnrollmentStepPasswordSetup                  // 'SetNewPassword'
+	EnrollmentStepPhoneVerification              // 'VerifyPhone'
+	EnrollmentStepPhoneConfirmation              // 'ConfirmPhone'
+	EnrollmentStepSecurityQuestionOptions        // 'SecurityQuestionOptions'
+	EnrollmentStepSecurityQuestionSetup          // 'SetupSecurityQuestion`
+	EnrollmentStepCancel                         // 'Cancel'
+	EnrollmentStepSkip                           // 'Skip'
+	EnrollmentStepSuccess                        // 'Token'
 )
 
 var stepText = map[int]string{
-	EnrollmentStepEmailVerification:      "EMAIL_VERIFICATION",
-	EnrollmentStepEmailConfirmation:      "EMAIL_CONFIRMATION",
-	EnrollmentStepPasswordSetup:          "PASSWORD_SETUP",
-	EnrollmentStepPhoneVerification:      "PHONE_VERIFICATION",
-	EnrollmentStepPhoneConfirmation:      "PHONE_CONFIRMATION",
-	EnrollmentStepSecurityQuestionOption: "SECURITY_QUESTION_OPTION",
-	EnrollmentStepSecurityQuestionSetup:  "SECURITY_QUESTION_SETUP",
-	EnrollmentStepSkip:                   "SKIP",
-	EnrollmentStepSuccess:                "SUCCESS",
-	EnrollmentStepCancel:                 "CANCEL",
+	EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
+	EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
+	EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
+	EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
+	EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
+	EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTION",
+	EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
+	EnrollmentStepSkip:                    "SKIP",
+	EnrollmentStepSuccess:                 "SUCCESS",
+	EnrollmentStepCancel:                  "CANCEL",
 }
 
 func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
@@ -395,7 +434,7 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question")
 	if err == nil {
-		steps = append(steps, EnrollmentStepSecurityQuestionOption)
+		steps = append(steps, EnrollmentStepSecurityQuestionOptions)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
@@ -406,15 +445,6 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	}
 	r.enrollmentSteps = steps
 	return nil
-}
-
-func (r *EnrollmentResponse) HasStep(s int) bool {
-	for i := range r.enrollmentSteps {
-		if r.enrollmentSteps[i] == s {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *EnrollmentResponse) confirmWithCode(ctx context.Context, code string) (*EnrollmentResponse, error) {
