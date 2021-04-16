@@ -388,21 +388,18 @@ const (
 	EnrollmentStepSuccess                        // 'Token'
 )
 
-var (
-	stepText = map[int]string{
-		EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
-		EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
-		EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
-		EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
-		EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
-		EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
-		EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
-		EnrollmentStepSkip:                    "SKIP",
-		EnrollmentStepSuccess:                 "SUCCESS",
-		EnrollmentStepCancel:                  "CANCEL",
-	}
-
-)
+var stepText = map[int]string{
+	EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
+	EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
+	EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
+	EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
+	EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
+	EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
+	EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
+	EnrollmentStepSkip:                    "SKIP",
+	EnrollmentStepSuccess:                 "SUCCESS",
+	EnrollmentStepCancel:                  "CANCEL",
+}
 
 func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
 	if resp.LoginSuccess() {
