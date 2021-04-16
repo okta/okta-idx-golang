@@ -99,6 +99,9 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 
 // get a remediation option by its name
 func (r *Response) remediationOption(optionName string) (*RemediationOption, error) {
+	if r.Remediation == nil {
+		return nil, fmt.Errorf("this response doesn't contain any remediation options")
+	}
 	for i := range r.Remediation.RemediationOptions {
 		if r.Remediation.RemediationOptions[i].Name == optionName {
 			return &r.Remediation.RemediationOptions[i], nil

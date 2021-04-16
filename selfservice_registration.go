@@ -60,8 +60,8 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	return er, nil
 }
 
-func (r *EnrollmentResponse) SetNewPasswordOnProfileEnroll(ctx context.Context, password string) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepPasswordSetup) {
+func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepPasswordSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := r.client.Introspect(ctx, r.idxContext)
@@ -101,8 +101,8 @@ func (r *EnrollmentResponse) SetNewPasswordOnProfileEnroll(ctx context.Context, 
 	return r, nil
 }
 
-func (r *EnrollmentResponse) VerifyEmailOnProfileEnroll(ctx context.Context) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepEmailVerification) {
+func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := r.client.Introspect(ctx, r.idxContext)
@@ -130,8 +130,8 @@ func (r *EnrollmentResponse) VerifyEmailOnProfileEnroll(ctx context.Context) (*E
 	return r, nil
 }
 
-func (r *EnrollmentResponse) ConfirmEmailOnProfileEnroll(ctx context.Context, code string) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepEmailConfirmation) {
+func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	return r.confirmWithCode(ctx, code)
@@ -144,8 +144,8 @@ const (
 	PhoneMethodSMS       PhoneMethod = "sms"
 )
 
-func (r *EnrollmentResponse) VerifyPhoneOnProfileEnroll(ctx context.Context, method PhoneMethod, phoneNumber string) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepPhoneVerification) {
+func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod, phoneNumber string) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	if method != PhoneMethodVoiceCall && method != PhoneMethodSMS {
@@ -178,15 +178,15 @@ func (r *EnrollmentResponse) VerifyPhoneOnProfileEnroll(ctx context.Context, met
 	return r, nil
 }
 
-func (r *EnrollmentResponse) ConfirmPhoneOnProfileEnroll(ctx context.Context, code string) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepPhoneConfirmation) {
+func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepPhoneConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	return r.confirmWithCode(ctx, code)
 }
 
 func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepSkip) {
+	if !r.HasStep(EnrollmentStepSkip) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := r.client.Introspect(ctx, r.idxContext)
@@ -209,7 +209,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 }
 
 func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepCancel) {
+	if !r.HasStep(EnrollmentStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := r.client.Introspect(ctx, r.idxContext)
@@ -230,7 +230,7 @@ func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, e
 type SecurityQuestions map[string]string
 
 func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*EnrollmentResponse, SecurityQuestions, error) {
-	if !r.hasStep(EnrollmentStepSecurityQuestionOption) {
+	if !r.HasStep(EnrollmentStepSecurityQuestionOption) {
 		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := r.client.Introspect(ctx, r.idxContext)
@@ -287,7 +287,7 @@ type SecurityQuestion struct {
 }
 
 func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *SecurityQuestion) (*EnrollmentResponse, error) {
-	if !r.hasStep(EnrollmentStepSecurityQuestionSetup) {
+	if !r.HasStep(EnrollmentStepSecurityQuestionSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	if sq.QuestionKey == "" {
@@ -330,7 +330,7 @@ func (r *EnrollmentResponse) AvailableSteps() []string {
 }
 
 func (r *EnrollmentResponse) IsAuthenticated() bool {
-	return r.hasStep(EnrollmentStepSuccess)
+	return r.HasStep(EnrollmentStepSuccess)
 }
 
 func (r *EnrollmentResponse) Token() *Token {
@@ -401,11 +401,14 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	if err == nil {
 		steps = append(steps, EnrollmentStepSkip)
 	}
+	if len(steps) == 0 {
+		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
+	}
 	r.enrollmentSteps = steps
 	return nil
 }
 
-func (r *EnrollmentResponse) hasStep(s int) bool {
+func (r *EnrollmentResponse) HasStep(s int) bool {
 	for i := range r.enrollmentSteps {
 		if r.enrollmentSteps[i] == s {
 			return true
