@@ -19,7 +19,7 @@ type EnrollmentResponse struct {
 	enrollmentSteps []int
 }
 
-// UserProfile holds the necessary information to init the enrollment process`
+// UserProfile holds the necessary information to init the enrollment process.
 type UserProfile struct {
 	LastName  string `json:"lastName"`
 	FirstName string `json:"firstName"`
@@ -354,7 +354,6 @@ func (r *EnrollmentResponse) AvailableSteps() []string {
 }
 
 // HasStep checks if the provided step is present in the list of available steps.
-//
 func (r *EnrollmentResponse) HasStep(s int) bool {
 	for i := range r.enrollmentSteps {
 		if r.enrollmentSteps[i] == s {
@@ -389,18 +388,21 @@ const (
 	EnrollmentStepSuccess                        // 'Token'
 )
 
-var stepText = map[int]string{
-	EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
-	EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
-	EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
-	EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
-	EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
-	EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTION",
-	EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
-	EnrollmentStepSkip:                    "SKIP",
-	EnrollmentStepSuccess:                 "SUCCESS",
-	EnrollmentStepCancel:                  "CANCEL",
-}
+var (
+	stepText = map[int]string{
+		EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
+		EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
+		EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
+		EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
+		EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
+		EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
+		EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
+		EnrollmentStepSkip:                    "SKIP",
+		EnrollmentStepSuccess:                 "SUCCESS",
+		EnrollmentStepCancel:                  "CANCEL",
+	}
+
+)
 
 func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
 	if resp.LoginSuccess() {
