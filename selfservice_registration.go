@@ -16,7 +16,7 @@ type EnrollmentResponse struct {
 	client          *Client
 	idxContext      *Context
 	token           *Token
-	enrollmentSteps []int
+	enrollmentSteps []EnrollmentStep
 }
 
 // UserProfile holds the necessary information to init the enrollment process.
@@ -343,22 +343,14 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	return r, nil
 }
 
-// AvailableSteps returns list of human readable steps that can be executed next.
+// AvailableSteps returns list of steps that can be executed next.
 // In case of successful authentication, list will contain only one "SUCCESS" step.
-func (r *EnrollmentResponse) AvailableSteps() []string {
-	s := make([]string, len(r.enrollmentSteps))
-	for i := range r.enrollmentSteps {
-		s[i] = stepText[r.enrollmentSteps[i]]
-	}
-	return s
-}
-
-func (r *EnrollmentResponse) StepCode(s string) int {
-	return stepCode[s]
+func (r *EnrollmentResponse) AvailableSteps() []EnrollmentStep {
+	return r.enrollmentSteps
 }
 
 // HasStep checks if the provided step is present in the list of available steps.
-func (r *EnrollmentResponse) HasStep(s int) bool {
+func (r *EnrollmentResponse) HasStep(s EnrollmentStep) bool {
 	for i := range r.enrollmentSteps {
 		if r.enrollmentSteps[i] == s {
 			return true
@@ -378,46 +370,42 @@ func (r *EnrollmentResponse) Token() *Token {
 	return r.token
 }
 
+type EnrollmentStep int
+
+func (s EnrollmentStep) String() string {
+	v, ok := enrollStepText[s]
+	if ok {
+		return v
+	}
+	return "UNKNOWN"
+}
+
 // These codes indicate what method(s) can be called in the next step.
 const (
-	EnrollmentStepEmailVerification       = iota + 1 // 'VerifyEmail'
-	EnrollmentStepEmailConfirmation                  // 'ConfirmEmail'
-	EnrollmentStepPasswordSetup                      // 'SetNewPassword'
-	EnrollmentStepPhoneVerification                  // 'VerifyPhone'
-	EnrollmentStepPhoneConfirmation                  // 'ConfirmPhone'
-	EnrollmentStepSecurityQuestionOptions            // 'SecurityQuestionOptions'
-	EnrollmentStepSecurityQuestionSetup              // 'SetupSecurityQuestion`
-	EnrollmentStepCancel                             // 'Cancel'
-	EnrollmentStepSkip                               // 'Skip'
-	EnrollmentStepSuccess                            // 'Token'
+	EnrollmentStepEmailVerification       EnrollmentStep = iota + 1 // 'VerifyEmail'
+	EnrollmentStepEmailConfirmation                                 // 'ConfirmEmail'
+	EnrollmentStepPasswordSetup                                     // 'SetNewPassword'
+	EnrollmentStepPhoneVerification                                 // 'VerifyPhone'
+	EnrollmentStepPhoneConfirmation                                 // 'ConfirmPhone'
+	EnrollmentStepSecurityQuestionOptions                           // 'SecurityQuestionOptions'
+	EnrollmentStepSecurityQuestionSetup                             // 'SetupSecurityQuestion`
+	EnrollmentStepCancel                                            // 'Cancel'
+	EnrollmentStepSkip                                              // 'Skip'
+	EnrollmentStepSuccess                                           // 'Token'
 )
 
-var (
-	stepText = map[int]string{
-		EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
-		EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
-		EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
-		EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
-		EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
-		EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
-		EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
-		EnrollmentStepSkip:                    "SKIP",
-		EnrollmentStepSuccess:                 "SUCCESS",
-		EnrollmentStepCancel:                  "CANCEL",
-	}
-	stepCode = map[string]int{
-		"EMAIL_VERIFICATION":        EnrollmentStepEmailVerification,
-		"EMAIL_CONFIRMATION":        EnrollmentStepEmailConfirmation,
-		"PASSWORD_SETUP":            EnrollmentStepPasswordSetup,
-		"PHONE_VERIFICATION":        EnrollmentStepPhoneVerification,
-		"PHONE_CONFIRMATION":        EnrollmentStepPhoneConfirmation,
-		"SECURITY_QUESTION_OPTIONS": EnrollmentStepSecurityQuestionOptions,
-		"SECURITY_QUESTION_SETUP":   EnrollmentStepSecurityQuestionSetup,
-		"SKIP":                      EnrollmentStepSkip,
-		"SUCCESS":                   EnrollmentStepSuccess,
-		"CANCEL":                    EnrollmentStepCancel,
-	}
-)
+var enrollStepText = map[EnrollmentStep]string{
+	EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
+	EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
+	EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
+	EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
+	EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
+	EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
+	EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
+	EnrollmentStepCancel:                  "CANCEL",
+	EnrollmentStepSkip:                    "SKIP",
+	EnrollmentStepSuccess:                 "SUCCESS",
+}
 
 func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
 	if resp.LoginSuccess() {
@@ -430,10 +418,10 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 			return err
 		}
 		r.token = tokens
-		r.enrollmentSteps = []int{EnrollmentStepSuccess}
+		r.enrollmentSteps = []EnrollmentStep{EnrollmentStepSuccess}
 		return nil
 	}
-	var steps []int
+	var steps []EnrollmentStep
 	if resp.CancelResponse != nil {
 		steps = append(steps, EnrollmentStepCancel)
 	}

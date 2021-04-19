@@ -242,12 +242,9 @@ func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response
 
 // Auth Status Constants
 const (
-	AuthStatusSuccess           = "SUCCESS"
-	AuthStatusPasswordExpired   = "PASSWORD_EXPIRED"
-	AuthStatusUnhandled         = "UNHANDLED_RESPONSE"
-	AuthStatusEmailVerification = "EMAIL_VERIFICATION"
-	AuthStatusEmailConfirmation = "EMAIL_CONFIRMATION"
-	AuthStatusNewPassword       = "NEW_PASSWORD"
+	AuthStatusSuccess         = "SUCCESS"
+	AuthStatusPasswordExpired = "PASSWORD_EXPIRED"
+	AuthStatusUnhandled       = "UNHANDLED_RESPONSE"
 )
 
 type AuthenticationOptions struct {

@@ -6,11 +6,6 @@ import (
 	"strings"
 )
 
-type IdentifyRequest struct {
-	Identifier string `json:"identifier"`
-	RememberMe bool   `json:"remember_me"`
-}
-
 func (r *Response) Identify(ctx context.Context, ir *IdentifyRequest) (*Response, error) {
 	ro, err := r.remediationOption("identify")
 	if err != nil {

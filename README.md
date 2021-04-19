@@ -449,114 +449,60 @@ own set of sign-on policies and thus affect the remediation options.
 #### Password reset flow
 
 ```go
-    // here goes the part same as in Enroll + Login using password + email authenticator'
-    // up to  'choosing password as an authenticator'
+    client, err := idx.NewClient()
+	if err != nil {
+		panic(err)
+	}
+	up := &idx.IdentifyRequest{
+		Identifier: "john.doe@myorg.com",
+	}
+	resp, err := client.InitPasswordReset(context.TODO(), up)
+	if err != nil {
+		panic(err)
+	}
 
-	// this step is different from others, because we want to reset the password
-	if response.CurrentAuthenticatorEnrollment != nil {
-		response, err = response.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(context.TODO(), nil)
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.ResetPasswordStepEmailVerification) {
+		resp, err = resp.VerifyEmail(context.TODO())
 		if err != nil {
 			panic(err)
 		}
-	} else {
-		panic("we expected an `CurrentAuthenticatorEnrollment` to reset the password, but did not see one.")
 	}
 
-	// send me reset code on email
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		var id string
-		for _, options := range remediationOption.FormValues[0].Options {
-			if options.Label == "Email" {
-				id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
-				break
-			}
-		}
-		if id == "" {
-			continue
-		}
-		authenticator := []byte(`{
-			"authenticator": {
-			"id": "` + id + `"
-			}
-		}`)
-		response, err = remediationOption.Proceed(context.TODO(), authenticator)
-		if err != nil {
-			panic(err)
-		}
-		break
-	}
-
+	fmt.Println("Next steps: ", resp.AvailableSteps())
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter the code from email: ")
-	text, _ := reader.ReadString('\n')
-
-	// Next remediation will be "challenge-authenticator". In this case entering code from email
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "challenge-authenticator" {
-			credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(text)))
-			response, err = remediationOption.Proceed(context.TODO(), credentials)
-			if err != nil {
-				panic(err)
-			}
-			break
-		}
-	}
-
-	// Next remediation will be "challenge-authenticator". In this case answering the question
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		fmt.Printf("%+v\n", remediationOption.Form())
-		if remediationOption.Name == "challenge-authenticator" {
-			fmt.Print("Enter the food you dislike: ")
-			text, _ = reader.ReadString('\n')
-			credentials := []byte(`{
-				"credentials": {
-					"answer": "` + strings.TrimSpace(text) + `"
-				}
-			}`)
-			response, err = remediationOption.Proceed(context.TODO(), credentials)
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-
-	// Next remediation will be "reset-authenticator" as we want to enter new passcode
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "reset-authenticator" {
-			fmt.Print("Enter new password: ")
-			text, _ = reader.ReadString('\n')
-			credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(text)))
-			response, err = remediationOption.Proceed(context.TODO(), credentials)
-			if err != nil {
-				panic(err)
-			}
-			break
-		}
-	}
-
-	// if new password was set, we should get successful login!
-	if response.LoginSuccess() {
-		fmt.Println("Successful login!")
-        // get the token
-		exchangeForm := []byte(`{
-			"client_secret": "` + client.ClientSecret() + `",
-			"code_verifier": "` + idxContext.CodeVerifier() + `" // We generate your code_verfier for you and store it in the Context struct. You can gain access to it through the method `CodeVerifier()` which will return a string
-		}`)
-		tokens, err := response.SuccessResponse.ExchangeCode(context.Background(), exchangeForm)
+	if resp.HasStep(idx.ResetPasswordStepEmailConfirmation) {
+		fmt.Print("Enter the code from email: ")
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.ConfirmEmail(context.TODO(), text)
 		if err != nil {
-		    panic(err)
+			panic(err)
 		}
-		fmt.Printf("%+v\n", tokens)
-		fmt.Printf("%+s\n", tokens.AccessToken)
-        fmt.Printf("%+s\n", tokens.IDToken)
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.ResetPasswordStepAnswerSecurityQuestion) {
+		fmt.Println(resp.SecurityQuestion().Question)
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.AnswerSecurityQuestion(context.TODO(), text)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.ResetPasswordStepNewPassword) {
+		fmt.Print("Enter new password: ")
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.SetNewPassword(context.TODO(), text)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.IsAuthenticated() { // same as 'resp.HasStep(idx.ResetPasswordStepSuccess)'
+		fmt.Println(resp.Token())
 	}
 ```
 
@@ -832,252 +778,105 @@ if err != nil {
 #### Self Service Registration
 
 ```go
-	var response *Response
-
-    client, err := NewClient(
-        WithClientID("{CLIENT_ID}"),
-        WithClientSecret("{CLIENT_SECRET}"),        // Required for confidential clients.
-        WithIssuer("{ISSUER}"),                     // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/busar5vgt5TSDsfcJ0h7
-        WithScopes([]string{"openid", "profile"}),  // Must include at least `openid`. Include `profile` if you want to do token exchange
-        WithRedirectURI("{REDIRECT_URI}"),          // Must match the redirect uri in client app settings/console
-    )
+	client, err := idx.NewClient()
+	if err != nil {
+		panic(err)
+	}
+	up := &idx.UserProfile{
+		LastName:  "John",
+		FirstName: "Doe",
+		Email:     "john.joe@myorg.com",
+	}
+	resp, err := client.InitProfileEnroll(context.TODO(), up)
 	if err != nil {
 		panic(err)
 	}
 
-	idxContext, err := client.Interact(context.TODO(), nil)
-	if err != nil {
-		panic(err)
-	}
-
-	response, err = client.Introspect(context.TODO(), idxContext)
-	if err != nil {
-		panic(err)
-	}
-
-	// First remediation will be "identify"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-	    if remediationOption.Name == "select-enroll-profile" {
-	        enroll := []byte(`{}`)
-
-	        response, err = remediationOption.Proceed(context.TODO(), enroll)
-	        if err != nil {
-	            panic(err)
-	        }
-	    }
-	}
-
-	// Next remediation will be "enroll-profile"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-
-		fmt.Printf("%+v\n", remediationOption.Form())
-		if remediationOption.Name == "enroll-profile" {
-			userProfile := []byte(`{
-				"userProfile": {
-					"lastName": "User",
-					"firstName": "Test",
-					"email": "john.doe@acme.com"
-				}
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), userProfile)
-			if err != nil {
-				panic(err)
-			}
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	reader := bufio.NewReader(os.Stdin)
+	if resp.HasStep(idx.EnrollmentStepPasswordSetup) {
+		fmt.Print("Enter new password: ")
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.SetNewPassword(context.TODO(), text)
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// Next remediation will be "select-authenticator-enroll"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "select-authenticator-enroll" {
-			var id string
-
-			for _, options := range remediationOption.FormValues[0].Options {
-				fmt.Printf("%+v\n", options)
-
-				if (options.Label == "Security Question") {
-					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
-				}
-			}
-
-			authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + id + `"
-				},
-				"method_type": "security_question"
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), authenticator)
-			if err != nil {
-				panic(err)
-			}
-
-		} else {
-			panic("we expected an `select-authenticator-enroll` option, but did not see one.")
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepEmailVerification) {
+		resp, err = resp.VerifyEmail(context.TODO())
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// Next remediation will be "enroll-authenticator"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "enroll-authenticator" {
-			var question string
-
-			for _, options := range remediationOption.FormValues[0].Options {
-				fmt.Printf("%+v\n", options)
-
-				if (options.Label == "Choose a security question") {
-					question = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Name
-				}
-			}
-
-			fmt.Printf(question)
-
-			answer := []byte(`{
-				"credentials": {
-					"questionKey": "disliked_food",
-					"answer": "Mushrooms"
-				}
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), answer)
-			if err != nil {
-				panic(err)
-			}
-
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepEmailConfirmation) {
+		fmt.Print("Enter the code from email: ")
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.ConfirmEmail(context.TODO(), text)
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// Next remediation will be "select-authenticator-enroll"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "select-authenticator-enroll" {
-			var id string
-
-			for _, options := range remediationOption.FormValues[0].Options {
-				fmt.Printf("%+v\n", options)
-
-				if (options.Label == "Password") {
-					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
-				}
-			}
-
-			authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + id + `"
-				},
-				"method_type": "password"
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), authenticator)
-			if err != nil {
-				panic(err)
-			}
-
-		} else {
-			panic("we expected an `select-authenticator-enroll` option, but did not see one.")
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepPhoneVerification) {
+		fmt.Print("Enter your phone number: ")
+		text, _ := reader.ReadString('\n') // e.g. +12346713693
+		resp, err = resp.VerifyPhone(context.TODO(), idx.PhoneMethodSMS, text)
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// Next remediation will be "enroll-authenticator"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "enroll-authenticator" {
-			var question string
-
-			for _, options := range remediationOption.FormValues[0].Options {
-				fmt.Printf("%+v\n", options)
-
-				if (options.Label == "Choose a security question") {
-					question = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Name
-				}
-			}
-
-			fmt.Printf(question)
-
-			answer := []byte(`{
-				"credentials": {
-					"passcode": "Password!"
-				}
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), answer)
-			if err != nil {
-				panic(err)
-			}
-
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepPhoneConfirmation) {
+		fmt.Print("Enter the code from SMS: ")
+		text, _ := reader.ReadString('\n') // e.g. 779419
+		resp, err = resp.ConfirmPhone(context.TODO(), text)
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// Next remediation will be "select-authenticator-enroll"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-		if remediationOption.Name == "select-authenticator-enroll" {
-			var id string
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepSecurityQuestionOptions) {
+		var q map[string]string
+		resp, q, err = resp.SecurityQuestionOptions(context.TODO())
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("SecurityQuestionOptions: ", q) // this is the key-valued list of the Security Questions
+	}
 
-			for _, options := range remediationOption.FormValues[0].Options {
-				fmt.Printf("%+v\n", options)
-
-				if (options.Label == "Email") {
-					id = options.Value.(idx.FormOptionsValueObject).Form.Value[0].Value
-				}
-			}
-
-			authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + id + `"
-				},
-				"method_type": "email"
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), authenticator)
-			if err != nil {
-				panic(err)
-			}
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepSecurityQuestionSetup) {
+		fmt.Print("Enter unique question key: ") // a key from the Security Questions map, e.g. 'disliked_food'
+		text, _ := reader.ReadString('\n')
+		fmt.Print("Enter the answer: ")
+		text2, _ := reader.ReadString('\n')
+		resp, err = resp.SetupSecurityQuestion(context.TODO(), &idx.SecurityQuestion{
+			QuestionKey: text,
+			Answer:      text2,
+		})
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// Next remediation will be "challenge-authenticator"
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-
-		fmt.Printf("%+v\n", remediationOption.Form())
-	    if remediationOption.Name == "enroll-authenticator" {
-			fmt.Println("Enter Your Email Passcode: ")
-
-			var passcode string
-
-			// Taking input from user
-			fmt.Scanln(&passcode)
-
-			credentials := []byte(`{
-				"credentials": {
-					"passcode": "` + passcode + `"
-				}
-			}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), credentials)
-
-			if err != nil {
-				panic(err)
-			}
-	    }
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.EnrollmentStepSkip) {
+		resp, err = resp.Skip(context.TODO())
+		if err != nil {
+			panic(err)
+		}
 	}
 
-
-	for _, remediationOption := range response.Remediation.RemediationOptions {
-
-		fmt.Printf("%+v\n", remediationOption.Form())
-	    if remediationOption.Name == "skip" {
-			skip := []byte(`{}`)
-
-			response, err = remediationOption.Proceed(context.TODO(), skip)
-	        if err != nil {
-	            panic(err)
-	        }
-	    }
-	}
-
-	fmt.Println(string(response.Raw()))
-
-	if (response.LoginSuccess()) {
-		fmt.Println("Successful login!")
-		exchangeCodeForTokens(response, client)
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.IsAuthenticated() { // same as 'resp.HasStep(idx.EnrollmentStepSuccess)'
+		fmt.Println(resp.Token())
 	}
 ```
 
