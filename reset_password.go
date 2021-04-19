@@ -39,9 +39,11 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 	}
 	if resp.CurrentAuthenticatorEnrollment == nil {
 		if resp.Messages != nil {
-			return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' field is missing from the response: %v", resp.Messages.Values)
+			return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' "+
+				"field is missing from the response: %v", resp.Messages.Values)
 		}
-		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' field is missing from the response")
+		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' " +
+			"field is missing from the response")
 	}
 	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(ctx, nil)
 	if err != nil {
@@ -67,9 +69,11 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 	}
 	if resp.CurrentAuthenticatorEnrollment == nil {
 		if resp.Messages != nil {
-			return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' field is missing from the response: %v", resp.Messages.Values)
+			return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment'"+
+				" field is missing from the response: %v", resp.Messages.Values)
 		}
-		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' field is missing from the response")
+		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment'" +
+			" field is missing from the response")
 	}
 	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(ctx, nil)
 	if err != nil {
@@ -117,10 +121,10 @@ func (r *ResetPasswordResponse) AnswerSecurityQuestion(ctx context.Context, answ
 	}
 	credentials := []byte(fmt.Sprintf(`{
 				"credentials": {
-					"questionKey": "%s",
+					"%s": "%s",
 					"answer": "%s"
 				}
-			}`, r.sq.QuestionKey, answer))
+			}`, questionKey, r.sq.QuestionKey, answer))
 	resp, err = ro.Proceed(ctx, credentials)
 	if err != nil {
 		return nil, err
@@ -223,7 +227,7 @@ func (s ResetPasswordStep) String() string {
 	if ok {
 		return v
 	}
-	return "UNKNOWN"
+	return unknownStep
 }
 
 var resetStepText = map[ResetPasswordStep]string{
@@ -247,6 +251,12 @@ const (
 	ResetPasswordStepSuccess                                             // 'Token'
 )
 
+const (
+	questionKey = "questionKey"
+	unknownStep = "UNKNOWN"
+)
+
+// nolint
 func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Response) error {
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
@@ -279,7 +289,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 		for i := range ro.FormValues {
 			if ro.FormValues[i].Form != nil && len(ro.FormValues[i].Form.FormValues) > 0 {
 				for j := range ro.FormValues[i].Form.FormValues {
-					if ro.FormValues[i].Form.FormValues[j].Name == "questionKey" {
+					if ro.FormValues[i].Form.FormValues[j].Name == questionKey {
 						r.sq = &SecurityQuestion{
 							QuestionKey: ro.FormValues[i].Form.FormValues[j].Value,
 							Question:    ro.FormValues[i].Form.FormValues[j].Label,

@@ -377,7 +377,7 @@ func (s EnrollmentStep) String() string {
 	if ok {
 		return v
 	}
-	return "UNKNOWN"
+	return unknownStep
 }
 
 // These codes indicate what method(s) can be called in the next step.
