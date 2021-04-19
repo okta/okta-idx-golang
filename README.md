@@ -58,15 +58,15 @@ import (
 )
 
 func main() {
-	client, err := NewClient(
-		WithClientID("{YOUR_CLIENT_ID}"),
-		WithClientSecret("{YOUR_CLIENT_SECRET}"),  // Required for confidential clients.
-		WithIssuer("{YOUR_ISSUER}"),               // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
-		WithScopes([]string{"openid", "profile"}), // Must include at least `openid`. Include `profile` if you want to do token exchange
-		WithRedirectURI("{YOUR_REDIRECT_URI}"),    // Must match the redirect uri in client app settings/console
+	client, err := idx.NewClient(
+		idx.WithClientID("{YOUR_CLIENT_ID}"),
+		idx.WithClientSecret("{YOUR_CLIENT_SECRET}"),  // Required for confidential clients.
+		idx.WithIssuer("{YOUR_ISSUER}"),               // e.g. https://foo.okta.com/oauth2/default, https://foo.okta.com/oauth2/ausar5vgt5TSDsfcJ0h7
+		idx.WithScopes([]string{"openid", "profile"}), // Must include at least `openid`. Include `profile` if you want to do token exchange
+		idx.WithRedirectURI("{YOUR_REDIRECT_URI}"),    // Must match the redirect uri in client app settings/console
 	)
 	if err != nil {
-		fmt.Errorf("could not create a new IDX Client: %v", err)
+		panic(fmt.Errorf("failed to create a new IDX Client: %v", err))
 	}
 }
 ```
