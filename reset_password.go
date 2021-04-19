@@ -1,3 +1,19 @@
+/**
+ * Copyright 2020 - Present Okta, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package idx
 
 import (
@@ -323,20 +339,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 }
 
 func (r *ResetPasswordResponse) confirmWithCode(ctx context.Context, code string) (*ResetPasswordResponse, error) {
-	resp, err := idx.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("challenge-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(code)))
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err := passcodeAuth(ctx, r.idxContext, "challenge-authenticator", code)
 	if err != nil {
 		return nil, err
 	}

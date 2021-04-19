@@ -46,16 +46,9 @@ type Client struct {
 	idxContext *Context
 }
 
-type Context struct {
-	codeVerifier      string
-	interactionHandle *InteractionHandle
-	state             string
-}
-
 func NewClient(conf ...ConfigSetter) (*Client, error) {
-	oie := &Client{}
 	cfg := &config{}
-	err := ReadConfig(cfg)
+	err := readConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new Client: %w", err)
 	}
@@ -66,9 +59,10 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
-	oie.config = cfg
-	oie.httpClient = &http.Client{Timeout: time.Second * 60}
-
+	oie := &Client{
+		config:     cfg,
+		httpClient: &http.Client{Timeout: time.Second * 60},
+	}
 	idx = oie
 	return oie, nil
 }
@@ -89,79 +83,22 @@ func (c *Client) IdxContext() *Context {
 	return nil
 }
 
-func (ictx *Context) CodeVerifier() string {
-	return ictx.codeVerifier
-}
-
-func (ictx *Context) InteractionHandle() *InteractionHandle {
-	return ictx.interactionHandle
-}
-
-func (ictx *Context) State() string {
-	return ictx.state
-}
-
-func unmarshalResponse(r *http.Response, i interface{}) error {
-	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-	if r.StatusCode != http.StatusOK {
-		var respErr ErrorResponse
-		err = json.Unmarshal(body, &respErr)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-		return &respErr
-	}
-	err = json.Unmarshal(body, &i)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-	return nil
-}
-
-func (c *Client) createCodeVerifier() (*string, error) {
-	codeVerifier := make([]byte, 86)
-	_, err := crand.Read(codeVerifier)
-	if err != nil {
-		return nil, fmt.Errorf("error creating code_verifier: %w", err)
-	}
-	s := base64.RawURLEncoding.EncodeToString(codeVerifier)
-	return &s, nil
-}
-
-func (c *Client) createState() (*string, error) {
-	localState := make([]byte, 16)
-	_, err := crand.Read(localState)
-	if err != nil {
-		return nil, fmt.Errorf("error creating state: %w", err)
-	}
-	s := base64.RawURLEncoding.EncodeToString(localState)
-	return &s, nil
-}
-
 func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	h := sha256.New()
 	var err error
 
 	idxContext := &Context{}
-
-	codeVerifier, err := c.createCodeVerifier()
-	if err != nil {
-		return nil, err
-	}
-	idxContext.codeVerifier = *codeVerifier
-
-	state, err := c.createState()
+	idxContext.codeVerifier, err = createCodeVerifier()
 	if err != nil {
 		return nil, err
 	}
 
-	idxContext.state = *state
+	idxContext.state, err = createState()
+	if err != nil {
+		return nil, err
+	}
 
-	_, err = h.Write([]byte(idxContext.CodeVerifier()))
+	_, err = h.Write([]byte(idxContext.codeVerifier))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
@@ -195,11 +132,9 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	idxContext.interactionHandle = &InteractionHandle{
 		InteractionHandle: interactionHandle.InteractionHandle,
 	}
-
 	return idxContext, nil
 }
 
@@ -240,164 +175,76 @@ func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response
 	return &idxResponse, nil
 }
 
-// Auth Status Constants
-const (
-	AuthStatusSuccess         = "SUCCESS"
-	AuthStatusPasswordExpired = "PASSWORD_EXPIRED"
-	AuthStatusUnhandled       = "UNHANDLED_RESPONSE"
-)
-
-type AuthenticationOptions struct {
-	Username string
-	Password string
+type Context struct {
+	codeVerifier      string
+	interactionHandle *InteractionHandle
+	state             string
 }
 
-type ChangePasswordOptions struct {
-	OldPassword string
-	NewPassword string
+func (ictx *Context) CodeVerifier() string {
+	return ictx.codeVerifier
 }
 
-type AuthenticationResponse struct {
-	idxContext           *Context
-	token                *Token
-	authenticationStatus string
+func (ictx *Context) InteractionHandle() *InteractionHandle {
+	return ictx.interactionHandle
 }
 
-func (ar *AuthenticationResponse) AuthenticationStatus() string {
-	return ar.authenticationStatus
+func (ictx *Context) State() string {
+	return ictx.state
 }
 
-func (ar *AuthenticationResponse) Token() *Token {
-	return ar.token
-}
-
-func (ar *AuthenticationResponse) IdxContext() *Context {
-	return ar.idxContext
-}
-
-func (c *Client) Authenticate(ctx context.Context, options AuthenticationOptions) (*AuthenticationResponse, error) {
-	var authenticationResponse AuthenticationResponse
-
-	idxContext, err := c.Interact(ctx)
+func unmarshalResponse(r *http.Response, i interface{}) error {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("failed to read response body: %w", err)
 	}
-	authenticationResponse.idxContext = idxContext
-
-	response, err := c.Introspect(ctx, idxContext)
-	if err != nil {
-		return nil, err
-	}
-
-	remediationOption, err := response.remediationOption("identify")
-	if err != nil {
-		return nil, err
-	}
-
-	identityFirst, err := remediationOption.IsIdentityFirst()
-	if err != nil {
-		return nil, err
-	}
-
-	if identityFirst {
-		response, err := c.handleIdentityFirst(ctx, options, remediationOption)
+	if r.StatusCode != http.StatusOK {
+		var respErr ErrorResponse
+		err = json.Unmarshal(body, &respErr)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-
-		return c.handleRemediation(ctx, idxContext, response)
+		return &respErr
 	}
-
-	return nil, nil
+	err = json.Unmarshal(body, &i)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+	return nil
 }
 
-func (c *Client) handleRemediation(ctx context.Context, idxContext *Context, response *Response) (*AuthenticationResponse, error) {
-	authenticationResponse := &AuthenticationResponse{
-		idxContext:           idxContext,
-		authenticationStatus: AuthStatusUnhandled,
+func createCodeVerifier() (string, error) {
+	codeVerifier := make([]byte, 86)
+	_, err := crand.Read(codeVerifier)
+	if err != nil {
+		return "", fmt.Errorf("error creating code_verifier: %w", err)
 	}
-
-	if response.LoginSuccess() {
-		exchangeForm := []byte(`{
-			"client_secret": "` + c.ClientSecret() + `",
-			"code_verifier": "` + idxContext.CodeVerifier() + `"
-		}`)
-
-		tokens, err := response.SuccessResponse.ExchangeCode(ctx, exchangeForm)
-		if err != nil {
-			return nil, err
-		}
-		authenticationResponse.token = tokens
-		authenticationResponse.authenticationStatus = AuthStatusSuccess
-
-		return authenticationResponse, nil
-	}
-
-	_, err := response.remediationOption("reenroll-authenticator")
-	if err == nil {
-		// We have a reenroll-authenticator remediation option
-		authenticationResponse.authenticationStatus = AuthStatusPasswordExpired
-		return authenticationResponse, nil
-	}
-
-	return authenticationResponse, nil
+	return base64.RawURLEncoding.EncodeToString(codeVerifier), nil
 }
 
-func (c *Client) ChangePassword(ctx context.Context, idxContext *Context, options ChangePasswordOptions) (*AuthenticationResponse, error) {
-	creds := []byte(`{
-		"credentials": {
-			"passcode": "` + options.NewPassword + `"
-		}
-	}`)
-	response, err := c.Introspect(ctx, idxContext)
+func createState() (string, error) {
+	localState := make([]byte, 16)
+	_, err := crand.Read(localState)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("error creating state: %w", err)
 	}
-
-	remediationOption, err := response.remediationOption("reenroll-authenticator")
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := remediationOption.Proceed(ctx, creds)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.handleRemediation(ctx, idxContext, resp)
+	return base64.RawURLEncoding.EncodeToString(localState), nil
 }
 
-func (c *Client) handleIdentityFirst(ctx context.Context, options AuthenticationOptions, remediationOption *RemediationOption) (*Response, error) {
-	identify := []byte(`{
-		"identifier": "` + options.Username + `"
-	}`)
-
-	response, err := remediationOption.Proceed(ctx, identify)
+func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
+	resp, err := idx.Introspect(ctx, idxContext)
 	if err != nil {
 		return nil, err
 	}
-
-	remediationOption, err = response.remediationOption("challenge-authenticator")
+	ro, err := resp.remediationOption(remediation)
 	if err != nil {
 		return nil, err
 	}
-
-	credentials := []byte(`{
-		"credentials": {
-			"passcode": "` + options.Password + `"
-		}
-	}`)
-
-	return remediationOption.Proceed(ctx, credentials)
-}
-
-// nolint
-func (c *Client) handleSingleStepIdentity(ctx context.Context, ao AuthenticationOptions, ro *RemediationOption) (*Response, error) {
-	identify := []byte(`{
-		"identifier": "` + ao.Username + `",
-		"credentials": {
-			"passcode": "` + ao.Password + `"
-		}
-	}`)
-	return ro.Proceed(ctx, identify)
+	credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"passcode": "%s"
+				}
+			}`, strings.TrimSpace(passcode)))
+	return ro.Proceed(ctx, credentials)
 }

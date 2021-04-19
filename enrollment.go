@@ -1,3 +1,19 @@
+/**
+ * Copyright 2020 - Present Okta, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package idx
 
 import (
@@ -13,7 +29,6 @@ import (
 // At the end of the successful flow, the only enrollment step will be `EnrollmentStepSuccess`
 // and tokens will be available
 type EnrollmentResponse struct {
-	client          *Client
 	idxContext      *Context
 	token           *Token
 	enrollmentSteps []EnrollmentStep
@@ -57,11 +72,13 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	}
 	er := &EnrollmentResponse{
 		idxContext: idxContext,
-		client:     c,
 	}
 	err = er.setupNextSteps(ctx, resp)
 	if err != nil {
 		return nil, err
+	}
+	if idx == nil {
+		idx = c
 	}
 	return er, nil
 }
@@ -71,7 +88,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	if !r.HasStep(EnrollmentStepPasswordSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +130,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	if !r.HasStep(EnrollmentStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +180,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod
 	if method != PhoneMethodVoiceCall && method != PhoneMethodSMS {
 		return nil, fmt.Errorf("%s is invalid phone verification method, plese use %s or %s", method, PhoneMethodVoiceCall, PhoneMethodSMS)
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +221,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 	if !r.HasStep(EnrollmentStepSkip) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +245,7 @@ func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, e
 	if !r.HasStep(EnrollmentStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +269,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if !r.HasStep(EnrollmentStepSecurityQuestionOptions) {
 		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -321,7 +338,7 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	if sq.QuestionKey == "custom" && sq.Question == "" {
 		return nil, errors.New("missing custom question")
 	}
-	resp, err := r.client.Introspect(ctx, r.idxContext)
+	resp, err := idx.Introspect(ctx, r.idxContext)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +427,7 @@ var enrollStepText = map[EnrollmentStep]string{
 func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
-			"client_secret": "` + r.client.ClientSecret() + `",
+			"client_secret": "` + idx.ClientSecret() + `",
 			"code_verifier": "` + r.idxContext.CodeVerifier() + `"
 		}`)
 		tokens, err := resp.SuccessResponse.ExchangeCode(ctx, exchangeForm)
@@ -453,20 +470,7 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 }
 
 func (r *EnrollmentResponse) confirmWithCode(ctx context.Context, code string) (*EnrollmentResponse, error) {
-	resp, err := r.client.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("enroll-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"passcode": "%s"
-				}
-			}`, strings.TrimSpace(code)))
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err := passcodeAuth(ctx, r.idxContext, "enroll-authenticator", code)
 	if err != nil {
 		return nil, err
 	}
