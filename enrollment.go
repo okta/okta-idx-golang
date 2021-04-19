@@ -316,7 +316,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	return r, m, nil
 }
 
-// SecurityQuestion represents security question to be used for the account verification
+// SecurityQuestion represents security question to be used for the account verification.
 // In case when 'questionKey'=='custom' the 'question' field should be non-empty and contain custom
 // security question.
 type SecurityQuestion struct {
