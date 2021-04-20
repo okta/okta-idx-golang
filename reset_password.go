@@ -40,7 +40,37 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.Introspect(context.TODO(), idxContext)
+	resp, err := identifyAndRecover(ctx, idxContext, ir)
+	if err != nil {
+		return nil, err
+	}
+	rpr := &ResetPasswordResponse{
+		idxContext: idxContext,
+	}
+	err = rpr.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return rpr, nil
+}
+
+func (r *ResetPasswordResponse) Restart(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
+	if !r.HasStep(ResetPasswordStepRestart) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := identifyAndRecover(ctx, r.idxContext, ir)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func identifyAndRecover(ctx context.Context, ictx *Context, ir *IdentifyRequest) (*Response, error) {
+	resp, err := idx.Introspect(context.TODO(), ictx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,18 +91,7 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' " +
 			"field is missing from the response")
 	}
-	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	rpr := &ResetPasswordResponse{
-		idxContext: idxContext,
-	}
-	err = rpr.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return rpr, nil
+	return resp.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(ctx, nil)
 }
 
 func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPasswordResponse, error) {
@@ -198,6 +217,7 @@ func (r *ResetPasswordResponse) Cancel(ctx context.Context) (*ResetPasswordRespo
 	if err != nil {
 		return nil, err
 	}
+	r.availableSteps = append(r.availableSteps, ResetPasswordStepRestart)
 	return r, nil
 }
 
@@ -252,6 +272,7 @@ var resetStepText = map[ResetPasswordStep]string{
 	ResetPasswordStepAnswerSecurityQuestion: "ANSWER SECURITY_QUESTION",
 	ResetPasswordStepNewPassword:            "NEW_PASSWORD",
 	ResetPasswordStepCancel:                 "CANCEL",
+	ResetPasswordStepRestart:                "RESTART",
 	ResetPasswordStepSkip:                   "SKIP",
 	ResetPasswordStepSuccess:                "SUCCESS",
 }
@@ -263,6 +284,7 @@ const (
 	ResetPasswordStepAnswerSecurityQuestion                              // 'AnswerSecurityQuestion'
 	ResetPasswordStepNewPassword                                         // 'SetNewPassword'
 	ResetPasswordStepCancel                                              // 'Cancel'
+	ResetPasswordStepRestart                                             // 'Restart'
 	ResetPasswordStepSkip                                                // 'Skip'
 	ResetPasswordStepSuccess                                             // 'Token'
 )
