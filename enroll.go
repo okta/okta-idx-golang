@@ -29,9 +29,9 @@ import (
 // At the end of the successful flow, the only enrollment step will be `EnrollmentStepSuccess`
 // and tokens will be available
 type EnrollmentResponse struct {
-	idxContext      *Context
-	token           *Token
-	enrollmentSteps []EnrollmentStep
+	idxContext     *Context
+	token          *Token
+	availableSteps []EnrollmentStep
 }
 
 // UserProfile holds the necessary information to init the enrollment process.
@@ -151,7 +151,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	if err != nil {
 		return nil, err
 	}
-	r.enrollmentSteps = append(r.enrollmentSteps, EnrollmentStepEmailConfirmation)
+	r.availableSteps = append(r.availableSteps, EnrollmentStepEmailConfirmation)
 	return r, nil
 }
 
@@ -203,7 +203,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod
 	if err != nil {
 		return nil, err
 	}
-	r.enrollmentSteps = append(r.enrollmentSteps, EnrollmentStepPhoneConfirmation)
+	r.availableSteps = append(r.availableSteps, EnrollmentStepPhoneConfirmation)
 	return r, nil
 }
 
@@ -311,7 +311,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if err != nil {
 		return nil, nil, err
 	}
-	r.enrollmentSteps = append(r.enrollmentSteps, EnrollmentStepSecurityQuestionSetup)
+	r.availableSteps = append(r.availableSteps, EnrollmentStepSecurityQuestionSetup)
 	m["custom"] = "Create a security question"
 	return r, m, nil
 }
@@ -363,13 +363,13 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 // AvailableSteps returns list of steps that can be executed next.
 // In case of successful authentication, list will contain only one "SUCCESS" step.
 func (r *EnrollmentResponse) AvailableSteps() []EnrollmentStep {
-	return r.enrollmentSteps
+	return r.availableSteps
 }
 
 // HasStep checks if the provided step is present in the list of available steps.
 func (r *EnrollmentResponse) HasStep(s EnrollmentStep) bool {
-	for i := range r.enrollmentSteps {
-		if r.enrollmentSteps[i] == s {
+	for i := range r.availableSteps {
+		if r.availableSteps[i] == s {
 			return true
 		}
 	}
@@ -435,7 +435,7 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 			return err
 		}
 		r.token = tokens
-		r.enrollmentSteps = []EnrollmentStep{EnrollmentStepSuccess}
+		r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
 		return nil
 	}
 	var steps []EnrollmentStep
@@ -465,7 +465,7 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	if len(steps) == 0 {
 		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
 	}
-	r.enrollmentSteps = steps
+	r.availableSteps = steps
 	return nil
 }
 

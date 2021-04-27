@@ -18,24 +18,54 @@ package idx
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
 
-func (r *Response) Identify(ctx context.Context, ir *IdentifyRequest) (*Response, error) {
-	ro, err := r.remediationOption("identify")
+type LoginResponse struct {
+	idxContext     *Context
+	token          *Token
+	availableSteps []LoginStep
+}
+
+func (c *Client) InitLogin(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
+	idxContext, err := c.Interact(ctx)
 	if err != nil {
 		return nil, err
 	}
-	identify := []byte(fmt.Sprintf(`{
-                "identifier": "%s",
-                "rememberMe": %t
-            }`, ir.Identifier, ir.RememberMe))
-	return ro.Proceed(ctx, identify)
+	resp, err := idx.Introspect(context.TODO(), idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("identify")
+	if err != nil {
+		return nil, err
+	}
+	b, _ := json.Marshal(ir)
+	resp, err = ro.Proceed(ctx, b)
+	if err != nil {
+		return nil, err
+	}
+	lr := &LoginResponse{
+		idxContext: idxContext,
+	}
+	err = lr.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return lr, nil
 }
 
-func (r *Response) SetPasswordOnLogin(ctx context.Context, password string) (*Response, error) {
-	ro, err := r.remediationOption("challenge-authenticator")
+func (r *LoginResponse) SetPassword(ctx context.Context, password string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepPasswordSet) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("challenge-authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -44,5 +74,216 @@ func (r *Response) SetPasswordOnLogin(ctx context.Context, password string) (*Re
 					"passcode": "` + strings.TrimSpace(password) + `"
 				}
 			}`)
-	return ro.Proceed(ctx, credentials)
+	resp, err = ro.Proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
+
+func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepEmailVerification) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Email")
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.Proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, LoginStepEmailConfirmation)
+	return r, nil
+}
+
+func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepEmailConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	return r.confirmWithCode(ctx, code)
+}
+
+func (r *LoginResponse) Restart(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepRestart) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := identifyAndRecover(ctx, r.idxContext, ir)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Cancel the whole login process.
+func (r *LoginResponse) Cancel(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepCancel) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.Introspect(ctx, r.idxContext)
+	if err != nil {
+		return nil, err
+	}
+	resp, err = resp.Cancel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// AvailableSteps returns list of steps that can be executed next.
+// In case of successful authentication, list will contain only one "SUCCESS" step.
+func (r *LoginResponse) AvailableSteps() []LoginStep {
+	return r.availableSteps
+}
+
+// HasStep checks if the provided step is present in the list of available steps.
+func (r *LoginResponse) HasStep(s LoginStep) bool {
+	for i := range r.availableSteps {
+		if r.availableSteps[i] == s {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAuthenticated returns true in case "SUCCESS"is present in the list of available steps.
+func (r *LoginResponse) IsAuthenticated() bool {
+	return r.HasStep(LoginStepSuccess)
+}
+
+// Token returns authorization token. This method should be called when there is "SUCCESS" step
+// present in the list of available steps.
+func (r *LoginResponse) Token() *Token {
+	return r.token
+}
+
+func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) error {
+	if resp.LoginSuccess() {
+		exchangeForm := []byte(`{
+			"client_secret": "` + idx.ClientSecret() + `",
+			"code_verifier": "` + r.idxContext.CodeVerifier() + `"
+		}`)
+		tokens, err := resp.SuccessResponse.ExchangeCode(ctx, exchangeForm)
+		if err != nil {
+			return err
+		}
+		r.token = tokens
+		r.availableSteps = []LoginStep{LoginStepSuccess}
+		return nil
+	}
+	var steps []LoginStep
+	if resp.CancelResponse != nil {
+		steps = append(steps, LoginStepCancel)
+	}
+	ro, err := resp.remediationOption("challenge-authenticator")
+	if err == nil {
+	loop2:
+		for i := range ro.FormValues {
+			if ro.FormValues[i].Form != nil && len(ro.FormValues[i].Form.FormValues) > 0 {
+				for j := range ro.FormValues[i].Form.FormValues {
+					if ro.FormValues[i].Form.FormValues[j].Label == "Password" ||
+						ro.FormValues[i].Form.FormValues[j].Name == "passcode" {
+						steps = append(steps, LoginStepPasswordSet)
+						break loop2
+					}
+				}
+			}
+		}
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Email")
+	if err == nil {
+		steps = append(steps, LoginStepEmailVerification)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Phone")
+	if err == nil {
+		steps = append(steps, LoginStepEmailVerification)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question")
+	if err == nil {
+		steps = append(steps, LoginStepEmailVerification)
+	}
+	_, err = resp.remediationOption("skip")
+	if err == nil {
+		steps = append(steps, LoginStepSkip)
+	}
+	if len(steps) == 0 {
+		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
+	}
+	r.availableSteps = steps
+	return nil
+}
+
+func (r *LoginResponse) confirmWithCode(ctx context.Context, code string) (*LoginResponse, error) {
+	resp, err := passcodeAuth(ctx, r.idxContext, "enroll-authenticator", code)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+type LoginStep int
+
+func (s LoginStep) String() string {
+	v, ok := loginStepText[s]
+	if ok {
+		return v
+	}
+	return unknownStep
+}
+
+var loginStepText = map[LoginStep]string{
+	LoginStepPasswordSet:            "PASSWORD_SET",
+	LoginStepEmailVerification:      "EMAIL_VERIFICATION",
+	LoginStepEmailConfirmation:      "EMAIL_CONFIRMATION",
+	LoginStepPhoneVerification:      "PHONE_VERIFICATION",
+	LoginStepPhoneConfirmation:      "PHONE_CONFIRMATION",
+	LoginStepAnswerSecurityQuestion: "ANSWER SECURITY_QUESTION",
+	LoginStepCancel:                 "CANCEL",
+	LoginStepRestart:                "RESTART",
+	LoginStepSkip:                   "SKIP",
+	LoginStepSuccess:                "SUCCESS",
+}
+
+// These codes indicate what method(s) can be called in the next step.
+const (
+	LoginStepPasswordSet            LoginStep = iota + 1 // 'SetPassword'
+	LoginStepEmailVerification                           // 'VerifyEmail'
+	LoginStepEmailConfirmation                           // 'ConfirmEmail'
+	LoginStepPhoneVerification                           // 'VerifyPhone
+	LoginStepPhoneConfirmation                           // 'ConfirmPhone'
+	LoginStepAnswerSecurityQuestion                      // 'AnswerSecurityQuestion'
+	LoginStepCancel                                      // 'Cancel'
+	LoginStepRestart                                     // 'Restart'
+	LoginStepSkip                                        // 'Skip'
+	LoginStepSuccess                                     // 'Token'
+)
