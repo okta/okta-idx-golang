@@ -268,6 +268,69 @@ func main() {
 }
 ```
 
+#### Sign In
+
+```go
+package main
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+
+	idx "github.com/okta/okta-idx-golang"
+)
+
+func main() {
+	client, err := idx.NewClient()
+	if err != nil {
+		panic(err)
+	}
+	up := &idx.IdentifyRequest{
+		Identifier: "john.joe@myorg.com",
+	}
+	resp, err := client.InitLogin(context.TODO(), up)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	reader := bufio.NewReader(os.Stdin)
+	if resp.HasStep(idx.LoginStepPasswordSet) {
+		fmt.Print("Enter your password: ")
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.SetPassword(context.TODO(), text)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.LoginStepEmailVerification) {
+		resp, err = resp.VerifyEmail(context.TODO())
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.LoginStepEmailConfirmation) {
+		fmt.Print("Enter the code from email: ")
+		text, _ := reader.ReadString('\n')
+		resp, err = resp.ConfirmEmail(context.TODO(), text)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.IsAuthenticated() { // same as 'resp.HasStep(idx.LoginStepSuccess)'
+		fmt.Println(resp.Token())
+	}
+}
+```
+
 ## Configuration Reference
 
 This library looks for the configuration in the following sources:
