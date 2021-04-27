@@ -248,3 +248,37 @@ func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcod
 			}`, strings.TrimSpace(passcode)))
 	return ro.Proceed(ctx, credentials)
 }
+
+func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption string) (*Response, error) {
+	resp, err := idx.Introspect(ctx, idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption(authenticatorOption, "Email")
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	return ro.Proceed(ctx, authenticator)
+}
+
+func setPassword(ctx context.Context, idxContext *Context, optionName, password string) (*Response, error) {
+	resp, err := idx.Introspect(ctx, idxContext)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption(optionName)
+	if err != nil {
+		return nil, err
+	}
+	credentials := []byte(`{
+		"credentials": {
+			"passcode": "` + strings.TrimSpace(password) + `"
+		}
+	}`)
+	return ro.Proceed(ctx, credentials)
+}

@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 type LoginResponse struct {
@@ -61,20 +60,7 @@ func (r *LoginResponse) SetPassword(ctx context.Context, password string) (*Logi
 	if !r.HasStep(LoginStepPasswordSet) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("challenge-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(`{
-				"credentials": {
-					"passcode": "` + strings.TrimSpace(password) + `"
-				}
-			}`)
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err := setPassword(ctx, r.idxContext, "challenge-authenticator", password)
 	if err != nil {
 		return nil, err
 	}
@@ -89,20 +75,7 @@ func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error)
 	if !r.HasStep(LoginStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Email")
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	resp, err := verifyEmail(ctx, r.idxContext, "select-authenticator-authenticate")
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +156,44 @@ func (r *LoginResponse) Token() *Token {
 	return r.token
 }
 
+type LoginStep int
+
+func (s LoginStep) String() string {
+	v, ok := loginStepText[s]
+	if ok {
+		return v
+	}
+	return unknownStep
+}
+
+var loginStepText = map[LoginStep]string{
+	LoginStepPasswordSet:            "PASSWORD_SET",
+	LoginStepEmailVerification:      "EMAIL_VERIFICATION",
+	LoginStepEmailConfirmation:      "EMAIL_CONFIRMATION",
+	LoginStepPhoneVerification:      "PHONE_VERIFICATION",
+	LoginStepPhoneConfirmation:      "PHONE_CONFIRMATION",
+	LoginStepAnswerSecurityQuestion: "ANSWER SECURITY_QUESTION",
+	LoginStepCancel:                 "CANCEL",
+	LoginStepRestart:                "RESTART",
+	LoginStepSkip:                   "SKIP",
+	LoginStepSuccess:                "SUCCESS",
+}
+
+// These codes indicate what method(s) can be called in the next step.
+const (
+	LoginStepPasswordSet            LoginStep = iota + 1 // 'SetPassword'
+	LoginStepEmailVerification                           // 'VerifyEmail'
+	LoginStepEmailConfirmation                           // 'ConfirmEmail'
+	LoginStepPhoneVerification                           // 'VerifyPhone
+	LoginStepPhoneConfirmation                           // 'ConfirmPhone'
+	LoginStepAnswerSecurityQuestion                      // 'AnswerSecurityQuestion'
+	LoginStepCancel                                      // 'Cancel'
+	LoginStepRestart                                     // 'Restart'
+	LoginStepSkip                                        // 'Skip'
+	LoginStepSuccess                                     // 'Token'
+)
+
+// nolint
 func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) error {
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
@@ -226,7 +237,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question")
 	if err == nil {
-		steps = append(steps, LoginStepEmailVerification)
+		steps = append(steps, LoginStepAnswerSecurityQuestion)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
@@ -245,45 +256,5 @@ func (r *LoginResponse) confirmWithCode(ctx context.Context, code string) (*Logi
 		return nil, err
 	}
 	err = r.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
+	return r, err
 }
-
-type LoginStep int
-
-func (s LoginStep) String() string {
-	v, ok := loginStepText[s]
-	if ok {
-		return v
-	}
-	return unknownStep
-}
-
-var loginStepText = map[LoginStep]string{
-	LoginStepPasswordSet:            "PASSWORD_SET",
-	LoginStepEmailVerification:      "EMAIL_VERIFICATION",
-	LoginStepEmailConfirmation:      "EMAIL_CONFIRMATION",
-	LoginStepPhoneVerification:      "PHONE_VERIFICATION",
-	LoginStepPhoneConfirmation:      "PHONE_CONFIRMATION",
-	LoginStepAnswerSecurityQuestion: "ANSWER SECURITY_QUESTION",
-	LoginStepCancel:                 "CANCEL",
-	LoginStepRestart:                "RESTART",
-	LoginStepSkip:                   "SKIP",
-	LoginStepSuccess:                "SUCCESS",
-}
-
-// These codes indicate what method(s) can be called in the next step.
-const (
-	LoginStepPasswordSet            LoginStep = iota + 1 // 'SetPassword'
-	LoginStepEmailVerification                           // 'VerifyEmail'
-	LoginStepEmailConfirmation                           // 'ConfirmEmail'
-	LoginStepPhoneVerification                           // 'VerifyPhone
-	LoginStepPhoneConfirmation                           // 'ConfirmPhone'
-	LoginStepAnswerSecurityQuestion                      // 'AnswerSecurityQuestion'
-	LoginStepCancel                                      // 'Cancel'
-	LoginStepRestart                                     // 'Restart'
-	LoginStepSkip                                        // 'Skip'
-	LoginStepSuccess                                     // 'Token'
-)

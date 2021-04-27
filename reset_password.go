@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 type ResetPasswordResponse struct {
@@ -176,20 +175,7 @@ func (r *ResetPasswordResponse) SetNewPassword(ctx context.Context, password str
 	if !r.HasStep(ResetPasswordStepNewPassword) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("reset-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(`{
-		"credentials": {
-			"passcode": "` + strings.TrimSpace(password) + `"
-		}
-	}`)
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err := setPassword(ctx, r.idxContext, "reset-authenticator", password)
 	if err != nil {
 		return nil, err
 	}
@@ -366,8 +352,5 @@ func (r *ResetPasswordResponse) confirmWithCode(ctx context.Context, code string
 		return nil, err
 	}
 	err = r.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
+	return r, err
 }

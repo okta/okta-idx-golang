@@ -130,20 +130,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	if !r.HasStep(EnrollmentStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
-	if err != nil {
-		return nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Email")
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	resp, err := verifyEmail(ctx, r.idxContext, "select-authenticator-enroll")
 	if err != nil {
 		return nil, err
 	}
