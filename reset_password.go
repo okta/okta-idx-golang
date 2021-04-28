@@ -30,8 +30,13 @@ type ResetPasswordResponse struct {
 }
 
 type IdentifyRequest struct {
-	Identifier string `json:"identifier"`
-	RememberMe bool   `json:"remember_me"`
+	Identifier  string      `json:"identifier"`
+	Credentials Credentials `json:"credentials"`
+	RememberMe  bool        `json:"rememberMe"`
+}
+
+type Credentials struct {
+	Password string `json:"passcode"`
 }
 
 func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
@@ -72,6 +77,19 @@ func identifyAndRecover(ctx context.Context, ictx *Context, ir *IdentifyRequest)
 	resp, err := idx.Introspect(context.TODO(), ictx)
 	if err != nil {
 		return nil, err
+	}
+	if resp.CurrentAuthenticator != nil {
+		resp, err = resp.CurrentAuthenticator.Value.Recover.Proceed(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		var ro *RemediationOption
+		ro, err = resp.remediationOption("identify-recovery")
+		if err != nil {
+			return nil, err
+		}
+		b, _ := json.Marshal(ir)
+		return ro.Proceed(ctx, b)
 	}
 	ro, err := resp.remediationOption("identify")
 	if err != nil {

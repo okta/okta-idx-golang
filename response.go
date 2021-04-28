@@ -36,6 +36,7 @@ type Response struct {
 	CancelResponse                 *Option                         `json:"cancel"`
 	SuccessResponse                *SuccessOption                  `json:"successWithInteractionCode"`
 	CurrentAuthenticatorEnrollment *CurrentAuthenticatorEnrollment `json:"currentAuthenticatorEnrollment"`
+	CurrentAuthenticator           *CurrentAuthenticatorEnrollment `json:"currentAuthenticator"`
 	Messages                       *Message                        `json:"messages"`
 	raw                            []byte
 }
