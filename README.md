@@ -287,20 +287,44 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	up := &idx.IdentifyRequest{
-		Identifier: "john.joe@myorg.com",
-	}
-	resp, err := client.InitLogin(context.TODO(), up)
+	
+	resp, err := client.InitLogin(context.TODO())
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Next steps: ", resp.AvailableSteps())
 	reader := bufio.NewReader(os.Stdin)
-	if resp.HasStep(idx.LoginStepPasswordSet) {
+	
+	// depending on the primary factor in your sign-on policy rule,
+	// password may or may not be required to make Identify request
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.LoginStepIdentifyWithPassword) {
+		up := &idx.IdentifyRequest{
+			Identifier: "john.joe@myorg.com",
+			Credentials: idx.Credentials{},
+		}
+		fmt.Print("Enter your password: ")
+		up.Credentials.Password, _ = reader.ReadString('\n')
+		resp, err = resp.Identify(context.TODO(), up)
+		if err != nil {
+			panic(err)
+		}
+	} else if resp.HasStep(idx.LoginStepIdentify) {
+		up := &idx.IdentifyRequest{
+			Identifier: "john.joe@myorg.com",
+		}
+		resp, err = resp.Identify(context.TODO(), up)
+		if err != nil {
+			panic(err)
+		}
+    }
+
+    // if previous step was 'LoginStepIdentifyWithPassword', this step won't appear
+    fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.LoginStepPassword) {
 		fmt.Print("Enter your password: ")
 		text, _ := reader.ReadString('\n')
-		resp, err = resp.SetPassword(context.TODO(), text)
+		resp, err = resp.Password(context.TODO(), text)
 		if err != nil {
 			panic(err)
 		}
