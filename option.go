@@ -54,14 +54,6 @@ type Option struct {
 	Accepts    string      `json:"accepts"`
 }
 
-// Form gets all form values
-func (o *Option) Form() []FormValue {
-	if o == nil {
-		return nil
-	}
-	return o.FormValues
-}
-
 type FormValue struct {
 	Name     string        `json:"name"`
 	Label    string        `json:"label,omitempty"`
@@ -171,22 +163,12 @@ func (o *Option) proceed(ctx context.Context, data []byte) (*Response, error) {
 	return &idxResponse, nil
 }
 
-// Proceed allows you to continue the remediation with this option.
+// proceed allows you to continue the remediation with this option.
 // It will return error when provided data does not contain all required values to proceed call.
 // Data should be in JSON format.
-func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
+func (o *RemediationOption) proceed(ctx context.Context, data []byte) (*Response, error) {
 	op := Option(*o)
 	return op.proceed(ctx, data)
-}
-
-// Determine if the remediation form has an item based on form value name
-func (o *RemediationOption) formHas(val string) bool {
-	for i := range o.FormValues {
-		if o.FormValues[i].Name == val {
-			return true
-		}
-	}
-	return false
 }
 
 func (o *RemediationOption) value(name string) (*FormValue, error) {
@@ -196,15 +178,6 @@ func (o *RemediationOption) value(name string) (*FormValue, error) {
 		}
 	}
 	return nil, fmt.Errorf("could not locate a form value with the name '%s'", name)
-}
-
-// Help determine if the remediation option is identifier first
-// This method should only be called with the identify remediation
-func (o *RemediationOption) IsIdentityFirst() (bool, error) {
-	if o.Name != "identify" {
-		return false, fmt.Errorf("expected `identify` remediation option, got `%s`", o.Name)
-	}
-	return !o.formHas("credentials"), nil
 }
 
 //nolint
@@ -305,7 +278,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 type SuccessOption Option
 
 // Exchange the code from SuccessWithInteractionCode
-func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
+func (o *SuccessOption) exchangeCode(ctx context.Context, data []byte) (*Token, error) {
 	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid success response is missing from idx response")
 	}
@@ -371,18 +344,10 @@ type CurrentAuthenticatorEnrollment struct {
 	} `json:"value"`
 }
 
-// Form gets all form values
-func (o *RecoverOption) Form() []FormValue {
-	if o == nil {
-		return nil
-	}
-	return o.FormValues
-}
-
-// Proceed allows you to continue the remediation with this option.
+// proceed allows you to continue the remediation with this option.
 // It will return error when provided data does not contain all required values to proceed call.
 // Data should be in JSON format.
-func (o *RecoverOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
+func (o *RecoverOption) proceed(ctx context.Context, data []byte) (*Response, error) {
 	op := Option(*o)
 	return op.proceed(ctx, data)
 }

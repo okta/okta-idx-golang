@@ -43,7 +43,6 @@ var idx *Client
 type Client struct {
 	config     *config
 	httpClient *http.Client
-	idxContext *Context
 }
 
 func NewClient(conf ...ConfigSetter) (*Client, error) {
@@ -59,12 +58,12 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
-	oie := &Client{
+	c := &Client{
 		config:     cfg,
 		httpClient: &http.Client{Timeout: time.Second * 60},
 	}
-	idx = oie
-	return oie, nil
+	idx = c
+	return c, nil
 }
 
 func (c *Client) WithHTTPClient(client *http.Client) *Client {
@@ -76,14 +75,36 @@ func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
 }
 
-func (c *Client) IdxContext() *Context {
-	if c != nil {
-		return c.idxContext
+func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Response, error) {
+	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse issuer: %w", err)
 	}
-	return nil
+	body, err := json.Marshal(ih)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
+	}
+	endpoint := domain.Scheme + "://" + domain.Host + "/idp/idx/introspect"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create introspect http request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
+	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
+	oktahttp.WithOktaUserAgent(req, packageVersion)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http call has failed: %w", err)
+	}
+	var idxResponse Response
+	err = unmarshalResponse(resp, &idxResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &idxResponse, nil
 }
 
-func (c *Client) Interact(ctx context.Context) (*Context, error) {
+func (c *Client) interact(ctx context.Context) (*Context, error) {
 	h := sha256.New()
 	var err error
 
@@ -111,7 +132,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	data.Set("code_challenge", codeChallenge)
 	data.Set("code_challenge_method", "S256")
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", idxContext.State())
+	data.Set("state", idxContext.state)
 
 	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
@@ -138,59 +159,14 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	return idxContext, nil
 }
 
-func (c *Client) Introspect(ctx context.Context, idxContext *Context) (*Response, error) {
-	domain, err := url.Parse(c.config.Okta.IDX.Issuer)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse issuer: %w", err)
-	}
-	if idxContext == nil {
-		c.idxContext, err = c.Interact(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("could not retrieve an interaction handle for you: %w", err)
-		}
-	} else {
-		c.idxContext = idxContext
-	}
-	body, err := json.Marshal(c.idxContext.InteractionHandle())
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal interaction handle: %w", err)
-	}
-	endpoint := domain.Scheme + "://" + domain.Host + "/idp/idx/introspect"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create introspect http request: %w", err)
-	}
-	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
-	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
-	oktahttp.WithOktaUserAgent(req, packageVersion)
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %w", err)
-	}
-	var idxResponse Response
-	err = unmarshalResponse(resp, &idxResponse)
-	if err != nil {
-		return nil, err
-	}
-	return &idxResponse, nil
-}
-
 type Context struct {
 	codeVerifier      string
 	interactionHandle *InteractionHandle
 	state             string
 }
 
-func (ictx *Context) CodeVerifier() string {
-	return ictx.codeVerifier
-}
-
-func (ictx *Context) InteractionHandle() *InteractionHandle {
-	return ictx.interactionHandle
-}
-
-func (ictx *Context) State() string {
-	return ictx.state
+type InteractionHandle struct {
+	InteractionHandle string `json:"interactionHandle"`
 }
 
 func unmarshalResponse(r *http.Response, i interface{}) error {
@@ -233,7 +209,7 @@ func createState() (string, error) {
 }
 
 func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
-	resp, err := idx.Introspect(ctx, idxContext)
+	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -246,11 +222,11 @@ func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcod
 					"passcode": "%s"
 				}
 			}`, strings.TrimSpace(passcode)))
-	return ro.Proceed(ctx, credentials)
+	return ro.proceed(ctx, credentials)
 }
 
 func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption string) (*Response, error) {
-	resp, err := idx.Introspect(ctx, idxContext)
+	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -263,11 +239,11 @@ func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption s
 					"id": "` + authID + `"
 				}
 			}`)
-	return ro.Proceed(ctx, authenticator)
+	return ro.proceed(ctx, authenticator)
 }
 
 func setPassword(ctx context.Context, idxContext *Context, optionName, password string) (*Response, error) {
-	resp, err := idx.Introspect(ctx, idxContext)
+	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -280,5 +256,5 @@ func setPassword(ctx context.Context, idxContext *Context, optionName, password 
 			"passcode": "` + strings.TrimSpace(password) + `"
 		}
 	}`)
-	return ro.Proceed(ctx, credentials)
+	return ro.proceed(ctx, credentials)
 }

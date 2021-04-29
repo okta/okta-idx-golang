@@ -29,11 +29,11 @@ type LoginResponse struct {
 }
 
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
-	idxContext, err := c.Interact(ctx)
+	idxContext, err := c.interact(ctx)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := idx.Introspect(context.TODO(), idxContext)
+	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	if r.HasStep(LoginStepIdentifyWithPassword) && ir.Credentials.Password == "" {
 		return nil, fmt.Errorf("please provide valid credentials in your identify request")
 	}
-	resp, err := idx.Introspect(context.TODO(), r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 		return nil, err
 	}
 	b, _ := json.Marshal(ir)
-	resp, err = ro.Proceed(ctx, b)
+	resp, err = ro.proceed(ctx, b)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (r *LoginResponse) Cancel(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -203,9 +203,9 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
-			"code_verifier": "` + r.idxContext.CodeVerifier() + `"
+			"code_verifier": "` + r.idxContext.codeVerifier + `"
 		}`)
-		tokens, err := resp.SuccessResponse.ExchangeCode(ctx, exchangeForm)
+		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
 		if err != nil {
 			return err
 		}

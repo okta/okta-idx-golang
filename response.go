@@ -38,7 +38,6 @@ type Response struct {
 	CurrentAuthenticatorEnrollment *CurrentAuthenticatorEnrollment `json:"currentAuthenticatorEnrollment"`
 	CurrentAuthenticator           *CurrentAuthenticatorEnrollment `json:"currentAuthenticator"`
 	Messages                       *Message                        `json:"messages"`
-	raw                            []byte
 }
 
 type Message struct {
@@ -61,7 +60,6 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*localIDX)(r)); err != nil {
 		return fmt.Errorf("failed to unmarshal Response: %w", err)
 	}
-	r.raw = data
 	return nil
 }
 
@@ -109,11 +107,6 @@ func (r *Response) remediationOption(optionName string) (*RemediationOption, err
 		}
 	}
 	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'", optionName)
-}
-
-// Returns the raw JSON body of the Okta Identity Engine response.
-func (r *Response) Raw() []byte {
-	return r.raw
 }
 
 // Check for the status of `successWithInteractionCode` indicating if the login was successful.

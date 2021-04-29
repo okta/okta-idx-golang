@@ -43,11 +43,11 @@ type UserProfile struct {
 
 // InitProfileEnroll starts the enrollment process.
 func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*EnrollmentResponse, error) {
-	idxContext, err := c.Interact(ctx)
+	idxContext, err := c.interact(ctx)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.Introspect(context.TODO(), idxContext)
+	resp, err := c.introspect(ctx, idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	if err != nil {
 		return nil, err
 	}
-	resp, err = ro.Proceed(ctx, nil)
+	resp, err = ro.proceed(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	b, _ := json.Marshal(&struct {
 		UserProfile *UserProfile `json:"userProfile"`
 	}{UserProfile: up})
-	resp, err = ro.Proceed(ctx, b)
+	resp, err = ro.proceed(ctx, b)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +77,6 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	if err != nil {
 		return nil, err
 	}
-	if idx == nil {
-		idx = c
-	}
 	return er, nil
 }
 
@@ -88,7 +85,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	if !r.HasStep(EnrollmentStepPasswordSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +98,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	resp, err = ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +111,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 					"passcode": "` + strings.TrimSpace(password) + `"
 				}
 			}`)
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err = ro.proceed(ctx, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +164,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod
 	if method != PhoneMethodVoiceCall && method != PhoneMethodSMS {
 		return nil, fmt.Errorf("%s is invalid phone verification method, plese use %s or %s", method, PhoneMethodVoiceCall, PhoneMethodSMS)
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +179,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod
 					"phoneNumber": "` + phoneNumber + `"
 				}
 			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	resp, err = ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +205,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 	if !r.HasStep(EnrollmentStepSkip) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +213,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 	if err != nil {
 		return nil, err
 	}
-	resp, err = ro.Proceed(ctx, nil)
+	resp, err = ro.proceed(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +229,7 @@ func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, e
 	if !r.HasStep(EnrollmentStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +253,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if !r.HasStep(EnrollmentStepSecurityQuestionOptions) {
 		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -269,7 +266,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	resp, err = ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -325,7 +322,7 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	if sq.QuestionKey == "custom" && sq.Question == "" {
 		return nil, errors.New("missing custom question")
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +333,7 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	credentials, _ := json.Marshal(&struct {
 		Credentials *SecurityQuestion `json:"credentials"`
 	}{Credentials: sq})
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err = ro.proceed(ctx, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -415,9 +412,9 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
-			"code_verifier": "` + r.idxContext.CodeVerifier() + `"
+			"code_verifier": "` + r.idxContext.codeVerifier + `"
 		}`)
-		tokens, err := resp.SuccessResponse.ExchangeCode(ctx, exchangeForm)
+		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
 		if err != nil {
 			return err
 		}

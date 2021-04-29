@@ -40,11 +40,11 @@ type Credentials struct {
 }
 
 func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
-	idxContext, err := c.Interact(ctx)
+	idxContext, err := c.interact(ctx)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := identifyAndRecover(ctx, idxContext, ir)
+	resp, err := identifyAndRecover(ctx, idxContext.interactionHandle, ir)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (r *ResetPasswordResponse) Restart(ctx context.Context, ir *IdentifyRequest
 	if !r.HasStep(ResetPasswordStepRestart) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := identifyAndRecover(ctx, r.idxContext, ir)
+	resp, err := identifyAndRecover(ctx, r.idxContext.interactionHandle, ir)
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +73,13 @@ func (r *ResetPasswordResponse) Restart(ctx context.Context, ir *IdentifyRequest
 	return r, nil
 }
 
-func identifyAndRecover(ctx context.Context, ictx *Context, ir *IdentifyRequest) (*Response, error) {
-	resp, err := idx.Introspect(context.TODO(), ictx)
+func identifyAndRecover(ctx context.Context, ih *InteractionHandle, ir *IdentifyRequest) (*Response, error) {
+	resp, err := idx.introspect(ctx, ih)
 	if err != nil {
 		return nil, err
 	}
 	if resp.CurrentAuthenticator != nil {
-		resp, err = resp.CurrentAuthenticator.Value.Recover.Proceed(ctx, nil)
+		resp, err = resp.CurrentAuthenticator.Value.Recover.proceed(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -89,14 +89,14 @@ func identifyAndRecover(ctx context.Context, ictx *Context, ir *IdentifyRequest)
 			return nil, err
 		}
 		b, _ := json.Marshal(ir)
-		return ro.Proceed(ctx, b)
+		return ro.proceed(ctx, b)
 	}
 	ro, err := resp.remediationOption("identify")
 	if err != nil {
 		return nil, err
 	}
 	b, _ := json.Marshal(ir)
-	resp, err = ro.Proceed(ctx, b)
+	resp, err = ro.proceed(ctx, b)
 	if err != nil {
 		return nil, err
 	}
@@ -108,14 +108,14 @@ func identifyAndRecover(ctx context.Context, ictx *Context, ir *IdentifyRequest)
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' " +
 			"field is missing from the response")
 	}
-	return resp.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(ctx, nil)
+	return resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
 }
 
 func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPasswordResponse, error) {
 	if !r.HasStep(ResetPasswordStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment'" +
 			" field is missing from the response")
 	}
-	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.Proceed(ctx, nil)
+	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err = ro.Proceed(ctx, authenticator)
+	resp, err = ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (r *ResetPasswordResponse) AnswerSecurityQuestion(ctx context.Context, answ
 	if !r.HasStep(ResetPasswordStepAnswerSecurityQuestion) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (r *ResetPasswordResponse) AnswerSecurityQuestion(ctx context.Context, answ
 					"answer": "%s"
 				}
 			}`, questionKey, r.sq.QuestionKey, answer))
-	resp, err = ro.Proceed(ctx, credentials)
+	resp, err = ro.proceed(ctx, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (r *ResetPasswordResponse) Cancel(ctx context.Context) (*ResetPasswordRespo
 	if !r.HasStep(ResetPasswordStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.Introspect(ctx, r.idxContext)
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -303,9 +303,9 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
-			"code_verifier": "` + r.idxContext.CodeVerifier() + `"
+			"code_verifier": "` + r.idxContext.codeVerifier + `"
 		}`)
-		tokens, err := resp.SuccessResponse.ExchangeCode(ctx, exchangeForm)
+		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
 		if err != nil {
 			return err
 		}
