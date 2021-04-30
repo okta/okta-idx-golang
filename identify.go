@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 type LoginResponse struct {
@@ -66,6 +67,57 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	resp, err = ro.proceed(ctx, b)
 	if err != nil {
 		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepOktaVerify) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify")
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"methodType": "push"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	ro, err = resp.remediationOption("challenge-poll")
+	if err != nil {
+		return nil, err
+	}
+	t := time.NewTicker(time.Second * 3)
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-t.C:
+			resp, err = ro.proceed(ctx, nil)
+			if err != nil {
+				return nil, err
+			}
+			ro, err = resp.remediationOption("challenge-poll")
+			if err != nil {
+				break loop
+			}
+		}
 	}
 	err = r.setupNextSteps(ctx, resp)
 	if err != nil {
@@ -178,6 +230,7 @@ var loginStepText = map[LoginStep]string{
 	LoginStepPhoneVerification:      "PHONE_VERIFICATION",
 	LoginStepPhoneConfirmation:      "PHONE_CONFIRMATION",
 	LoginStepAnswerSecurityQuestion: "ANSWER SECURITY_QUESTION",
+	LoginStepOktaVerify:             "OKTA_VERIFY",
 	LoginStepCancel:                 "CANCEL",
 	LoginStepSkip:                   "SKIP",
 	LoginStepSuccess:                "SUCCESS",
@@ -193,6 +246,7 @@ const (
 	LoginStepPhoneVerification                           // 'VerifyPhone
 	LoginStepPhoneConfirmation                           // 'ConfirmPhone'
 	LoginStepAnswerSecurityQuestion                      // 'AnswerSecurityQuestion'
+	LoginStepOktaVerify                                  // 'OktaVerify'
 	LoginStepCancel                                      // 'Cancel'
 	LoginStepSkip                                        // 'Skip'
 	LoginStepSuccess                                     // 'Token'
@@ -257,6 +311,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question")
 	if err == nil {
 		steps = append(steps, LoginStepAnswerSecurityQuestion)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify")
+	if err == nil {
+		steps = append(steps, LoginStepOktaVerify)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
