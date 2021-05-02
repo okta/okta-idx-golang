@@ -101,7 +101,7 @@ func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) 
 	if err != nil {
 		return nil, err
 	}
-	t := time.NewTicker(time.Second * 3)
+	t := time.NewTicker(defaultPollInterval)
 
 loop:
 	for {

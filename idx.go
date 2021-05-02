@@ -36,7 +36,11 @@ import (
 /**
  * Current version of the package. This is used mainly for our User-Agent
  */
-const packageVersion = "0.1.0-beta.2"
+const (
+	packageVersion      = "0.1.0-beta.2"
+	defaultPollInterval = time.Second * 3
+	defaultTimeout      = time.Second * 60
+)
 
 var idx *Client
 
@@ -60,7 +64,7 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	}
 	c := &Client{
 		config:     cfg,
-		httpClient: &http.Client{Timeout: time.Second * 60},
+		httpClient: &http.Client{Timeout: defaultTimeout},
 	}
 	idx = c
 	return c, nil
