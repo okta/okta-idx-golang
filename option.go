@@ -27,8 +27,6 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
-
-	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 type Remediation struct {

@@ -23,8 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 type Response struct {
