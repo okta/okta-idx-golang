@@ -27,10 +27,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strings"
 	"time"
-
-	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 /**
@@ -95,7 +94,7 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	}
 	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
 	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
-	oktahttp.WithOktaUserAgent(req, packageVersion)
+	withOktaUserAgent(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
@@ -144,7 +143,7 @@ func (c *Client) interact(ctx context.Context) (*Context, error) {
 		return nil, fmt.Errorf("failed to create interact http request: %w", err)
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	oktahttp.WithOktaUserAgent(req, packageVersion)
+	withOktaUserAgent(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
@@ -161,6 +160,13 @@ func (c *Client) interact(ctx context.Context) (*Context, error) {
 		InteractionHandle: interactionHandle.InteractionHandle,
 	}
 	return idxContext, nil
+}
+
+func withOktaUserAgent(req *http.Request) {
+	userAgentString := "okta-idx-golang/" + packageVersion + " "
+	userAgentString += "golang/" + runtime.Version() + " "
+	userAgentString += runtime.GOOS + "/" + runtime.GOARCH + " "
+	req.Header.Add("User-Agent", userAgentString)
 }
 
 type Context struct {
