@@ -313,6 +313,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 		r.availableSteps = []ResetPasswordStep{ResetPasswordStepSuccess}
 		return nil
 	}
+	r.idxContext.interactionHandle.InteractionHandle = resp.StateHandle
 	var steps []ResetPasswordStep
 	if resp.CancelResponse != nil {
 		steps = append(steps, ResetPasswordStepCancel)
