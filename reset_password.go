@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type ResetPasswordResponse struct {
@@ -27,6 +28,7 @@ type ResetPasswordResponse struct {
 	token          *Token
 	availableSteps []ResetPasswordStep
 	sq             *SecurityQuestion
+	errors         ErrorResponse
 }
 
 type IdentifyRequest struct {
@@ -55,6 +57,11 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 	if err != nil {
 		return nil, err
 	}
+
+	if rpr.HasStep(ResetPasswordStepEmailVerification) {
+		rpr, err = rpr.VerifyEmail(ctx)
+	}
+
 	return rpr, nil
 }
 
@@ -89,7 +96,20 @@ func identifyAndRecover(ctx context.Context, ih *InteractionHandle, ir *Identify
 			return nil, err
 		}
 		b, _ := json.Marshal(ir)
-		return ro.proceed(ctx, b)
+		resp, err = ro.proceed(ctx, b)
+		if err != nil {
+			return resp, err
+		}
+
+		if resp.Messages != nil {
+			var messages []string
+			for _, m := range resp.Messages.Values {
+				messages = append(messages, m.Message)
+			}
+			return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
+		}
+
+		return resp, nil
 	}
 	ro, err := resp.remediationOption("identify")
 	if err != nil {
@@ -108,7 +128,20 @@ func identifyAndRecover(ctx context.Context, ih *InteractionHandle, ir *Identify
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' " +
 			"field is missing from the response")
 	}
-	return resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
+	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.Messages != nil {
+		var messages []string
+		for _, m := range resp.Messages.Values {
+			messages = append(messages, m.Message)
+		}
+		return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
+	}
+
+	return resp, nil
 }
 
 func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPasswordResponse, error) {
