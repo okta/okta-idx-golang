@@ -32,21 +32,17 @@ import (
 )
 
 func TestClient_InitLogin(t *testing.T) {
+	var call int
 	t.Run("happy_path", func(t *testing.T) {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"interaction_handle":"a"}`))
 		})
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
-			defer r.Body.Close()
-			body, err := ioutil.ReadAll(r.Body)
-			assert.NoError(t, err)
-			ih := make(map[string]interface{})
-			err = json.Unmarshal(body, &ih)
-			assert.NoError(t, err)
 			var s string
-			switch ih["interactionHandle"].(string) {
-			case "a":
+			switch call {
+			case 0, 1:
+				call++
 				s = fmt.Sprintf(`{
 			    "stateHandle": "a",
 			    "remediation": {
@@ -102,7 +98,8 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host)
-			case "b":
+			case 2:
+				call++
 				s = fmt.Sprintf(`{
 			    "stateHandle": "b",
 			    "remediation": {
@@ -240,7 +237,8 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host, r.Host)
-			case "c":
+			case 3:
+				call++
 				{
 					s = fmt.Sprintf(`{
 			    "stateHandle": "c",
