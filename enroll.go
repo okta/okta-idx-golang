@@ -422,7 +422,6 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 		r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
 		return nil
 	}
-	r.idxContext.interactionHandle.InteractionHandle = resp.StateHandle
 	var steps []EnrollmentStep
 	if resp.CancelResponse != nil {
 		steps = append(steps, EnrollmentStepCancel)

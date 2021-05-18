@@ -267,7 +267,6 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		r.availableSteps = []LoginStep{LoginStepSuccess}
 		return nil
 	}
-	r.idxContext.interactionHandle.InteractionHandle = resp.StateHandle
 	var steps []LoginStep
 	if resp.CancelResponse != nil {
 		steps = append(steps, LoginStepCancel)
