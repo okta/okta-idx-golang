@@ -287,47 +287,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
-	resp, err := client.InitLogin(context.TODO())
+
+	up := &idx.IdentifyRequest{
+		Identifier: "john.joe@myorg.com",
+		Credentials: idx.Credentials{
+			Password: "ww6zwPCmWgpfKwgY",
+		},
+	}
+	resp, err := client.InitLogin(context.TODO(), up)
 	if err != nil {
 		panic(err)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	
-	// depending on the primary factor in your sign-on policy rule,
-	// password may or may not be required to make Identify request
-	fmt.Println("Next steps: ", resp.AvailableSteps())
-	if resp.HasStep(idx.LoginStepIdentifyWithPassword) {
-		up := &idx.IdentifyRequest{
-			Identifier: "john.joe@myorg.com",
-			Credentials: idx.Credentials{},
-		}
-		fmt.Print("Enter your password: ")
-		up.Credentials.Password, _ = reader.ReadString('\n')
-		resp, err = resp.Identify(context.TODO(), up)
-		if err != nil {
-			panic(err)
-		}
-	} else if resp.HasStep(idx.LoginStepIdentify) {
-		up := &idx.IdentifyRequest{
-			Identifier: "john.joe@myorg.com",
-		}
-		resp, err = resp.Identify(context.TODO(), up)
-		if err != nil {
-			panic(err)
-		}
-    }
-
-    // if previous step was 'LoginStepIdentifyWithPassword', this step won't appear
-    fmt.Println("Next steps: ", resp.AvailableSteps())
-	if resp.HasStep(idx.LoginStepPassword) {
-		fmt.Print("Enter your password: ")
-		text, _ := reader.ReadString('\n')
-		resp, err = resp.Password(context.TODO(), text)
-		if err != nil {
-			panic(err)
-		}
 	}
 
 	fmt.Println("Next steps: ", resp.AvailableSteps())
@@ -338,6 +307,7 @@ func main() {
 		}
 	}
 
+	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Next steps: ", resp.AvailableSteps())
 	if resp.HasStep(idx.LoginStepEmailConfirmation) {
 		fmt.Print("Enter the code from email: ")
@@ -351,6 +321,41 @@ func main() {
 	fmt.Println("Next steps: ", resp.AvailableSteps())
 	if resp.IsAuthenticated() { // same as 'resp.HasStep(idx.LoginStepSuccess)'
 		fmt.Println(resp.Token())
+	}
+}
+```
+
+#### External Identity
+
+If in the routing rules for your app you have chosen custom identity provider(s) (like Google or Facebook), the result
+of the first step will be a list of available providers. Each item will contain `"name"`, `"type"`, `"method"`
+and `"url"` properties. Making a request to a URL will redirect you to the provider's sign-in page.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	idx "github.com/okta/okta-idx-golang"
+)
+
+func main() {
+	client, err := idx.NewClient()
+	if err != nil {
+		panic(err)
+	}
+
+	up := &idx.IdentifyRequest{}
+	resp, err := client.InitLogin(context.TODO(), up)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Next steps: ", resp.AvailableSteps())
+	if resp.HasStep(idx.LoginStepProviderIdentify) {
+		fmt.Println(resp.IdentityProviders())
 	}
 }
 ```

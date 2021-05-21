@@ -45,11 +45,18 @@ type Token struct {
 // Allow you to continue the remediation with this option.
 type Option struct {
 	Rel        []string    `json:"rel"`
+	Type       string      `json:"type"`
+	IdP        IdP         `json:"idp"`
 	Name       string      `json:"name"`
 	Href       string      `json:"href"`
 	Method     string      `json:"method"`
 	FormValues []FormValue `json:"value"`
 	Accepts    string      `json:"accepts"`
+}
+
+type IdP struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type FormValue struct {

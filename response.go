@@ -94,6 +94,23 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	return &idxResponse, nil
 }
 
+func (r *Response) remediationOptions(optionName string) ([]RemediationOption, error) {
+	if r.Remediation == nil {
+		return nil, fmt.Errorf("this response doesn't contain any remediation options")
+	}
+	var ros []RemediationOption
+
+	for i := range r.Remediation.RemediationOptions {
+		if r.Remediation.RemediationOptions[i].Name == optionName {
+			ros = append(ros, r.Remediation.RemediationOptions[i])
+		}
+	}
+	if len(ros) == 0 {
+		return nil, fmt.Errorf("could not locate a remediation options with the name '%s'", optionName)
+	}
+	return ros, nil
+}
+
 // get a remediation option by its name
 func (r *Response) remediationOption(optionName string) (*RemediationOption, error) {
 	if r.Remediation == nil {
