@@ -41,7 +41,7 @@ func TestClient_InitLogin(t *testing.T) {
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
 			var s string
 			switch call {
-			case 0, 1:
+			case 0:
 				call++
 				s = fmt.Sprintf(`{
 			    "stateHandle": "a",
@@ -98,146 +98,7 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host)
-			case 2:
-				call++
-				s = fmt.Sprintf(`{
-			    "stateHandle": "b",
-			    "remediation": {
-			        "type": "array",
-			        "value": [
-			            {
-			                "rel": [
-			                    "create-form"
-			                ],
-			                "name": "challenge-authenticator",
-			                "relatesTo": [
-			                    "$.currentAuthenticatorEnrollment"
-			                ],
-			                "href": "http://%s/idp/idx/challenge/answer",
-			                "method": "POST",
-			                "produces": "application/ion+json; okta-version=1.0.0",
-			                "value": [
-			                    {
-			                        "name": "credentials",
-			                        "type": "object",
-			                        "form": {
-			                            "value": [
-			                                {
-			                                    "name": "passcode",
-			                                    "label": "Password",
-			                                    "secret": true
-			                                }
-			                            ]
-			                        },
-			                        "required": true
-			                    },
-			                    {
-			                        "name": "stateHandle",
-			                        "required": true,
-			                        "value": "b",
-			                        "visible": false,
-			                        "mutable": false
-			                    }
-			                ],
-			                "accepts": "application/json; okta-version=1.0.0"
-			            },
-			            {
-			                "rel": [
-			                    "create-form"
-			                ],
-			                "name": "select-authenticator-authenticate",
-			                "href": "http://%s/idp/idx/challenge",
-			                "method": "POST",
-			                "produces": "application/ion+json; okta-version=1.0.0",
-			                "value": [
-			                    {
-			                        "name": "authenticator",
-			                        "type": "object",
-			                        "options": [
-			                            {
-			                                "label": "Okta Verify",
-			                                "value": {
-			                                    "form": {
-			                                        "value": [
-			                                            {
-			                                                "name": "id",
-			                                                "required": true,
-			                                                "value": "autl3e9k3bkOVrHAo5d6",
-			                                                "mutable": false
-			                                            },
-			                                            {
-			                                                "name": "methodType",
-			                                                "type": "string",
-			                                                "required": false,
-			                                                "options": [
-			                                                    {
-			                                                        "label": "Get a push notification",
-			                                                        "value": "push"
-			                                                    }
-			                                                ]
-			                                            }
-			                                        ]
-			                                    }
-			                                },
-			                                "relatesTo": "$.authenticators.value[0]"
-			                            },
-			                            {
-			                                "label": "Password",
-			                                "value": {
-			                                    "form": {
-			                                        "value": [
-			                                            {
-			                                                "name": "id",
-			                                                "required": true,
-			                                                "value": "autl3hwe8llr6CyxE5d6",
-			                                                "mutable": false
-			                                            },
-			                                            {
-			                                                "name": "methodType",
-			                                                "required": false,
-			                                                "value": "password",
-			                                                "mutable": false
-			                                            }
-			                                        ]
-			                                    }
-			                                },
-			                                "relatesTo": "$.authenticatorEnrollments.value[1]"
-			                            }
-			                        ]
-			                    },
-			                    {
-			                        "name": "stateHandle",
-			                        "required": true,
-			                        "value": "b",
-			                        "visible": false,
-			                        "mutable": false
-			                    }
-			                ],
-			                "accepts": "application/json; okta-version=1.0.0"
-			            }
-			        ]
-			    },
-			    "cancel": {
-			        "rel": [
-			            "create-form"
-			        ],
-			        "name": "cancel",
-			        "href": "http://%s/idp/idx/cancel",
-			        "method": "POST",
-			        "produces": "application/ion+json; okta-version=1.0.0",
-			        "value": [
-			            {
-			                "name": "stateHandle",
-			                "required": true,
-			                "value": "b",
-			                "visible": false,
-			                "mutable": false
-			            }
-			        ],
-			        "accepts": "application/json; okta-version=1.0.0"
-			    }
-			}`, r.Host, r.Host, r.Host)
-			case 3:
+			case 1:
 				call++
 				{
 					s = fmt.Sprintf(`{
@@ -744,27 +605,18 @@ func TestClient_InitLogin(t *testing.T) {
 		require.NotNil(t, client)
 		client = client.WithHTTPClient(ts.Client())
 
-		resp, err := client.InitLogin(context.TODO())
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
-		require.Contains(t, resp.AvailableSteps(), LoginStepIdentify)
-
 		up := &IdentifyRequest{
 			Identifier: "test.user@okta.com",
+			Credentials: Credentials{
+				Password: "qwerty",
+			},
 		}
-		resp, err = resp.Identify(context.TODO(), up)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
-		require.Contains(t, resp.AvailableSteps(), LoginStepPassword)
-		require.Contains(t, resp.AvailableSteps(), LoginStepOktaVerify)
 
-		resp, err = resp.Password(context.TODO(), "qwerty")
+		resp, err := client.InitLogin(context.TODO(), up)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
-		require.Contains(t, resp.AvailableSteps(), LoginStepOktaVerify)
+		//		require.Contains(t, resp.AvailableSteps(), LoginStepIdentify)
 
 		resp, err = resp.OktaVerify(context.TODO())
 		require.NoError(t, err)
