@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,8 @@ type LoginResponse struct {
 	availableSteps []LoginStep
 }
 
-func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
+// InitLogin starts login by authorizing user with name and password
+func (c *Client) InitLogin(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
 	idxContext, err := c.interact(ctx)
 	if err != nil {
 		return nil, err
@@ -41,24 +43,6 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	lr := &LoginResponse{
 		idxContext: idxContext,
 	}
-	err = lr.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return lr, nil
-}
-
-func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
-	if !r.HasStep(LoginStepIdentify) && !r.HasStep(LoginStepIdentifyWithPassword) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
-	}
-	if r.HasStep(LoginStepIdentifyWithPassword) && ir.Credentials.Password == "" {
-		return nil, fmt.Errorf("please provide valid credentials in your identify request")
-	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
-	if err != nil {
-		return nil, err
-	}
 	ro, err := resp.remediationOption("identify")
 	if err != nil {
 		return nil, err
@@ -68,11 +52,38 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	if err != nil {
 		return nil, err
 	}
-	err = r.setupNextSteps(ctx, resp)
+	ro, err = resp.remediationOption("challenge-authenticator")
+	enterPassword := false
+	if err == nil {
+	loop2:
+		for i := range ro.FormValues {
+			if ro.FormValues[i].Form != nil && len(ro.FormValues[i].Form.FormValues) > 0 {
+				for j := range ro.FormValues[i].Form.FormValues {
+					if ro.FormValues[i].Form.FormValues[j].Label == "Password" ||
+						ro.FormValues[i].Form.FormValues[j].Name == "passcode" {
+						enterPassword = true
+						break loop2
+					}
+				}
+			}
+		}
+	}
+	if enterPassword && ro != nil {
+		credentials := []byte(`{
+		"credentials": {
+			"passcode": "` + strings.TrimSpace(ir.Credentials.Password) + `"
+		}
+	}`)
+		resp, err = ro.proceed(ctx, credentials)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = lr.setupNextSteps(ctx, resp)
 	if err != nil {
 		return nil, err
 	}
-	return r, nil
+	return lr, nil
 }
 
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
@@ -118,21 +129,6 @@ loop:
 				break loop
 			}
 		}
-	}
-	err = r.setupNextSteps(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
-}
-
-func (r *LoginResponse) Password(ctx context.Context, password string) (*LoginResponse, error) {
-	if !r.HasStep(LoginStepPassword) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
-	}
-	resp, err := setPassword(ctx, r.idxContext, "challenge-authenticator", password)
-	if err != nil {
-		return nil, err
 	}
 	err = r.setupNextSteps(ctx, resp)
 	if err != nil {
@@ -223,8 +219,6 @@ func (s LoginStep) String() string {
 
 var loginStepText = map[LoginStep]string{
 	LoginStepIdentify:               "IDENTIFY",
-	LoginStepIdentifyWithPassword:   "IDENTIFY_WITH_PASSWORD",
-	LoginStepPassword:               "PASSWORD",
 	LoginStepEmailVerification:      "EMAIL_VERIFICATION",
 	LoginStepEmailConfirmation:      "EMAIL_CONFIRMATION",
 	LoginStepPhoneVerification:      "PHONE_VERIFICATION",
@@ -239,8 +233,6 @@ var loginStepText = map[LoginStep]string{
 // These codes indicate what method(s) can be called in the next step.
 const (
 	LoginStepIdentify               LoginStep = iota + 1 // 'Identify'
-	LoginStepIdentifyWithPassword                        // 'Identify'
-	LoginStepPassword                                    // 'Password'
 	LoginStepEmailVerification                           // 'VerifyEmail'
 	LoginStepEmailConfirmation                           // 'ConfirmEmail'
 	LoginStepPhoneVerification                           // 'VerifyPhone
@@ -271,36 +263,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if resp.CancelResponse != nil {
 		steps = append(steps, LoginStepCancel)
 	}
-	ro, err := resp.remediationOption("identify")
-	if err == nil {
-		hasCreds := false
-		for i := range ro.FormValues {
-			if ro.FormValues[i].Name == "credentials" {
-				steps = append(steps, LoginStepIdentifyWithPassword)
-				hasCreds = true
-				break
-			}
-		}
-		if !hasCreds {
-			steps = append(steps, LoginStepIdentify)
-		}
-	}
-	ro, err = resp.remediationOption("challenge-authenticator")
-	if err == nil {
-	loop2:
-		for i := range ro.FormValues {
-			if ro.FormValues[i].Form != nil && len(ro.FormValues[i].Form.FormValues) > 0 {
-				for j := range ro.FormValues[i].Form.FormValues {
-					if ro.FormValues[i].Form.FormValues[j].Label == "Password" ||
-						ro.FormValues[i].Form.FormValues[j].Name == "passcode" {
-						steps = append(steps, LoginStepPassword)
-						break loop2
-					}
-				}
-			}
-		}
-	}
-	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Email")
+	_, _, err := resp.authenticatorOption("select-authenticator-authenticate", "Email")
 	if err == nil {
 		steps = append(steps, LoginStepEmailVerification)
 	}
