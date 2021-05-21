@@ -346,9 +346,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	up := &idx.IdentifyRequest{}
-	resp, err := client.InitLogin(context.TODO(), up)
+	
+	resp, err := client.InitLogin(context.TODO(), nil)
 	if err != nil {
 		panic(err)
 	}

@@ -616,11 +616,84 @@ func TestClient_InitLogin(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
-		//		require.Contains(t, resp.AvailableSteps(), LoginStepIdentify)
+		require.Contains(t, resp.AvailableSteps(), LoginStepOktaVerify)
 
 		resp, err = resp.OktaVerify(context.TODO())
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Contains(t, resp.AvailableSteps(), LoginStepSuccess)
+	})
+	t.Run("identify_providers", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`{"interaction_handle":"a"}`))
+		})
+		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`{
+			    "remediation": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "name": "redirect-idp",
+			                "type": "FACEBOOK",
+			                "idp": {
+			                    "id": "iogJ89dcUfMlckln",
+			                    "name": "Facebook IdP"
+			                },
+			                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=iogJ89dcUfMlckln&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
+			                "method": "GET"
+			            },
+			            {
+			                "name": "redirect-idp",
+			                "type": "GOOGLE",
+			                "idp": {
+			                    "id": "ahp6ytrw2JOfKouz",
+			                    "name": "Google IdP"
+			                },
+			                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=ahp6ytrw2JOfKouz&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
+			                "method": "GET"
+			            }
+			        ]
+			    },
+			    "cancel": {
+			        "rel": [
+			            "create-form"
+			        ],
+			        "name": "cancel",
+			        "href": "http://%s/idp/idx/cancel",
+			        "method": "POST",
+			        "produces": "application/ion+json; okta-version=1.0.0",
+			        "value": [
+			            {
+			                "name": "stateHandle",
+			                "required": true,
+			                "value": "a",
+			                "visible": false,
+			                "mutable": false
+			            }
+			        ],
+			        "accepts": "application/json; okta-version=1.0.0"
+			    }
+			}`))
+		})
+
+		ts := httptest.NewServer(mux)
+		defer ts.Close()
+
+		client, err := NewClient(
+			WithClientID("foo"),
+			WithClientSecret("bar"),
+			WithIssuer(ts.URL),
+			WithScopes([]string{"openid", "profile"}),
+			WithRedirectURI(ts.URL+"/authorization-code/callback"))
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		client = client.WithHTTPClient(ts.Client())
+
+		resp, err := client.InitLogin(context.TODO(), nil)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
+		require.Contains(t, resp.AvailableSteps(), LoginStepProviderIdentify)
 	})
 }
