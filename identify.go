@@ -38,7 +38,7 @@ type IdentityProvider struct {
 	Method string `json:"method"`
 }
 
-func (c *Client) InitLogin(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
+func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	idxContext, err := c.interact(ctx)
 	if err != nil {
 		return nil, err
@@ -50,13 +50,20 @@ func (c *Client) InitLogin(ctx context.Context, ir *IdentifyRequest) (*LoginResp
 	lr := &LoginResponse{
 		idxContext: idxContext,
 	}
-	_, err = resp.remediationOptions("redirect-idp")
-	if err == nil {
-		err = lr.setupNextSteps(ctx, resp)
-		if err != nil {
-			return nil, err
-		}
-		return lr, nil
+	err = lr.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return lr, nil
+}
+
+func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepIdentify) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	if err != nil {
+		return nil, err
 	}
 	ro, err := resp.remediationOption("identify")
 	if err != nil {
@@ -71,11 +78,11 @@ func (c *Client) InitLogin(ctx context.Context, ir *IdentifyRequest) (*LoginResp
 	if err != nil {
 		return nil, err
 	}
-	err = lr.setupNextSteps(ctx, resp)
+	err = r.setupNextSteps(ctx, resp)
 	if err != nil {
 		return nil, err
 	}
-	return lr, nil
+	return r, nil
 }
 
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
@@ -260,6 +267,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	var steps []LoginStep
 	if resp.CancelResponse != nil {
 		steps = append(steps, LoginStepCancel)
+	}
+	_, err := resp.remediationOption("identify")
+	if err == nil {
+		steps = append(steps, LoginStepIdentify)
 	}
 	ros, err := resp.remediationOptions("redirect-idp")
 	if err == nil {

@@ -41,7 +41,7 @@ func TestClient_InitLogin(t *testing.T) {
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
 			var s string
 			switch call {
-			case 0:
+			case 0, 1:
 				call++
 				s = fmt.Sprintf(`{
 			    "stateHandle": "a",
@@ -98,7 +98,7 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host)
-			case 1:
+			case 2:
 				call++
 				{
 					s = fmt.Sprintf(`{
@@ -605,14 +605,19 @@ func TestClient_InitLogin(t *testing.T) {
 		require.NotNil(t, client)
 		client = client.WithHTTPClient(ts.Client())
 
+		resp, err := client.InitLogin(context.TODO())
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
+		require.Contains(t, resp.AvailableSteps(), LoginStepIdentify)
+
 		up := &IdentifyRequest{
 			Identifier: "test.user@okta.com",
 			Credentials: Credentials{
 				Password: "qwerty",
 			},
 		}
-
-		resp, err := client.InitLogin(context.TODO(), up)
+		resp, err = resp.Identify(context.TODO(), up)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
@@ -690,7 +695,7 @@ func TestClient_InitLogin(t *testing.T) {
 		require.NotNil(t, client)
 		client = client.WithHTTPClient(ts.Client())
 
-		resp, err := client.InitLogin(context.TODO(), nil)
+		resp, err := client.InitLogin(context.TODO())
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)

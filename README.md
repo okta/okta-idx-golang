@@ -288,15 +288,22 @@ func main() {
 		panic(err)
 	}
 
-	up := &idx.IdentifyRequest{
-		Identifier: "john.joe@myorg.com",
-		Credentials: idx.Credentials{
-			Password: "ww6zwPCmWgpfKwgY",
-		},
-	}
-	resp, err := client.InitLogin(context.TODO(), up)
+	resp, err := client.InitLogin(context.TODO())
 	if err != nil {
 		panic(err)
+	}
+
+	if resp.HasStep(idx.LoginStepIdentify) {
+		up := &idx.IdentifyRequest{
+			Identifier: "john.joe@myorg.com",
+			Credentials: idx.Credentials{
+				Password: "ww6zwPCmWgpfKwgY",
+			},
+		}
+		resp, err = resp.Identify(context.TODO(), up)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	fmt.Println("Next steps: ", resp.AvailableSteps())
@@ -325,11 +332,12 @@ func main() {
 }
 ```
 
-#### External Identity
+#### External Identity Provider
 
-If in the routing rules for your app you have chosen custom identity provider(s) (like Google or Facebook), the result
-of the first step will be a list of available providers. Each item will contain `"name"`, `"type"`, `"method"`
-and `"url"` properties. Making a request to a URL will redirect you to the provider's sign-in page.
+If in the routing rules for your app you have chosen custom identity provider(s) (like Google or Facebook), the response
+will contain a list of available providers. Each item will contain `"name"`, `"type"`, `"method"` and `"url"`
+properties. Making a request to a URL will redirect you to the provider's sign-in page. The response might also contain
+`LoginStepIdentify` step, so you can use either custom IdP or proceed with standard sign-in flow.
 
 ```go
 package main
@@ -346,8 +354,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
-	resp, err := client.InitLogin(context.TODO(), nil)
+
+	resp, err := client.InitLogin(context.TODO())
 	if err != nil {
 		panic(err)
 	}
