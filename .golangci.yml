@@ -26,6 +26,11 @@ linters-settings:
       - wrapperFunc
       - dupImport # https://github.com/go-critic/go-critic/issues/845
       - whyNoLint
+  nolintlint:
+    # Enable to ensure that nolint directives are all used. Default is true.
+    allow-unused: true
+    require-explanation: false
+    require-specific: false
 
 linters:
   enable-all: true
@@ -40,9 +45,7 @@ linters:
     - bodyclose
     - exhaustive
 
-nolintlint:
-  # Enable to ensure that nolint directives are all used. Default is true.
-  allow-unused: true
+
 
 run:
   skip-dirs:
