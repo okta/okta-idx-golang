@@ -38,6 +38,7 @@ linters:
     - nlreturn
     - testpackage
     - bodyclose
+    - exhaustive
 
 run:
   skip-dirs:
