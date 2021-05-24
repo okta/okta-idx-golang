@@ -645,7 +645,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                    "id": "iogJ89dcUfMlckln",
 			                    "name": "Facebook IdP"
 			                },
-			                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=iogJ89dcUfMlckln&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
+			                "href": "http://%s/oauth2/ggg/v1/authorize?client_id=iogJ89dcUfMlckln&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
 			                "method": "GET"
 			            },
 			            {
@@ -655,7 +655,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                    "id": "ahp6ytrw2JOfKouz",
 			                    "name": "Google IdP"
 			                },
-			                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=ahp6ytrw2JOfKouz&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
+			                "href": "http://%s/oauth2/ggg/v1/authorize?client_id=ahp6ytrw2JOfKouz&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
 			                "method": "GET"
 			            }
 			        ]

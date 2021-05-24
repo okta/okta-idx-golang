@@ -46,7 +46,7 @@ type Token struct {
 type Option struct {
 	Rel        []string    `json:"rel"`
 	Type       string      `json:"type"`
-	IdP        IdP         `json:"idp"`
+	IdP        IDP         `json:"idp"`
 	Name       string      `json:"name"`
 	Href       string      `json:"href"`
 	Method     string      `json:"method"`
@@ -54,7 +54,7 @@ type Option struct {
 	Accepts    string      `json:"accepts"`
 }
 
-type IdP struct {
+type IDP struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }

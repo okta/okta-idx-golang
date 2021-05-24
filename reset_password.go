@@ -57,11 +57,6 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 	if err != nil {
 		return nil, err
 	}
-
-	if rpr.HasStep(ResetPasswordStepEmailVerification) {
-		rpr, err = rpr.VerifyEmail(ctx)
-	}
-
 	return rpr, nil
 }
 

@@ -26,16 +26,55 @@ import (
 )
 
 type Response struct {
-	StateHandle                    string                          `json:"stateHandle"`
 	Version                        string                          `json:"version"`
+	StateHandle                    string                          `json:"stateHandle"`
 	ExpiresAt                      string                          `json:"expiresAt"`
 	Intent                         string                          `json:"intent"`
 	Remediation                    *Remediation                    `json:"remediation"`
+	CurrentAuthenticator           *CurrentAuthenticatorEnrollment `json:"currentAuthenticator"`
+	Authenticators                 Authenticators                  `json:"authenticators"`
+	AuthenticatorEnrollments       Authenticators                  `json:"authenticatorEnrollments"`
+	User                           User                            `json:"user"`
 	CancelResponse                 *Option                         `json:"cancel"`
 	SuccessResponse                *SuccessOption                  `json:"successWithInteractionCode"`
 	CurrentAuthenticatorEnrollment *CurrentAuthenticatorEnrollment `json:"currentAuthenticatorEnrollment"`
-	CurrentAuthenticator           *CurrentAuthenticatorEnrollment `json:"currentAuthenticator"`
+	App                            App                             `json:"app"`
 	Messages                       *Message                        `json:"messages"`
+}
+
+type Authenticators struct {
+	Type  string                `json:"type"`
+	Value []AuthenticatorsValue `json:"value"`
+}
+
+type AuthenticatorsValue struct {
+	Type        string                      `json:"type"`
+	Key         string                      `json:"key"`
+	ID          string                      `json:"id"`
+	DisplayName string                      `json:"displayName"`
+	Methods     []AuthenticatorsValueMethod `json:"methods"`
+}
+
+type AuthenticatorsValueMethod struct {
+	Type string `json:"type"`
+}
+
+type User struct {
+	Type  string `json:"type"`
+	Value struct {
+		ID string `json:"id"`
+	} `json:"value"`
+}
+
+type App struct {
+	Type  string   `json:"type"`
+	Value AppValue `json:"value"`
+}
+
+type AppValue struct {
+	Name  string `json:"name"`
+	Label string `json:"label"`
+	ID    string `json:"id"`
 }
 
 type Message struct {
