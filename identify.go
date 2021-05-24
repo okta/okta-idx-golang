@@ -278,7 +278,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		for i := range ros {
 			r.identifyProviders[i] = IdentityProvider{
 				Type:   ros[i].Type,
-				Name:   ros[i].IdP.Name,
+				Name:   ros[i].IDP.Name,
 				URL:    ros[i].Href,
 				Method: ros[i].Method,
 			}

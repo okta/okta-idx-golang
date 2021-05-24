@@ -100,8 +100,7 @@ func TestClient_InitLogin(t *testing.T) {
 			}`, r.Host, r.Host)
 			case 2:
 				call++
-				{
-					s = fmt.Sprintf(`{
+				s = fmt.Sprintf(`{
 			    "stateHandle": "c",
 			    "remediation": {
 			        "type": "array",
@@ -180,7 +179,6 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host)
-				}
 			default:
 				s = fmt.Sprintf(`{
 			    "stateHandle": "a",
@@ -238,7 +236,7 @@ func TestClient_InitLogin(t *testing.T) {
 			    }
 			}`, r.Host, r.Host)
 			}
-			w.Write([]byte(s))
+			_, _ = w.Write([]byte(s))
 		})
 		mux.HandleFunc("/idp/idx/identify", func(w http.ResponseWriter, r *http.Request) {
 			s := fmt.Sprintf(`{
@@ -378,7 +376,7 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host, r.Host)
-			w.Write([]byte(s))
+			_, _ = w.Write([]byte(s))
 		})
 		mux.HandleFunc("/idp/idx/challenge/answer", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
@@ -388,7 +386,6 @@ func TestClient_InitLogin(t *testing.T) {
 			err = json.Unmarshal(body, &ih)
 			assert.NoError(t, err)
 			assert.Equal(t, "qwerty", ih["credentials"].(map[string]interface{})["passcode"])
-
 			s := fmt.Sprintf(`{
 			    "stateHandle": "c",
 			    "remediation": {
@@ -468,8 +465,7 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host)
-
-			w.Write([]byte(s))
+			_, _ = w.Write([]byte(s))
 		})
 		mux.HandleFunc("/idp/idx/challenge", func(w http.ResponseWriter, r *http.Request) {
 			s := fmt.Sprintf(`{
@@ -522,7 +518,7 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/json; okta-version=1.0.0"
 			    }
 			}`, r.Host, r.Host)
-			w.Write([]byte(s))
+			_, _ = w.Write([]byte(s))
 		})
 		mux.HandleFunc("/idp/idx/authenticators/poll", func(w http.ResponseWriter, r *http.Request) {
 			s := fmt.Sprintf(`{
@@ -551,7 +547,7 @@ func TestClient_InitLogin(t *testing.T) {
 			            "create-form"
 			        ],
 			        "name": "issue",
-			        "href": "http://%s/oauth2/ausl0y235gvGoRoyH5d6/v1/token",
+			        "href": "http://%s/oauth2/ggg/v1/token",
 			        "method": "POST",
 			        "value": [
 			            {
@@ -581,10 +577,10 @@ func TestClient_InitLogin(t *testing.T) {
 			        "accepts": "application/x-www-form-urlencoded"
 			    }
 			}`, r.Host, r.Host)
-			w.Write([]byte(s))
+			_, _ = w.Write([]byte(s))
 		})
-		mux.HandleFunc("/oauth2/ausl0y235gvGoRoyH5d6/v1/token", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`{
+		mux.HandleFunc("/oauth2/ggg/v1/token", func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{
 			    "token_type": "Bearer",
 			    "expires_in": 3600,
 			    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",

@@ -36,12 +36,15 @@ linters:
     - goerr113
     - exhaustivestruct
     - nlreturn
+    - testpackage
 
 run:
   skip-dirs:
     - vendor
     - auth
     - data
+  skip-files:
+    - ".+_test.go"
 
 issues:
   exclude-rules:

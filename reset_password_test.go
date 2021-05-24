@@ -27,8 +27,8 @@ import (
 )
 
 func TestClient_InitPasswordReset(t *testing.T) {
-	var call, callAnswer, callRecover int
 	t.Run("happy_path", func(t *testing.T) {
+		var call, callAnswer, callRecover int
 		mux := http.NewServeMux()
 		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(`{"interaction_handle":"a"}`))

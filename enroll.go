@@ -122,6 +122,17 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	return r, nil
 }
 
+func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepOktaVerify) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	if option != OktaVerifyOptionQRCode && option != OktaVerifyOptionEmail && option != OktaVerifyOptionSms {
+		return nil, fmt.Errorf("%s is invalid Okta Verify option, plese use %s, %s or %s", option,
+			OktaVerifyOptionQRCode, OktaVerifyOptionEmail, OktaVerifyOptionSms)
+	}
+	panic("not implemented")
+}
+
 // VerifyEmail sends verification code to the email provided at the first step
 func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailVerification) {
@@ -147,22 +158,30 @@ func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*En
 	return r.confirmWithCode(ctx, code)
 }
 
-// PhoneMethod represents the method by which the code will be sent to your phone
-type PhoneMethod string
+// PhoneOption represents the method by which the code will be sent to your phone
+type PhoneOption string
 
 const (
-	PhoneMethodVoiceCall PhoneMethod = "voice"
-	PhoneMethodSMS       PhoneMethod = "sms"
+	PhoneMethodVoiceCall PhoneOption = "voice"
+	PhoneMethodSMS       PhoneOption = "sms"
+)
+
+type OktaVerifyOption string
+
+const (
+	OktaVerifyOptionQRCode OktaVerifyOption = "qrcode"
+	OktaVerifyOptionEmail  OktaVerifyOption = "email"
+	OktaVerifyOptionSms    OktaVerifyOption = "sms"
 )
 
 // VerifyPhone sends verification code to the provided phone.
 // Your phone number should contain a country code
-func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod, phoneNumber string) (*EnrollmentResponse, error) {
+func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption, phoneNumber string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	if method != PhoneMethodVoiceCall && method != PhoneMethodSMS {
-		return nil, fmt.Errorf("%s is invalid phone verification method, plese use %s or %s", method, PhoneMethodVoiceCall, PhoneMethodSMS)
+	if option != PhoneMethodVoiceCall && option != PhoneMethodSMS {
+		return nil, fmt.Errorf("%s is invalid phone verification option, plese use %s or %s", option, PhoneMethodVoiceCall, PhoneMethodSMS)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
@@ -175,7 +194,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, method PhoneMethod
 	authenticator := []byte(`{
 				"authenticator": {
 					"id": "` + authID + `",
-					"methodType": "` + string(method) + `",
+					"methodType": "` + string(option) + `",
 					"phoneNumber": "` + phoneNumber + `"
 				}
 			}`)
@@ -390,6 +409,7 @@ const (
 	EnrollmentStepPhoneConfirmation                                 // 'ConfirmPhone'
 	EnrollmentStepSecurityQuestionOptions                           // 'SecurityQuestionOptions'
 	EnrollmentStepSecurityQuestionSetup                             // 'SetupSecurityQuestion`
+	EnrollmentStepOktaVerify                                        // `OktaVerify`
 	EnrollmentStepCancel                                            // 'Cancel'
 	EnrollmentStepSkip                                              // 'Skip'
 	EnrollmentStepSuccess                                           // 'Token'
@@ -403,6 +423,7 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
 	EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
 	EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
+	EnrollmentStepOktaVerify:              "OKTA_VERIFY",
 	EnrollmentStepCancel:                  "CANCEL",
 	EnrollmentStepSkip:                    "SKIP",
 	EnrollmentStepSuccess:                 "SUCCESS",
@@ -441,6 +462,10 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question")
 	if err == nil {
 		steps = append(steps, EnrollmentStepSecurityQuestionOptions)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify")
+	if err == nil {
+		steps = append(steps, EnrollmentStepOktaVerify)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {

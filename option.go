@@ -46,7 +46,7 @@ type Token struct {
 type Option struct {
 	Rel        []string    `json:"rel"`
 	Type       string      `json:"type"`
-	IdP        IDP         `json:"idp"`
+	IDP        IDP         `json:"idp"`
 	Name       string      `json:"name"`
 	Href       string      `json:"href"`
 	Method     string      `json:"method"`
@@ -173,7 +173,18 @@ func (o *Option) proceed(ctx context.Context, data []byte) (*Response, error) {
 // Data should be in JSON format.
 func (o *RemediationOption) proceed(ctx context.Context, data []byte) (*Response, error) {
 	op := Option(*o)
-	return op.proceed(ctx, data)
+	resp, err := op.proceed(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Messages != nil {
+		var messages []string
+		for _, m := range resp.Messages.Values {
+			messages = append(messages, m.Message)
+		}
+		return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
+	}
+	return resp, nil
 }
 
 func (o *RemediationOption) value(name string) (*FormValue, error) {
@@ -354,5 +365,16 @@ type CurrentAuthenticatorEnrollment struct {
 // Data should be in JSON format.
 func (o *RecoverOption) proceed(ctx context.Context, data []byte) (*Response, error) {
 	op := Option(*o)
-	return op.proceed(ctx, data)
+	resp, err := op.proceed(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Messages != nil {
+		var messages []string
+		for _, m := range resp.Messages.Values {
+			messages = append(messages, m.Message)
+		}
+		return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
+	}
+	return resp, nil
 }

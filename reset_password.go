@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 type ResetPasswordResponse struct {
@@ -28,7 +27,6 @@ type ResetPasswordResponse struct {
 	token          *Token
 	availableSteps []ResetPasswordStep
 	sq             *SecurityQuestion
-	errors         ErrorResponse
 }
 
 type IdentifyRequest struct {
@@ -95,15 +93,6 @@ func identifyAndRecover(ctx context.Context, ih *InteractionHandle, ir *Identify
 		if err != nil {
 			return resp, err
 		}
-
-		if resp.Messages != nil {
-			var messages []string
-			for _, m := range resp.Messages.Values {
-				messages = append(messages, m.Message)
-			}
-			return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
-		}
-
 		return resp, nil
 	}
 	ro, err := resp.remediationOption("identify")
@@ -116,27 +105,10 @@ func identifyAndRecover(ctx context.Context, ih *InteractionHandle, ir *Identify
 		return nil, err
 	}
 	if resp.CurrentAuthenticatorEnrollment == nil {
-		if resp.Messages != nil {
-			return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' "+
-				"field is missing from the response: %v", resp.Messages.Values)
-		}
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' " +
 			"field is missing from the response")
 	}
-	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
-	if err != nil {
-		return resp, err
-	}
-
-	if resp.Messages != nil {
-		var messages []string
-		for _, m := range resp.Messages.Values {
-			messages = append(messages, m.Message)
-		}
-		return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
-	}
-
-	return resp, nil
+	return resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
 }
 
 func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPasswordResponse, error) {
@@ -148,10 +120,6 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 		return nil, err
 	}
 	if resp.CurrentAuthenticatorEnrollment == nil {
-		if resp.Messages != nil {
-			return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment'"+
-				" field is missing from the response: %v", resp.Messages.Values)
-		}
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment'" +
 			" field is missing from the response")
 	}
