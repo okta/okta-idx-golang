@@ -85,6 +85,19 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	return r, nil
 }
 
+func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepOktaVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
