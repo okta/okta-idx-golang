@@ -191,6 +191,27 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
+		if respErr.Message.Type == "" && respErr.ErrorSummary == "" {
+			resp, ok := i.(*Response)
+			if ok {
+				err = json.Unmarshal(body, &i)
+				if err != nil {
+					return fmt.Errorf("failed to unmarshal response body: %w", err)
+				}
+				for _, v := range resp.Remediation.RemediationOptions {
+					for _, w := range v.FormValues {
+						if w.Form != nil {
+							for _, g := range w.Form.FormValues {
+								if g.Message != nil {
+									respErr.Message.Type = g.Message.Type
+									respErr.Message.Values = g.Message.Values
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 		return &respErr
 	}
 	err = json.Unmarshal(body, &i)

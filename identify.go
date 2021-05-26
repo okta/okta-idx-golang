@@ -315,7 +315,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 }
 
 func (r *LoginResponse) confirmWithCode(ctx context.Context, code string) (*LoginResponse, error) {
-	resp, err := passcodeAuth(ctx, r.idxContext, "enroll-authenticator", code)
+	resp, err := passcodeAuth(ctx, r.idxContext, "challenge-authenticator", code)
 	if err != nil {
 		return nil, err
 	}
