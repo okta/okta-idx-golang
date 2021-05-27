@@ -261,7 +261,7 @@ func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption s
 	if err != nil {
 		return nil, err
 	}
-	ro, authID, err := resp.authenticatorOption(authenticatorOption, "Email")
+	ro, authID, err := resp.authenticatorOption(authenticatorOption, "Email", true)
 	if err != nil {
 		return nil, err
 	}

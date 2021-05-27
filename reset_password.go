@@ -127,7 +127,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 	if err != nil {
 		return nil, err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Email")
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Email", true)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 	if resp.CancelResponse != nil {
 		steps = append(steps, ResetPasswordStepCancel)
 	}
-	_, _, err := resp.authenticatorOption("select-authenticator-authenticate", "Email")
+	_, _, err := resp.authenticatorOption("select-authenticator-authenticate", "Email", false)
 	if err == nil {
 		steps = append(steps, ResetPasswordStepEmailVerification)
 	}

@@ -168,7 +168,7 @@ func (r *Response) LoginSuccess() bool {
 	return r.SuccessResponse != nil
 }
 
-func (r *Response) authenticatorOption(optionName, label string) (*RemediationOption, string, error) {
+func (r *Response) authenticatorOption(optionName, label string, modifyOptions bool) (*RemediationOption, string, error) {
 	ro, err := r.remediationOption(optionName)
 	if err != nil {
 		return nil, "", err
@@ -178,9 +178,13 @@ func (r *Response) authenticatorOption(optionName, label string) (*RemediationOp
 		return nil, "", err
 	}
 	var authID string
-	for _, v := range v.Options {
-		if v.Label == label {
-			authID = v.Value.(FormOptionsValueObject).Form.Value[0].Value
+	for _, ov := range v.Options {
+		if ov.Label == label {
+			authID = ov.Value.(FormOptionsValueObject).Form.Value[0].Value
+			if modifyOptions {
+				v.Options = []FormOptions{ov}
+			}
+			break
 		}
 	}
 	if authID == "" {

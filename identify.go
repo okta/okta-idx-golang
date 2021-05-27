@@ -106,7 +106,7 @@ func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) 
 	if err != nil {
 		return nil, err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify")
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", true)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +147,46 @@ loop:
 		return nil, err
 	}
 	return r, nil
+}
+
+func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepPhoneVerification) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	if option != PhoneMethodVoiceCall && option != PhoneMethodSMS {
+		return nil, fmt.Errorf("%s is invalid phone verification option, plese use %s or %s", option, PhoneMethodVoiceCall, PhoneMethodSMS)
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Phone", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"methodType": "` + string(option) + `"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, LoginStepPhoneConfirmation)
+	return r, nil
+}
+
+func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepPhoneConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	return r.confirmWithCode(ctx, code)
 }
 
 func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error) {
@@ -300,19 +340,19 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	} else {
 		r.identifyProviders = nil
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Email")
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Email", false)
 	if err == nil {
 		steps = append(steps, LoginStepEmailVerification)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Phone")
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Phone", false)
 	if err == nil {
 		steps = append(steps, LoginStepPhoneVerification)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question")
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question", false)
 	if err == nil {
 		steps = append(steps, LoginStepAnswerSecurityQuestion)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify")
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", false)
 	if err == nil {
 		steps = append(steps, LoginStepOktaVerify)
 	}
@@ -337,25 +377,22 @@ func (r *LoginResponse) confirmWithCode(ctx context.Context, code string) (*Logi
 }
 
 func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (*Response, error) {
-	ro, _ := resp.remediationOption("challenge-authenticator")
-	if ro == nil {
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Password", true)
+	if err != nil {
 		return resp, nil
 	}
-	enterPassword := false
-loop2:
-	for i := range ro.FormValues {
-		if ro.FormValues[i].Form != nil && len(ro.FormValues[i].Form.FormValues) > 0 {
-			for j := range ro.FormValues[i].Form.FormValues {
-				if ro.FormValues[i].Form.FormValues[j].Label == "Password" ||
-					ro.FormValues[i].Form.FormValues[j].Name == "passcode" {
-					enterPassword = true
-					break loop2
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
 				}
-			}
-		}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
 	}
-	if !enterPassword {
-		return resp, nil
+	ro, err = resp.remediationOption("challenge-authenticator")
+	if err != nil {
+		return nil, err
 	}
 	credentials := []byte(`{
 		"credentials": {

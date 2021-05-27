@@ -89,7 +89,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	if err != nil {
 		return nil, err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Password")
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Password", true)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption
 	if err != nil {
 		return nil, err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Phone")
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Phone", true)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if err != nil {
 		return nil, nil, err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Security Question")
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Security Question", true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -447,23 +447,23 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	if resp.CancelResponse != nil {
 		steps = append(steps, EnrollmentStepCancel)
 	}
-	_, _, err := resp.authenticatorOption("select-authenticator-enroll", "Password")
+	_, _, err := resp.authenticatorOption("select-authenticator-enroll", "Password", false)
 	if err == nil {
 		steps = append(steps, EnrollmentStepPasswordSetup)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Email")
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Email", false)
 	if err == nil {
 		steps = append(steps, EnrollmentStepEmailVerification)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone")
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
 		steps = append(steps, EnrollmentStepPhoneVerification)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question")
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question", false)
 	if err == nil {
 		steps = append(steps, EnrollmentStepSecurityQuestionOptions)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify")
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
 	if err == nil {
 		steps = append(steps, EnrollmentStepOktaVerify)
 	}
