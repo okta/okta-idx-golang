@@ -330,7 +330,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		r.identifyProviders = make([]IdentityProvider, len(ros))
 		for i := range ros {
 			r.identifyProviders[i] = IdentityProvider{
-				Type:   ros[i].Type,
+				Type:   ros[i].OptionType,
 				Name:   ros[i].IDP.Name,
 				URL:    ros[i].Href,
 				Method: ros[i].Method,

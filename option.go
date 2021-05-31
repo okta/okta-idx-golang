@@ -45,7 +45,7 @@ type Token struct {
 // nolint
 type Option struct {
 	Rel        []string    `json:"rel"`
-	Type       string      `json:"type"`
+	OptionType string      `json:"type"`
 	IDP        IDP         `json:"idp"`
 	Name       string      `json:"name"`
 	Href       string      `json:"href"`
@@ -60,17 +60,17 @@ type IDP struct {
 }
 
 type FormValue struct {
-	Name     string        `json:"name"`
-	Label    string        `json:"label,omitempty"`
-	Type     string        `json:"type,omitempty"`
-	Value    string        `json:"value,omitempty"`
-	Required *bool         `json:"required,omitempty"`
-	Visible  *bool         `json:"visible,omitempty"`
-	Mutable  *bool         `json:"mutable,omitempty"`
-	Secret   *bool         `json:"secret,omitempty"`
-	Form     *Form         `json:"form,omitempty"`
-	Options  []FormOptions `json:"options,omitempty"`
-	Message  *Message      `json:"messages"`
+	Name          string        `json:"name"`
+	Label         string        `json:"label,omitempty"`
+	FormValueType string        `json:"type,omitempty"`
+	Value         string        `json:"value,omitempty"`
+	Required      *bool         `json:"required,omitempty"`
+	Visible       *bool         `json:"visible,omitempty"`
+	Mutable       *bool         `json:"mutable,omitempty"`
+	Secret        *bool         `json:"secret,omitempty"`
+	Form          *Form         `json:"form,omitempty"`
+	Options       []FormOptions `json:"options,omitempty"`
+	Message       *Message      `json:"messages"`
 }
 
 type Form struct {
@@ -232,7 +232,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				return nil, err
 			}
 		case len(v.Options) != 0:
-			if v.Type == "string" {
+			if v.FormValueType == "string" {
 				vv, ok := input[v.Name]
 				if !ok && v.Required != nil && *v.Required {
 					return nil, fmt.Errorf("missing '%s' property from input", v.Name)
@@ -252,7 +252,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 					return nil, fmt.Errorf("provided value '%s' for '%s' is missing from options", vv, v.Name)
 				}
 				output[v.Name] = vv
-			} else if v.Type == "object" {
+			} else if v.FormValueType == "object" {
 				vv, ok := input[v.Name]
 				for _, o := range v.Options {
 					for _, vfv := range o.Value.(FormOptionsValueObject).Form.Value {
