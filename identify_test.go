@@ -32,7 +32,7 @@ import (
 )
 
 func TestClient_InitLogin(t *testing.T) {
-	var call int
+	var call, challangeCall int
 	t.Run("happy_path", func(t *testing.T) {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
@@ -41,67 +41,477 @@ func TestClient_InitLogin(t *testing.T) {
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
 			var s string
 			switch call {
-			case 0, 1:
+			case 0:
 				call++
 				s = fmt.Sprintf(`{
-			    "stateHandle": "a",
-			    "remediation": {
-			        "type": "array",
-			        "value": [
-			            {
-			                "rel": [
-			                    "create-form"
-			                ],
-			                "name": "identify",
-			                "href": "http://%s/idp/idx/identify",
-			                "method": "POST",
-			                "produces": "application/ion+json; okta-version=1.0.0",
-			                "value": [
-			                    {
-			                        "name": "identifier",
-			                        "label": "Username"
-			                    },
-			                    {
-			                        "name": "rememberMe",
-			                        "type": "boolean",
-			                        "label": "Remember this device"
-			                    },
-			                    {
-			                        "name": "stateHandle",
-			                        "required": true,
-			                        "value": "a",
-			                        "visible": false,
-			                        "mutable": false
-			                    }
-			                ],
-			                "accepts": "application/json; okta-version=1.0.0"
-			            }
-			        ]
-			    },
-			    "cancel": {
-			        "rel": [
-			            "create-form"
-			        ],
-			        "name": "cancel",
-			        "href": "http://%s/idp/idx/cancel",
-			        "method": "POST",
-			        "produces": "application/ion+json; okta-version=1.0.0",
-			        "value": [
-			            {
-			                "name": "stateHandle",
-			                "required": true,
-			                "value": "a",
-			                "visible": false,
-			                "mutable": false
-			            }
-			        ],
-			        "accepts": "application/json; okta-version=1.0.0"
-			    }
-			}`, r.Host, r.Host)
+				    "version": "1.0.0",
+				    "stateHandle": "b",
+				    "expiresAt": "2021-05-31T19:37:08.000Z",
+				    "intent": "LOGIN",
+				    "remediation": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "identify",
+				                "href": "http://%s/idp/idx/identify",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "identifier",
+				                        "label": "Username"
+				                    },
+				                    {
+				                        "name": "rememberMe",
+				                        "type": "boolean",
+				                        "label": "Remember this device"
+				                    },
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            },
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "select-enroll-profile",
+				                "href": "http://%s/idp/idx/enroll",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            },
+				            {
+				                "name": "redirect-idp",
+				                "type": "FACEBOOK",
+				                "idp": {
+				                    "id": "0oasglqxggRrCMQAW5d6",
+				                    "name": "Facebook IdP"
+				                },
+				                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=0oal6ssroFGvEU0Oe5d6&request_uri=urn:okta:VWd4bEg1ellmd2lzRWctYVZoT1lXcFloeHdZT1NIdnd0VUlpeko2N21KSTowb2FzZ2xxeGdnUnJDTVFBVzVkNg",
+				                "method": "GET"
+				            },
+				            {
+				                "name": "redirect-idp",
+				                "type": "GOOGLE",
+				                "idp": {
+				                    "id": "0oasgv6yj2ZQrW9fF5d6",
+				                    "name": "Google IdP"
+				                },
+				                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=0oal6ssroFGvEU0Oe5d6&request_uri=urn:okta:VWd4bEg1ellmd2lzRWctYVZoT1lXcFloeHdZT1NIdnd0VUlpeko2N21KSTowb2FzZ3Y2eWoyWlFyVzlmRjVkNg",
+				                "method": "GET"
+				            }
+				        ]
+				    },
+				    "cancel": {
+				        "rel": [
+				            "create-form"
+				        ],
+				        "name": "cancel",
+				        "href": "http://%s/idp/idx/cancel",
+				        "method": "POST",
+				        "produces": "application/ion+json; okta-version=1.0.0",
+				        "value": [
+				            {
+				                "name": "stateHandle",
+				                "required": true,
+				                "value": "b",
+				                "visible": false,
+				                "mutable": false
+				            }
+				        ],
+				        "accepts": "application/json; okta-version=1.0.0"
+				    },
+				    "app": {
+				        "type": "object",
+				        "value": {
+				            "name": "oidc_client",
+				            "label": "My Web App",
+				            "id": "0oal6ssroFGvEU0Oe5d6"
+				        }
+				    }
+				}`, r.Host, r.Host, r.Host, r.Host, r.Host)
+			case 1:
+				call++
+				s = fmt.Sprintf(`{
+				    "version": "1.0.0",
+				    "stateHandle": "b",
+				    "expiresAt": "2021-05-31T19:37:08.000Z",
+				    "intent": "LOGIN",
+				    "remediation": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "identify",
+				                "href": "http://%s/idp/idx/identify",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "identifier",
+				                        "label": "Username"
+				                    },
+				                    {
+				                        "name": "rememberMe",
+				                        "type": "boolean",
+				                        "label": "Remember this device"
+				                    },
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            },
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "select-enroll-profile",
+				                "href": "http://%s/idp/idx/enroll",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            },
+				            {
+				                "name": "redirect-idp",
+				                "type": "FACEBOOK",
+				                "idp": {
+				                    "id": "0oasglqxggRrCMQAW5d6",
+				                    "name": "Facebook IdP"
+				                },
+				                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=0oal6ssroFGvEU0Oe5d6&request_uri=urn:okta:VWd4bEg1ellmd2lzRWctYVZoT1lXcFloeHdZT1NIdnd0VUlpeko2N21KSTowb2FzZ2xxeGdnUnJDTVFBVzVkNg",
+				                "method": "GET"
+				            },
+				            {
+				                "name": "redirect-idp",
+				                "type": "GOOGLE",
+				                "idp": {
+				                    "id": "0oasgv6yj2ZQrW9fF5d6",
+				                    "name": "Google IdP"
+				                },
+				                "href": "http://%s/oauth2/ausl0y235gvIoRoyH5d6/v1/authorize?client_id=0oal6ssroFGvEU0Oe5d6&request_uri=urn:okta:VWd4bEg1ellmd2lzRWctYVZoT1lXcFloeHdZT1NIdnd0VUlpeko2N21KSTowb2FzZ3Y2eWoyWlFyVzlmRjVkNg",
+				                "method": "GET"
+				            }
+				        ]
+				    },
+				    "cancel": {
+				        "rel": [
+				            "create-form"
+				        ],
+				        "name": "cancel",
+				        "href": "http://%s/idp/idx/cancel",
+				        "method": "POST",
+				        "produces": "application/ion+json; okta-version=1.0.0",
+				        "value": [
+				            {
+				                "name": "stateHandle",
+				                "required": true,
+				                "value": "b",
+				                "visible": false,
+				                "mutable": false
+				            }
+				        ],
+				        "accepts": "application/json; okta-version=1.0.0"
+				    },
+				    "app": {
+				        "type": "object",
+				        "value": {
+				            "name": "oidc_client",
+				            "label": "My Web App",
+				            "id": "0oal6ssroFGvEU0Oe5d6"
+				        }
+				    }
+				}`, r.Host, r.Host, r.Host, r.Host, r.Host)
 			case 2:
 				call++
 				s = fmt.Sprintf(`{
-			    "stateHandle": "c",
+				    "version": "1.0.0",
+				    "stateHandle": "b",
+				    "expiresAt": "2021-05-31T18:01:23.000Z",
+				    "intent": "LOGIN",
+				    "remediation": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "select-authenticator-authenticate",
+				                "href": "http://%s/idp/idx/challenge",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "authenticator",
+				                        "type": "object",
+				                        "options": [
+				                            {
+				                                "label": "Email",
+				                                "value": {
+				                                    "form": {
+				                                        "value": [
+				                                            {
+				                                                "name": "id",
+				                                                "required": true,
+				                                                "value": "autl3hwe9EdtbCyKV5d6",
+				                                                "mutable": false
+				                                            },
+				                                            {
+				                                                "name": "methodType",
+				                                                "required": false,
+				                                                "value": "email",
+				                                                "mutable": false
+				                                            }
+				                                        ]
+				                                    }
+				                                },
+				                                "relatesTo": "$.authenticatorEnrollments.value[0]"
+				                            },
+				                            {
+				                                "label": "Okta Verify",
+				                                "value": {
+				                                    "form": {
+				                                        "value": [
+				                                            {
+				                                                "name": "id",
+				                                                "required": true,
+				                                                "value": "autl3e8k3bkOVrHAo5d6",
+				                                                "mutable": false
+				                                            },
+				                                            {
+				                                                "name": "methodType",
+				                                                "type": "string",
+				                                                "required": false,
+				                                                "options": [
+				                                                    {
+				                                                        "label": "Enter a code",
+				                                                        "value": "totp"
+				                                                    },
+				                                                    {
+				                                                        "label": "Get a push notification",
+				                                                        "value": "push"
+				                                                    }
+				                                                ]
+				                                            }
+				                                        ]
+				                                    }
+				                                },
+				                                "relatesTo": "$.authenticators.value[1]"
+				                            },
+				                            {
+				                                "label": "Phone",
+				                                "value": {
+				                                    "form": {
+				                                        "value": [
+				                                            {
+				                                                "name": "id",
+				                                                "required": true,
+				                                                "value": "autl3hweaZ3zGU63b5d6",
+				                                                "mutable": false
+				                                            },
+				                                            {
+				                                                "name": "methodType",
+				                                                "type": "string",
+				                                                "required": false,
+				                                                "options": [
+				                                                    {
+				                                                        "label": "SMS",
+				                                                        "value": "sms"
+				                                                    }
+				                                                ]
+				                                            },
+				                                            {
+				                                                "name": "enrollmentId",
+				                                                "required": true,
+				                                                "value": "paetnceczcDZduYCL5d6",
+				                                                "mutable": false
+				                                            }
+				                                        ]
+				                                    }
+				                                },
+				                                "relatesTo": "$.authenticatorEnrollments.value[2]"
+				                            }
+				                        ]
+				                    },
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            }
+				        ]
+				    },
+				    "authenticators": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "type": "email",
+				                "key": "okta_email",
+				                "id": "autl3hwe9EdtbCyKV5d6",
+				                "displayName": "Email",
+				                "methods": [
+				                    {
+				                        "type": "email"
+				                    }
+				                ]
+				            },
+				            {
+				                "type": "app",
+				                "key": "okta_verify",
+				                "id": "autl3e8k3bkOVrHAo5d6",
+				                "displayName": "Okta Verify",
+				                "methods": [
+				                    {
+				                        "type": "push"
+				                    },
+				                    {
+				                        "type": "totp"
+				                    }
+				                ]
+				            },
+				            {
+				                "type": "phone",
+				                "key": "phone_number",
+				                "id": "autl3hweaZ3zGU63b5d6",
+				                "displayName": "Phone",
+				                "methods": [
+				                    {
+				                        "type": "sms"
+				                    }
+				                ]
+				            }
+				        ]
+				    },
+				    "authenticatorEnrollments": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "profile": {
+				                    "email": "b***x@okta.com"
+				                },
+				                "type": "email",
+				                "key": "okta_email",
+				                "id": "eael2v03sTTXEN7KW5d6",
+				                "displayName": "Email",
+				                "methods": [
+				                    {
+				                        "type": "email"
+				                    }
+				                ]
+				            },
+				            {
+				                "profile": {
+				                    "deviceName": "OnePlus 5T"
+				                },
+				                "type": "app",
+				                "key": "okta_verify",
+				                "id": "pfdo31uccd05gLgmN5d6",
+				                "displayName": "Okta Verify",
+				                "methods": [
+				                    {
+				                        "type": "push"
+				                    },
+				                    {
+				                        "type": "totp"
+				                    }
+				                ]
+				            },
+				            {
+				                "profile": {
+				                    "phoneNumber": "+1 XXX-XXX-3693"
+				                },
+				                "type": "phone",
+				                "key": "phone_number",
+				                "id": "paetnceczcDZduYCL5d6",
+				                "displayName": "Phone",
+				                "methods": [
+				                    {
+				                        "type": "sms"
+				                    }
+				                ]
+				            }
+				        ]
+				    },
+				    "user": {
+				        "type": "object",
+				        "value": {
+				            "id": "00ul0y27xJNbFnsRy5d6"
+				        }
+				    },
+				    "cancel": {
+				        "rel": [
+				            "create-form"
+				        ],
+				        "name": "cancel",
+				        "href": "http://%s/idp/idx/cancel",
+				        "method": "POST",
+				        "produces": "application/ion+json; okta-version=1.0.0",
+				        "value": [
+				            {
+				                "name": "stateHandle",
+				                "required": true,
+				                "value": "b",
+				                "visible": false,
+				                "mutable": false
+				            }
+				        ],
+				        "accepts": "application/json; okta-version=1.0.0"
+				    },
+				    "app": {
+				        "type": "object",
+				        "value": {
+				            "name": "oidc_client",
+				            "label": "My Web App",
+				            "id": "0oal6ssroFGvEU0Oe5d6"
+				        }
+				    }
+				}`, r.Host, r.Host)
+			}
+			_, _ = w.Write([]byte(s))
+		})
+		mux.HandleFunc("/idp/idx/identify", func(w http.ResponseWriter, r *http.Request) {
+			s := fmt.Sprintf(`{
+			    "version": "1.0.0",
+			    "stateHandle": "b",
+			    "expiresAt": "2021-05-31T17:42:10.000Z",
+			    "intent": "LOGIN",
 			    "remediation": {
 			        "type": "array",
 			        "value": [
@@ -119,6 +529,28 @@ func TestClient_InitLogin(t *testing.T) {
 			                        "type": "object",
 			                        "options": [
 			                            {
+			                                "label": "Email",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hwe9EdtbCyKV5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "required": false,
+			                                                "value": "email",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[0]"
+			                            },
+			                            {
 			                                "label": "Okta Verify",
 			                                "value": {
 			                                    "form": {
@@ -126,7 +558,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                                            {
 			                                                "name": "id",
 			                                                "required": true,
-			                                                "value": "butl3e8k3bkOVrHAo5d6",
+			                                                "value": "autl3e8k3bkOVrHAo5d6",
 			                                                "mutable": false
 			                                            },
 			                                            {
@@ -134,6 +566,10 @@ func TestClient_InitLogin(t *testing.T) {
 			                                                "type": "string",
 			                                                "required": false,
 			                                                "options": [
+			                                                    {
+			                                                        "label": "Enter a code",
+			                                                        "value": "totp"
+			                                                    },
 			                                                    {
 			                                                        "label": "Get a push notification",
 			                                                        "value": "push"
@@ -143,14 +579,69 @@ func TestClient_InitLogin(t *testing.T) {
 			                                        ]
 			                                    }
 			                                },
-			                                "relatesTo": "$.authenticators.value[0]"
+			                                "relatesTo": "$.authenticators.value[1]"
+			                            },
+			                            {
+			                                "label": "Password",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hwe8llr6CyxE5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "required": false,
+			                                                "value": "password",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[2]"
+			                            },
+			                            {
+			                                "label": "Phone",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hweaZ3zGU63b5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "type": "string",
+			                                                "required": false,
+			                                                "options": [
+			                                                    {
+			                                                        "label": "SMS",
+			                                                        "value": "sms"
+			                                                    }
+			                                                ]
+			                                            },
+			                                            {
+			                                                "name": "enrollmentId",
+			                                                "required": true,
+			                                                "value": "paetnceczcDZduYCL5d6",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[3]"
 			                            }
 			                        ]
 			                    },
 			                    {
 			                        "name": "stateHandle",
 			                        "required": true,
-			                        "value": "c",
+			                        "value": "b",
 			                        "visible": false,
 			                        "mutable": false
 			                    }
@@ -158,6 +649,125 @@ func TestClient_InitLogin(t *testing.T) {
 			                "accepts": "application/json; okta-version=1.0.0"
 			            }
 			        ]
+			    },
+			    "authenticators": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "type": "email",
+			                "key": "okta_email",
+			                "id": "autl3hwe9EdtbCyKV5d6",
+			                "displayName": "Email",
+			                "methods": [
+			                    {
+			                        "type": "email"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "app",
+			                "key": "okta_verify",
+			                "id": "autl3e8k3bkOVrHAo5d6",
+			                "displayName": "Okta Verify",
+			                "methods": [
+			                    {
+			                        "type": "push"
+			                    },
+			                    {
+			                        "type": "totp"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "password",
+			                "key": "okta_password",
+			                "id": "autl3hwe8llr6CyxE5d6",
+			                "displayName": "Password",
+			                "methods": [
+			                    {
+			                        "type": "password"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "phone",
+			                "key": "phone_number",
+			                "id": "autl3hweaZ3zGU63b5d6",
+			                "displayName": "Phone",
+			                "methods": [
+			                    {
+			                        "type": "sms"
+			                    }
+			                ]
+			            }
+			        ]
+			    },
+			    "authenticatorEnrollments": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "profile": {
+			                    "email": "b***x@okta.com"
+			                },
+			                "type": "email",
+			                "key": "okta_email",
+			                "id": "eael2v03sTTXEN7KW5d6",
+			                "displayName": "Email",
+			                "methods": [
+			                    {
+			                        "type": "email"
+			                    }
+			                ]
+			            },
+			            {
+			                "profile": {
+			                    "deviceName": "OnePlus 5T"
+			                },
+			                "type": "app",
+			                "key": "okta_verify",
+			                "id": "pfdo31uccd05gLgmN5d6",
+			                "displayName": "Okta Verify",
+			                "methods": [
+			                    {
+			                        "type": "push"
+			                    },
+			                    {
+			                        "type": "totp"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "password",
+			                "key": "okta_password",
+			                "id": "lae1bm7l17eiudHus5d6",
+			                "displayName": "Password",
+			                "methods": [
+			                    {
+			                        "type": "password"
+			                    }
+			                ]
+			            },
+			            {
+			                "profile": {
+			                    "phoneNumber": "+1 XXX-XXX-3693"
+			                },
+			                "type": "phone",
+			                "key": "phone_number",
+			                "id": "paetnceczcDZduYCL5d6",
+			                "displayName": "Phone",
+			                "methods": [
+			                    {
+			                        "type": "sms"
+			                    }
+			                ]
+			            }
+			        ]
+			    },
+			    "user": {
+			        "type": "object",
+			        "value": {
+			            "id": "00ul0y27xJNbFnsRy5d6"
+			        }
 			    },
 			    "cancel": {
 			        "rel": [
@@ -171,17 +781,37 @@ func TestClient_InitLogin(t *testing.T) {
 			            {
 			                "name": "stateHandle",
 			                "required": true,
-			                "value": "c",
+			                "value": "b",
 			                "visible": false,
 			                "mutable": false
 			            }
 			        ],
 			        "accepts": "application/json; okta-version=1.0.0"
+			    },
+			    "app": {
+			        "type": "object",
+			        "value": {
+			            "name": "oidc_client",
+			            "label": "My Web App",
+			            "id": "0oal6ssroFGvEU0Oe5d6"
+			        }
 			    }
 			}`, r.Host, r.Host)
-			default:
-				s = fmt.Sprintf(`{
-			    "stateHandle": "a",
+			_, _ = w.Write([]byte(s))
+		})
+		mux.HandleFunc("/idp/idx/challenge/answer", func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
+			body, err := ioutil.ReadAll(r.Body)
+			assert.NoError(t, err)
+			ih := make(map[string]interface{})
+			err = json.Unmarshal(body, &ih)
+			assert.NoError(t, err)
+			assert.Equal(t, "qwerty", ih["credentials"].(map[string]interface{})["passcode"])
+			s := fmt.Sprintf(`{
+			    "version": "1.0.0",
+			    "stateHandle": "b",
+			    "expiresAt": "2021-05-31T17:42:11.000Z",
+			    "intent": "LOGIN",
 			    "remediation": {
 			        "type": "array",
 			        "value": [
@@ -189,24 +819,107 @@ func TestClient_InitLogin(t *testing.T) {
 			                "rel": [
 			                    "create-form"
 			                ],
-			                "name": "identify",
-			                "href": "http://%s/idp/idx/identify",
+			                "name": "select-authenticator-authenticate",
+			                "href": "http://%s/idp/idx/challenge",
 			                "method": "POST",
 			                "produces": "application/ion+json; okta-version=1.0.0",
 			                "value": [
 			                    {
-			                        "name": "identifier",
-			                        "label": "Username"
-			                    },
-			                    {
-			                        "name": "rememberMe",
-			                        "type": "boolean",
-			                        "label": "Remember this device"
+			                        "name": "authenticator",
+			                        "type": "object",
+			                        "options": [
+			                            {
+			                                "label": "Email",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hwe9EdtbCyKV5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "required": false,
+			                                                "value": "email",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[0]"
+			                            },
+			                            {
+			                                "label": "Okta Verify",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3e8k3bkOVrHAo5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "type": "string",
+			                                                "required": false,
+			                                                "options": [
+			                                                    {
+			                                                        "label": "Enter a code",
+			                                                        "value": "totp"
+			                                                    },
+			                                                    {
+			                                                        "label": "Get a push notification",
+			                                                        "value": "push"
+			                                                    }
+			                                                ]
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticators.value[1]"
+			                            },
+			                            {
+			                                "label": "Phone",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hweaZ3zGU63b5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "type": "string",
+			                                                "required": false,
+			                                                "options": [
+			                                                    {
+			                                                        "label": "SMS",
+			                                                        "value": "sms"
+			                                                    }
+			                                                ]
+			                                            },
+			                                            {
+			                                                "name": "enrollmentId",
+			                                                "required": true,
+			                                                "value": "paetnceczcDZduYCL5d6",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[2]"
+			                            }
+			                        ]
 			                    },
 			                    {
 			                        "name": "stateHandle",
 			                        "required": true,
-			                        "value": "a",
+			                        "value": "b",
 			                        "visible": false,
 			                        "mutable": false
 			                    }
@@ -214,6 +927,103 @@ func TestClient_InitLogin(t *testing.T) {
 			                "accepts": "application/json; okta-version=1.0.0"
 			            }
 			        ]
+			    },
+			    "authenticators": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "type": "email",
+			                "key": "okta_email",
+			                "id": "autl3hwe9EdtbCyKV5d6",
+			                "displayName": "Email",
+			                "methods": [
+			                    {
+			                        "type": "email"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "app",
+			                "key": "okta_verify",
+			                "id": "autl3e8k3bkOVrHAo5d6",
+			                "displayName": "Okta Verify",
+			                "methods": [
+			                    {
+			                        "type": "push"
+			                    },
+			                    {
+			                        "type": "totp"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "phone",
+			                "key": "phone_number",
+			                "id": "autl3hweaZ3zGU63b5d6",
+			                "displayName": "Phone",
+			                "methods": [
+			                    {
+			                        "type": "sms"
+			                    }
+			                ]
+			            }
+			        ]
+			    },
+			    "authenticatorEnrollments": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "profile": {
+			                    "email": "b***x@okta.com"
+			                },
+			                "type": "email",
+			                "key": "okta_email",
+			                "id": "eael2v03sTTXEN7KW5d6",
+			                "displayName": "Email",
+			                "methods": [
+			                    {
+			                        "type": "email"
+			                    }
+			                ]
+			            },
+			            {
+			                "profile": {
+			                    "deviceName": "OnePlus 5T"
+			                },
+			                "type": "app",
+			                "key": "okta_verify",
+			                "id": "pfdo31uccd05gLgmN5d6",
+			                "displayName": "Okta Verify",
+			                "methods": [
+			                    {
+			                        "type": "push"
+			                    },
+			                    {
+			                        "type": "totp"
+			                    }
+			                ]
+			            },
+			            {
+			                "profile": {
+			                    "phoneNumber": "+1 XXX-XXX-3693"
+			                },
+			                "type": "phone",
+			                "key": "phone_number",
+			                "id": "paetnceczcDZduYCL5d6",
+			                "displayName": "Phone",
+			                "methods": [
+			                    {
+			                        "type": "sms"
+			                    }
+			                ]
+			            }
+			        ]
+			    },
+			    "user": {
+			        "type": "object",
+			        "value": {
+			            "id": "00ul0y27xJNbFnsRy5d6"
+			        }
 			    },
 			    "cancel": {
 			        "rel": [
@@ -227,20 +1037,34 @@ func TestClient_InitLogin(t *testing.T) {
 			            {
 			                "name": "stateHandle",
 			                "required": true,
-			                "value": "a",
+			                "value": "b",
 			                "visible": false,
 			                "mutable": false
 			            }
 			        ],
 			        "accepts": "application/json; okta-version=1.0.0"
+			    },
+			    "app": {
+			        "type": "object",
+			        "value": {
+			            "name": "oidc_client",
+			            "label": "My Web App",
+			            "id": "0oal6ssroFGvEU0Oe5d6"
+			        }
 			    }
 			}`, r.Host, r.Host)
-			}
 			_, _ = w.Write([]byte(s))
 		})
-		mux.HandleFunc("/idp/idx/identify", func(w http.ResponseWriter, r *http.Request) {
-			s := fmt.Sprintf(`{
+		mux.HandleFunc("/idp/idx/challenge", func(w http.ResponseWriter, r *http.Request) {
+			var s string
+			switch challangeCall {
+			case 0:
+				challangeCall++
+				s = fmt.Sprintf(`{
+			    "version": "1.0.0",
 			    "stateHandle": "b",
+			    "expiresAt": "2021-05-31T17:42:10.000Z",
+			    "intent": "LOGIN",
 			    "remediation": {
 			        "type": "array",
 			        "value": [
@@ -294,6 +1118,28 @@ func TestClient_InitLogin(t *testing.T) {
 			                        "type": "object",
 			                        "options": [
 			                            {
+			                                "label": "Email",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hwe9EdtbCyKV5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "required": false,
+			                                                "value": "email",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[0]"
+			                            },
+			                            {
 			                                "label": "Okta Verify",
 			                                "value": {
 			                                    "form": {
@@ -301,7 +1147,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                                            {
 			                                                "name": "id",
 			                                                "required": true,
-			                                                "value": "autl3e9k3bkOVrHAo5d6",
+			                                                "value": "autl3e8k3bkOVrHAo5d6",
 			                                                "mutable": false
 			                                            },
 			                                            {
@@ -309,6 +1155,10 @@ func TestClient_InitLogin(t *testing.T) {
 			                                                "type": "string",
 			                                                "required": false,
 			                                                "options": [
+			                                                    {
+			                                                        "label": "Enter a code",
+			                                                        "value": "totp"
+			                                                    },
 			                                                    {
 			                                                        "label": "Get a push notification",
 			                                                        "value": "push"
@@ -318,7 +1168,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                                        ]
 			                                    }
 			                                },
-			                                "relatesTo": "$.authenticators.value[0]"
+			                                "relatesTo": "$.authenticators.value[1]"
 			                            },
 			                            {
 			                                "label": "Password",
@@ -340,7 +1190,40 @@ func TestClient_InitLogin(t *testing.T) {
 			                                        ]
 			                                    }
 			                                },
-			                                "relatesTo": "$.authenticatorEnrollments.value[1]"
+			                                "relatesTo": "$.authenticatorEnrollments.value[2]"
+			                            },
+			                            {
+			                                "label": "Phone",
+			                                "value": {
+			                                    "form": {
+			                                        "value": [
+			                                            {
+			                                                "name": "id",
+			                                                "required": true,
+			                                                "value": "autl3hweaZ3zGU63b5d6",
+			                                                "mutable": false
+			                                            },
+			                                            {
+			                                                "name": "methodType",
+			                                                "type": "string",
+			                                                "required": false,
+			                                                "options": [
+			                                                    {
+			                                                        "label": "SMS",
+			                                                        "value": "sms"
+			                                                    }
+			                                                ]
+			                                            },
+			                                            {
+			                                                "name": "enrollmentId",
+			                                                "required": true,
+			                                                "value": "paetnceczcDZduYCL5d6",
+			                                                "mutable": false
+			                                            }
+			                                        ]
+			                                    }
+			                                },
+			                                "relatesTo": "$.authenticatorEnrollments.value[3]"
 			                            }
 			                        ]
 			                    },
@@ -355,6 +1238,158 @@ func TestClient_InitLogin(t *testing.T) {
 			                "accepts": "application/json; okta-version=1.0.0"
 			            }
 			        ]
+			    },
+			    "currentAuthenticatorEnrollment": {
+			        "type": "object",
+			        "value": {
+			            "recover": {
+			                "rel": [
+			                    "create-form"
+			                ],
+			                "name": "recover",
+			                "href": "http://%s/idp/idx/recover",
+			                "method": "POST",
+			                "produces": "application/ion+json; okta-version=1.0.0",
+			                "value": [
+			                    {
+			                        "name": "stateHandle",
+			                        "required": true,
+			                        "value": "b",
+			                        "visible": false,
+			                        "mutable": false
+			                    }
+			                ],
+			                "accepts": "application/json; okta-version=1.0.0"
+			            },
+			            "type": "password",
+			            "key": "okta_password",
+			            "id": "lae1bm7l17eiudHus5d6",
+			            "displayName": "Password",
+			            "methods": [
+			                {
+			                    "type": "password"
+			                }
+			            ]
+			        }
+			    },
+			    "authenticators": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "type": "email",
+			                "key": "okta_email",
+			                "id": "autl3hwe9EdtbCyKV5d6",
+			                "displayName": "Email",
+			                "methods": [
+			                    {
+			                        "type": "email"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "app",
+			                "key": "okta_verify",
+			                "id": "autl3e8k3bkOVrHAo5d6",
+			                "displayName": "Okta Verify",
+			                "methods": [
+			                    {
+			                        "type": "push"
+			                    },
+			                    {
+			                        "type": "totp"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "password",
+			                "key": "okta_password",
+			                "id": "autl3hwe8llr6CyxE5d6",
+			                "displayName": "Password",
+			                "methods": [
+			                    {
+			                        "type": "password"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "phone",
+			                "key": "phone_number",
+			                "id": "autl3hweaZ3zGU63b5d6",
+			                "displayName": "Phone",
+			                "methods": [
+			                    {
+			                        "type": "sms"
+			                    }
+			                ]
+			            }
+			        ]
+			    },
+			    "authenticatorEnrollments": {
+			        "type": "array",
+			        "value": [
+			            {
+			                "profile": {
+			                    "email": "b***x@okta.com"
+			                },
+			                "type": "email",
+			                "key": "okta_email",
+			                "id": "eael2v03sTTXEN7KW5d6",
+			                "displayName": "Email",
+			                "methods": [
+			                    {
+			                        "type": "email"
+			                    }
+			                ]
+			            },
+			            {
+			                "profile": {
+			                    "deviceName": "OnePlus 5T"
+			                },
+			                "type": "app",
+			                "key": "okta_verify",
+			                "id": "pfdo31uccd05gLgmN5d6",
+			                "displayName": "Okta Verify",
+			                "methods": [
+			                    {
+			                        "type": "push"
+			                    },
+			                    {
+			                        "type": "totp"
+			                    }
+			                ]
+			            },
+			            {
+			                "type": "password",
+			                "key": "okta_password",
+			                "id": "lae1bm7l17eiudHus5d6",
+			                "displayName": "Password",
+			                "methods": [
+			                    {
+			                        "type": "password"
+			                    }
+			                ]
+			            },
+			            {
+			                "profile": {
+			                    "phoneNumber": "+1 XXX-XXX-3693"
+			                },
+			                "type": "phone",
+			                "key": "phone_number",
+			                "id": "paetnceczcDZduYCL5d6",
+			                "displayName": "Phone",
+			                "methods": [
+			                    {
+			                        "type": "sms"
+			                    }
+			                ]
+			            }
+			        ]
+			    },
+			    "user": {
+			        "type": "object",
+			        "value": {
+			            "id": "00ul0y27xJNbFnsRy5d6"
+			        }
 			    },
 			    "cancel": {
 			        "rel": [
@@ -374,150 +1409,334 @@ func TestClient_InitLogin(t *testing.T) {
 			            }
 			        ],
 			        "accepts": "application/json; okta-version=1.0.0"
-			    }
-			}`, r.Host, r.Host, r.Host)
-			_, _ = w.Write([]byte(s))
-		})
-		mux.HandleFunc("/idp/idx/challenge/answer", func(w http.ResponseWriter, r *http.Request) {
-			defer r.Body.Close()
-			body, err := ioutil.ReadAll(r.Body)
-			assert.NoError(t, err)
-			ih := make(map[string]interface{})
-			err = json.Unmarshal(body, &ih)
-			assert.NoError(t, err)
-			assert.Equal(t, "qwerty", ih["credentials"].(map[string]interface{})["passcode"])
-			s := fmt.Sprintf(`{
-			    "stateHandle": "c",
-			    "remediation": {
-			        "type": "array",
-			        "value": [
-			            {
-			                "rel": [
-			                    "create-form"
-			                ],
-			                "name": "select-authenticator-authenticate",
-			                "href": "http://%s/idp/idx/challenge",
-			                "method": "POST",
-			                "produces": "application/ion+json; okta-version=1.0.0",
-			                "value": [
-			                    {
-			                        "name": "authenticator",
-			                        "type": "object",
-			                        "options": [
-			                            {
-			                                "label": "Okta Verify",
-			                                "value": {
-			                                    "form": {
-			                                        "value": [
-			                                            {
-			                                                "name": "id",
-			                                                "required": true,
-			                                                "value": "butl3e8k3bkOVrHAo5d6",
-			                                                "mutable": false
-			                                            },
-			                                            {
-			                                                "name": "methodType",
-			                                                "type": "string",
-			                                                "required": false,
-			                                                "options": [
-			                                                    {
-			                                                        "label": "Get a push notification",
-			                                                        "value": "push"
-			                                                    }
-			                                                ]
-			                                            }
-			                                        ]
-			                                    }
-			                                },
-			                                "relatesTo": "$.authenticators.value[0]"
-			                            }
-			                        ]
-			                    },
-			                    {
-			                        "name": "stateHandle",
-			                        "required": true,
-			                        "value": "c",
-			                        "visible": false,
-			                        "mutable": false
-			                    }
-			                ],
-			                "accepts": "application/json; okta-version=1.0.0"
-			            }
-			        ]
 			    },
-			    "cancel": {
-			        "rel": [
-			            "create-form"
-			        ],
-			        "name": "cancel",
-			        "href": "http://%s/idp/idx/cancel",
-			        "method": "POST",
-			        "produces": "application/ion+json; okta-version=1.0.0",
-			        "value": [
-			            {
-			                "name": "stateHandle",
-			                "required": true,
-			                "value": "c",
-			                "visible": false,
-			                "mutable": false
-			            }
-			        ],
-			        "accepts": "application/json; okta-version=1.0.0"
+			    "app": {
+			        "type": "object",
+			        "value": {
+			            "name": "oidc_client",
+			            "label": "My Web App",
+			            "id": "0oal6ssroFGvEU0Oe5d6"
+			        }
 			    }
-			}`, r.Host, r.Host)
-			_, _ = w.Write([]byte(s))
-		})
-		mux.HandleFunc("/idp/idx/challenge", func(w http.ResponseWriter, r *http.Request) {
-			s := fmt.Sprintf(`{
-			    "stateHandle": "d",
-			    "remediation": {
-			        "type": "array",
-			        "value": [
-			            {
-			                "rel": [
-			                    "create-form"
-			                ],
-			                "name": "challenge-poll",
-			                "relatesTo": [
-			                    "$.currentAuthenticator"
-			                ],
-			                "href": "http://%s/idp/idx/authenticators/poll",
-			                "method": "POST",
-			                "produces": "application/ion+json; okta-version=1.0.0",
-			                "refresh": 4000,
-			                "value": [
-			                    {
-			                        "name": "stateHandle",
-			                        "required": true,
-			                        "value": "d",
-			                        "visible": false,
-			                        "mutable": false
-			                    }
-			                ],
-			                "accepts": "application/json; okta-version=1.0.0"
-			            }
-			        ]
-			    },
-			    "cancel": {
-			        "rel": [
-			            "create-form"
-			        ],
-			        "name": "cancel",
-			        "href": "http://%s/idp/idx/cancel",
-			        "method": "POST",
-			        "produces": "application/ion+json; okta-version=1.0.0",
-			        "value": [
-			            {
-			                "name": "stateHandle",
-			                "required": true,
-			                "value": "d",
-			                "visible": false,
-			                "mutable": false
-			            }
-			        ],
-			        "accepts": "application/json; okta-version=1.0.0"
-			    }
-			}`, r.Host, r.Host)
+			}`, r.Host, r.Host, r.Host, r.Host)
+			case 1:
+				challangeCall++
+				s = fmt.Sprintf(`{
+				    "version": "1.0.0",
+				    "stateHandle": "b",
+				    "expiresAt": "2021-05-31T18:01:24.000Z",
+				    "intent": "LOGIN",
+				    "remediation": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "challenge-poll",
+				                "relatesTo": [
+				                    "$.currentAuthenticator"
+				                ],
+				                "href": "http://%s/idp/idx/authenticators/poll",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "refresh": 4000,
+				                "value": [
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            },
+				            {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "select-authenticator-authenticate",
+				                "href": "http://%s/idp/idx/challenge",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "authenticator",
+				                        "type": "object",
+				                        "options": [
+				                            {
+				                                "label": "Email",
+				                                "value": {
+				                                    "form": {
+				                                        "value": [
+				                                            {
+				                                                "name": "id",
+				                                                "required": true,
+				                                                "value": "autl3hwe9EdtbCyKV5d6",
+				                                                "mutable": false
+				                                            },
+				                                            {
+				                                                "name": "methodType",
+				                                                "required": false,
+				                                                "value": "email",
+				                                                "mutable": false
+				                                            }
+				                                        ]
+				                                    }
+				                                },
+				                                "relatesTo": "$.authenticatorEnrollments.value[0]"
+				                            },
+				                            {
+				                                "label": "Okta Verify",
+				                                "value": {
+				                                    "form": {
+				                                        "value": [
+				                                            {
+				                                                "name": "id",
+				                                                "required": true,
+				                                                "value": "autl3e8k3bkOVrHAo5d6",
+				                                                "mutable": false
+				                                            },
+				                                            {
+				                                                "name": "methodType",
+				                                                "type": "string",
+				                                                "required": false,
+				                                                "options": [
+				                                                    {
+				                                                        "label": "Enter a code",
+				                                                        "value": "totp"
+				                                                    },
+				                                                    {
+				                                                        "label": "Get a push notification",
+				                                                        "value": "push"
+				                                                    }
+				                                                ]
+				                                            }
+				                                        ]
+				                                    }
+				                                },
+				                                "relatesTo": "$.authenticators.value[1]"
+				                            },
+				                            {
+				                                "label": "Phone",
+				                                "value": {
+				                                    "form": {
+				                                        "value": [
+				                                            {
+				                                                "name": "id",
+				                                                "required": true,
+				                                                "value": "autl3hweaZ3zGU63b5d6",
+				                                                "mutable": false
+				                                            },
+				                                            {
+				                                                "name": "methodType",
+				                                                "type": "string",
+				                                                "required": false,
+				                                                "options": [
+				                                                    {
+				                                                        "label": "SMS",
+				                                                        "value": "sms"
+				                                                    }
+				                                                ]
+				                                            },
+				                                            {
+				                                                "name": "enrollmentId",
+				                                                "required": true,
+				                                                "value": "paetnceczcDZduYCL5d6",
+				                                                "mutable": false
+				                                            }
+				                                        ]
+				                                    }
+				                                },
+				                                "relatesTo": "$.authenticatorEnrollments.value[2]"
+				                            }
+				                        ]
+				                    },
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            }
+				        ]
+				    },
+				    "currentAuthenticator": {
+				        "type": "object",
+				        "value": {
+				            "profile": {
+				                "deviceName": "OnePlus 5T"
+				            },
+				            "resend": {
+				                "rel": [
+				                    "create-form"
+				                ],
+				                "name": "resend",
+				                "href": "http://%s/idp/idx/challenge",
+				                "method": "POST",
+				                "produces": "application/ion+json; okta-version=1.0.0",
+				                "value": [
+				                    {
+				                        "name": "authenticator",
+				                        "required": true,
+				                        "value": {
+				                            "methodType": "push",
+				                            "id": "autl3e8k3bkOVrHAo5d6"
+				                        },
+				                        "visible": false,
+				                        "mutable": false
+				                    },
+				                    {
+				                        "name": "stateHandle",
+				                        "required": true,
+				                        "value": "b",
+				                        "visible": false,
+				                        "mutable": false
+				                    }
+				                ],
+				                "accepts": "application/json; okta-version=1.0.0"
+				            },
+				            "type": "app",
+				            "key": "okta_verify",
+				            "id": "autl3e8k3bkOVrHAo5d6",
+				            "displayName": "Okta Verify",
+				            "methods": [
+				                {
+				                    "type": "push"
+				                }
+				            ]
+				        }
+				    },
+				    "authenticators": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "type": "email",
+				                "key": "okta_email",
+				                "id": "autl3hwe9EdtbCyKV5d6",
+				                "displayName": "Email",
+				                "methods": [
+				                    {
+				                        "type": "email"
+				                    }
+				                ]
+				            },
+				            {
+				                "type": "app",
+				                "key": "okta_verify",
+				                "id": "autl3e8k3bkOVrHAo5d6",
+				                "displayName": "Okta Verify",
+				                "methods": [
+				                    {
+				                        "type": "push"
+				                    },
+				                    {
+				                        "type": "totp"
+				                    }
+				                ]
+				            },
+				            {
+				                "type": "phone",
+				                "key": "phone_number",
+				                "id": "autl3hweaZ3zGU63b5d6",
+				                "displayName": "Phone",
+				                "methods": [
+				                    {
+				                        "type": "sms"
+				                    }
+				                ]
+				            }
+				        ]
+				    },
+				    "authenticatorEnrollments": {
+				        "type": "array",
+				        "value": [
+				            {
+				                "profile": {
+				                    "email": "b***x@okta.com"
+				                },
+				                "type": "email",
+				                "key": "okta_email",
+				                "id": "eael2v03sTTXEN7KW5d6",
+				                "displayName": "Email",
+				                "methods": [
+				                    {
+				                        "type": "email"
+				                    }
+				                ]
+				            },
+				            {
+				                "profile": {
+				                    "deviceName": "OnePlus 5T"
+				                },
+				                "type": "app",
+				                "key": "okta_verify",
+				                "id": "pfdo31uccd05gLgmN5d6",
+				                "displayName": "Okta Verify",
+				                "methods": [
+				                    {
+				                        "type": "push"
+				                    },
+				                    {
+				                        "type": "totp"
+				                    }
+				                ]
+				            },
+				            {
+				                "profile": {
+				                    "phoneNumber": "+1 XXX-XXX-3693"
+				                },
+				                "type": "phone",
+				                "key": "phone_number",
+				                "id": "paetnceczcDZduYCL5d6",
+				                "displayName": "Phone",
+				                "methods": [
+				                    {
+				                        "type": "sms"
+				                    }
+				                ]
+				            }
+				        ]
+				    },
+				    "user": {
+				        "type": "object",
+				        "value": {
+				            "id": "00ul0y27xJNbFnsRy5d6"
+				        }
+				    },
+				    "cancel": {
+				        "rel": [
+				            "create-form"
+				        ],
+				        "name": "cancel",
+				        "href": "http://%s/idp/idx/cancel",
+				        "method": "POST",
+				        "produces": "application/ion+json; okta-version=1.0.0",
+				        "value": [
+				            {
+				                "name": "stateHandle",
+				                "required": true,
+				                "value": "b",
+				                "visible": false,
+				                "mutable": false
+				            }
+				        ],
+				        "accepts": "application/json; okta-version=1.0.0"
+				    },
+				    "app": {
+				        "type": "object",
+				        "value": {
+				            "name": "oidc_client",
+				            "label": "My Web App",
+				            "id": "0oal6ssroFGvEU0Oe5d6"
+				        }
+				    }
+				}`, r.Host, r.Host, r.Host, r.Host)
+			}
 			_, _ = w.Write([]byte(s))
 		})
 		mux.HandleFunc("/idp/idx/authenticators/poll", func(w http.ResponseWriter, r *http.Request) {
@@ -641,7 +1860,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                    "id": "iogJ89dcUfMlckln",
 			                    "name": "Facebook IdP"
 			                },
-			                "href": "http://%s/oauth2/ggg/v1/authorize?client_id=iogJ89dcUfMlckln&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
+			                "href": "http://%s/oauth2/ggg/v1/authorize?client_id=aaaaaa&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
 			                "method": "GET"
 			            },
 			            {
@@ -651,7 +1870,7 @@ func TestClient_InitLogin(t *testing.T) {
 			                    "id": "ahp6ytrw2JOfKouz",
 			                    "name": "Google IdP"
 			                },
-			                "href": "http://%s/oauth2/ggg/v1/authorize?client_id=ahp6ytrw2JOfKouz&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
+			                "href": "http://%s/oauth2/ggg/v1/authorize?client_id=aaaaaa&request_uri=urn:okta:pHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QTpHaGkSwcrdpizfWIH0QT",
 			                "method": "GET"
 			            }
 			        ]

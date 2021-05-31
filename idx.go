@@ -192,24 +192,9 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
 		if respErr.Message.Type == "" && respErr.ErrorSummary == "" {
-			resp, ok := i.(*Response)
-			if ok {
-				err = json.Unmarshal(body, &i)
-				if err != nil {
-					return fmt.Errorf("failed to unmarshal response body: %w", err)
-				}
-				for _, v := range resp.Remediation.RemediationOptions {
-					for _, w := range v.FormValues {
-						if w.Form != nil {
-							for _, g := range w.Form.FormValues {
-								if g.Message != nil {
-									respErr.Message.Type = g.Message.Type
-									respErr.Message.Values = g.Message.Values
-								}
-							}
-						}
-					}
-				}
+			err = digUpMessage(body, &respErr, i)
+			if err != nil {
+				return err
 			}
 		}
 		return &respErr
@@ -217,6 +202,30 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	err = json.Unmarshal(body, &i)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+	return nil
+}
+
+func digUpMessage(body []byte, respErr *ErrorResponse, i interface{}) error {
+	resp, ok := i.(*Response)
+	if !ok {
+		return nil
+	}
+	err := json.Unmarshal(body, &i)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+	for j := range resp.Remediation.RemediationOptions {
+		for k := range resp.Remediation.RemediationOptions[j].FormValues {
+			if resp.Remediation.RemediationOptions[j].FormValues[k].Form != nil {
+				for l := range resp.Remediation.RemediationOptions[j].FormValues[k].Form.FormValues {
+					if resp.Remediation.RemediationOptions[j].FormValues[k].Form.FormValues[l].Message != nil {
+						respErr.Message.Type = resp.Remediation.RemediationOptions[j].FormValues[k].Form.FormValues[l].Message.Type
+						respErr.Message.Values = resp.Remediation.RemediationOptions[j].FormValues[k].Form.FormValues[l].Message.Values
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
