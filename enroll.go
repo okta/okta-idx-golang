@@ -78,11 +78,7 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	if err != nil {
 		return nil, err
 	}
-
-	err = er.setupAuthenticators(ctx, resp)
-	if err != nil {
-		return nil, err
-	}
+	er.setupAuthenticators(resp)
 	return er, nil
 }
 
@@ -488,9 +484,8 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	return nil
 }
 
-func (r *EnrollmentResponse) setupAuthenticators(ctx context.Context, resp *Response) error {
+func (r *EnrollmentResponse) setupAuthenticators(resp *Response) {
 	r.authenticators = resp.Authenticators
-	return nil
 }
 
 func (r *EnrollmentResponse) confirmWithCode(ctx context.Context, code string) (*EnrollmentResponse, error) {

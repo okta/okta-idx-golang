@@ -43,7 +43,6 @@ type Token struct {
 }
 
 // nolint
-// Allow you to continue the remediation with this option.
 type Option struct {
 	Rel        []string    `json:"rel"`
 	Type       string      `json:"type"`
