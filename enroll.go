@@ -32,6 +32,7 @@ type EnrollmentResponse struct {
 	idxContext     *Context
 	token          *Token
 	availableSteps []EnrollmentStep
+	authenticators Authenticators
 }
 
 // UserProfile holds the necessary information to init the enrollment process.
@@ -74,6 +75,11 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 		idxContext: idxContext,
 	}
 	err = er.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	err = er.setupAuthenticators(ctx, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -379,6 +385,10 @@ func (r *EnrollmentResponse) HasStep(s EnrollmentStep) bool {
 	return false
 }
 
+func (r *EnrollmentResponse) Authenticators() Authenticators {
+	return r.authenticators
+}
+
 // IsAuthenticated returns true in case "SUCCESS"is present in the list of available steps.
 func (r *EnrollmentResponse) IsAuthenticated() bool {
 	return r.HasStep(EnrollmentStepSuccess)
@@ -475,6 +485,11 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
 	}
 	r.availableSteps = steps
+	return nil
+}
+
+func (r *EnrollmentResponse) setupAuthenticators(ctx context.Context, resp *Response) error {
+	r.authenticators = resp.Authenticators
 	return nil
 }
 
