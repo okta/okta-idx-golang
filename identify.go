@@ -377,8 +377,8 @@ func (r *LoginResponse) confirmWithCode(ctx context.Context, code string) (*Logi
 }
 
 func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (*Response, error) {
-	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Password", true)
-	if err != nil {
+	ro, authID, _ := resp.authenticatorOption("select-authenticator-authenticate", "Password", true)
+	if ro == nil {
 		return resp, nil
 	}
 	authenticator := []byte(`{
@@ -386,7 +386,7 @@ func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err = ro.proceed(ctx, authenticator)
+	resp, err := ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}

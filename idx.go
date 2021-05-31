@@ -241,8 +241,7 @@ func createCodeVerifier() (string, error) {
 
 func createState() (string, error) {
 	localState := make([]byte, 16)
-	_, err := crand.Read(localState)
-	if err != nil {
+	if _, err := crand.Read(localState); err != nil {
 		return "", fmt.Errorf("error creating state: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(localState), nil
