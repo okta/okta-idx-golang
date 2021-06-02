@@ -396,6 +396,18 @@ func (r *EnrollmentResponse) Token() *Token {
 	return r.token
 }
 
+func (r *EnrollmentResponse) WhereAmI(ctx context.Context) (*EnrollmentResponse, error) {
+	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 type EnrollmentStep int
 
 func (s EnrollmentStep) String() string {
