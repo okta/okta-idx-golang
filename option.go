@@ -27,8 +27,6 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
-
-	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 type Remediation struct {
@@ -44,9 +42,11 @@ type Token struct {
 	TokenType   string `json:"token_type"`
 }
 
-// Allow you to continue the remediation with this option.
+// nolint
 type Option struct {
 	Rel        []string    `json:"rel"`
+	OptionType string      `json:"type"`
+	IDP        IDP         `json:"idp"`
 	Name       string      `json:"name"`
 	Type       string      `json:"type"`
 	Href       string      `json:"href"`
@@ -55,26 +55,23 @@ type Option struct {
 	Accepts    string      `json:"accepts"`
 }
 
-// Form gets all form values
-func (o *Option) Form() []FormValue {
-	if o == nil {
-		return nil
-	}
-	return o.FormValues
+type IDP struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type FormValue struct {
-	Name     string        `json:"name"`
-	Label    string        `json:"label,omitempty"`
-	Type     string        `json:"type,omitempty"`
-	Value    string        `json:"value,omitempty"`
-	Required *bool         `json:"required,omitempty"`
-	Visible  *bool         `json:"visible,omitempty"`
-	Mutable  *bool         `json:"mutable,omitempty"`
-	Secret   *bool         `json:"secret,omitempty"`
-	Form     *Form         `json:"form,omitempty"`
-	Options  []FormOptions `json:"options,omitempty"`
-	Message  *Message      `json:"messages"`
+	Name          string        `json:"name"`
+	Label         string        `json:"label,omitempty"`
+	FormValueType string        `json:"type,omitempty"`
+	Value         string        `json:"value,omitempty"`
+	Required      *bool         `json:"required,omitempty"`
+	Visible       *bool         `json:"visible,omitempty"`
+	Mutable       *bool         `json:"mutable,omitempty"`
+	Secret        *bool         `json:"secret,omitempty"`
+	Form          *Form         `json:"form,omitempty"`
+	Options       []FormOptions `json:"options,omitempty"`
+	Message       *Message      `json:"messages"`
 }
 
 type Form struct {
@@ -134,17 +131,16 @@ func (o *RemediationOption) Form() []FormValue {
 	return o.FormValues
 }
 
-// Proceed allows you to continue the remediation with this option.
-// It will return error when provided data does not contain all required values to proceed call.
-// Data should be in JSON format.
-func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
+func (o *Option) proceed(ctx context.Context, data []byte) (*Response, error) {
 	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid proceed is missing from idx response")
 	}
 	input := make(map[string]interface{})
-	err := json.Unmarshal(data, &input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to input data: %w", err)
+	if len(data) != 0 {
+		err := json.Unmarshal(data, &input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal input data: %w", err)
+		}
 	}
 	output, err := form(input, nil, o.FormValues...)
 	if err != nil {
@@ -160,7 +156,7 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 	}
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
-	oktahttp.WithOktaUserAgent(req, packageVersion)
+	withOktaUserAgent(req)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
@@ -171,6 +167,34 @@ func (o *RemediationOption) Proceed(ctx context.Context, data []byte) (*Response
 		return nil, err
 	}
 	return &idxResponse, nil
+}
+
+// proceed allows you to continue the remediation with this option.
+// It will return error when provided data does not contain all required values to proceed call.
+// Data should be in JSON format.
+func (o *RemediationOption) proceed(ctx context.Context, data []byte) (*Response, error) {
+	op := Option(*o)
+	resp, err := op.proceed(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Messages != nil {
+		var messages []string
+		for _, m := range resp.Messages.Values {
+			messages = append(messages, m.Message)
+		}
+		return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
+	}
+	return resp, nil
+}
+
+func (o *RemediationOption) value(name string) (*FormValue, error) {
+	for i := range o.FormValues {
+		if o.FormValues[i].Name == name {
+			return &o.FormValues[i], nil
+		}
+	}
+	return nil, fmt.Errorf("could not locate a form value with the name '%s'", name)
 }
 
 //nolint
@@ -209,7 +233,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				return nil, err
 			}
 		case len(v.Options) != 0:
-			if v.Type == "string" {
+			if v.FormValueType == "string" {
 				vv, ok := input[v.Name]
 				if !ok && v.Required != nil && *v.Required {
 					return nil, fmt.Errorf("missing '%s' property from input", v.Name)
@@ -229,7 +253,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 					return nil, fmt.Errorf("provided value '%s' for '%s' is missing from options", vv, v.Name)
 				}
 				output[v.Name] = vv
-			} else if v.Type == "object" {
+			} else if v.FormValueType == "object" {
 				vv, ok := input[v.Name]
 				for _, o := range v.Options {
 					for _, vfv := range o.Value.(FormOptionsValueObject).Form.Value {
@@ -271,7 +295,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 type SuccessOption Option
 
 // Exchange the code from SuccessWithInteractionCode
-func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, error) {
+func (o *SuccessOption) exchangeCode(ctx context.Context, data []byte) (*Token, error) {
 	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid success response is missing from idx response")
 	}
@@ -308,7 +332,7 @@ func (o *SuccessOption) ExchangeCode(ctx context.Context, data []byte) (*Token, 
 	}
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
-	oktahttp.WithOktaUserAgent(req, packageVersion)
+	withOktaUserAgent(req)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
@@ -337,51 +361,21 @@ type CurrentAuthenticatorEnrollment struct {
 	} `json:"value"`
 }
 
-// Form gets all form values
-func (o *RecoverOption) Form() []FormValue {
-	if o == nil {
-		return nil
-	}
-	return o.FormValues
-}
-
-// Proceed allows you to continue the remediation with this option.
+// proceed allows you to continue the remediation with this option.
 // It will return error when provided data does not contain all required values to proceed call.
 // Data should be in JSON format.
-func (o *RecoverOption) Proceed(ctx context.Context, data []byte) (*Response, error) {
-	if o == nil || len(o.FormValues) == 0 {
-		return nil, errors.New("valid proceed is missing from idx response")
+func (o *RecoverOption) proceed(ctx context.Context, data []byte) (*Response, error) {
+	op := Option(*o)
+	resp, err := op.proceed(ctx, data)
+	if err != nil {
+		return nil, err
 	}
-	input := make(map[string]interface{})
-	if len(data) != 0 {
-		err := json.Unmarshal(data, &input)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal input data: %w", err)
+	if resp.Messages != nil {
+		var messages []string
+		for _, m := range resp.Messages.Values {
+			messages = append(messages, m.Message)
 		}
+		return resp, fmt.Errorf("%s", strings.Join(messages, "\n"))
 	}
-	output, err := form(input, nil, o.FormValues...)
-	if err != nil {
-		return nil, err
-	}
-	body, err := json.Marshal(&output)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal proceed request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, o.Method, o.Href, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cancel request: %w", err)
-	}
-	req.Header.Set("Accepts", o.Accepts)
-	req.Header.Set("Content-Type", o.Accepts)
-	oktahttp.WithOktaUserAgent(req, packageVersion)
-	resp, err := idx.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http call has failed: %w", err)
-	}
-	var idxResponse Response
-	err = unmarshalResponse(resp, &idxResponse)
-	if err != nil {
-		return nil, err
-	}
-	return &idxResponse, nil
+	return resp, nil
 }

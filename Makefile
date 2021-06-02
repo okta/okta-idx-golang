@@ -29,7 +29,7 @@ dep: # Download required dependencies
 
 .PHONY: check-lint
 check-lint:
-	@which $(GOLINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.33.0
+	@which $(GOLINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.40.0
 
 .PHONY: lint
 lint: heading check-lint

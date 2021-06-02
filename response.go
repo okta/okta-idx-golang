@@ -23,21 +23,58 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/okta/okta-idx-golang/oktahttp"
 )
 
 type Response struct {
-	StateHandle                    string                          `json:"stateHandle"`
 	Version                        string                          `json:"version"`
+	StateHandle                    string                          `json:"stateHandle"`
 	ExpiresAt                      string                          `json:"expiresAt"`
 	Intent                         string                          `json:"intent"`
 	Remediation                    *Remediation                    `json:"remediation"`
+	CurrentAuthenticator           *CurrentAuthenticatorEnrollment `json:"currentAuthenticator"`
+	Authenticators                 Authenticators                  `json:"authenticators"`
+	AuthenticatorEnrollments       Authenticators                  `json:"authenticatorEnrollments"`
+	User                           User                            `json:"user"`
 	CancelResponse                 *Option                         `json:"cancel"`
 	SuccessResponse                *SuccessOption                  `json:"successWithInteractionCode"`
 	CurrentAuthenticatorEnrollment *CurrentAuthenticatorEnrollment `json:"currentAuthenticatorEnrollment"`
+	App                            App                             `json:"app"`
 	Messages                       *Message                        `json:"messages"`
-	raw                            []byte
+}
+
+type Authenticators struct {
+	Type  string                `json:"type"`
+	Value []AuthenticatorsValue `json:"value"`
+}
+
+type AuthenticatorsValue struct {
+	Type        string                      `json:"type"`
+	Key         string                      `json:"key"`
+	ID          string                      `json:"id"`
+	DisplayName string                      `json:"displayName"`
+	Methods     []AuthenticatorsValueMethod `json:"methods"`
+}
+
+type AuthenticatorsValueMethod struct {
+	Type string `json:"type"`
+}
+
+type User struct {
+	Type  string `json:"type"`
+	Value struct {
+		ID string `json:"id"`
+	} `json:"value"`
+}
+
+type App struct {
+	Type  string   `json:"type"`
+	Value AppValue `json:"value"`
+}
+
+type AppValue struct {
+	Name  string `json:"name"`
+	Label string `json:"label"`
+	ID    string `json:"id"`
 }
 
 type Message struct {
@@ -46,11 +83,13 @@ type Message struct {
 }
 
 type MessageValue struct {
-	Message string `json:"message"`
-	I18N    struct {
-		Key string `json:"key"`
-	} `json:"i18n"`
-	Class string `json:"class"`
+	Message string           `json:"message"`
+	I18N    MessageValueI18N `json:"i18n,omitempty"`
+	Class   string           `json:"class"`
+}
+
+type MessageValueI18N struct {
+	Key string `json:"key"`
 }
 
 func (r *Response) UnmarshalJSON(data []byte) error {
@@ -58,7 +97,6 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*localIDX)(r)); err != nil {
 		return fmt.Errorf("failed to unmarshal Response: %w", err)
 	}
-	r.raw = data
 	return nil
 }
 
@@ -82,7 +120,7 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	}
 	req.Header.Set("Accepts", r.CancelResponse.Accepts)
 	req.Header.Set("Content-Type", r.CancelResponse.Accepts)
-	oktahttp.WithOktaUserAgent(req, packageVersion)
+	withOktaUserAgent(req)
 	resp, err := idx.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
@@ -95,12 +133,62 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	return &idxResponse, nil
 }
 
-// Returns the raw JSON body of the Okta Identity Engine response.
-func (r *Response) Raw() []byte {
-	return r.raw
+func (r *Response) remediationOptions(optionName string) ([]RemediationOption, error) {
+	if r.Remediation == nil {
+		return nil, fmt.Errorf("this response doesn't contain any remediation options")
+	}
+	var ros []RemediationOption
+
+	for i := range r.Remediation.RemediationOptions {
+		if r.Remediation.RemediationOptions[i].Name == optionName {
+			ros = append(ros, r.Remediation.RemediationOptions[i])
+		}
+	}
+	if len(ros) == 0 {
+		return nil, fmt.Errorf("could not locate a remediation options with the name '%s'", optionName)
+	}
+	return ros, nil
+}
+
+// get a remediation option by its name
+func (r *Response) remediationOption(optionName string) (*RemediationOption, error) {
+	if r.Remediation == nil {
+		return nil, fmt.Errorf("this response doesn't contain any remediation options")
+	}
+	for i := range r.Remediation.RemediationOptions {
+		if r.Remediation.RemediationOptions[i].Name == optionName {
+			return &r.Remediation.RemediationOptions[i], nil
+		}
+	}
+	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'", optionName)
 }
 
 // Check for the status of `successWithInteractionCode` indicating if the login was successful.
 func (r *Response) LoginSuccess() bool {
 	return r.SuccessResponse != nil
+}
+
+func (r *Response) authenticatorOption(optionName, label string, modifyOptions bool) (*RemediationOption, string, error) {
+	ro, err := r.remediationOption(optionName)
+	if err != nil {
+		return nil, "", err
+	}
+	v, err := ro.value("authenticator")
+	if err != nil {
+		return nil, "", err
+	}
+	var authID string
+	for _, ov := range v.Options {
+		if ov.Label == label {
+			authID = ov.Value.(FormOptionsValueObject).Form.Value[0].Value
+			if modifyOptions {
+				v.Options = []FormOptions{ov}
+			}
+			break
+		}
+	}
+	if authID == "" {
+		return nil, "", fmt.Errorf("could not locate authenticator with the '%s' label", label)
+	}
+	return ro, authID, nil
 }

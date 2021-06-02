@@ -185,7 +185,7 @@ func TestRemediationOption_Proceed(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, resp.LoginSuccess())
 		data := []byte(validInput)
-		respNext, err := resp.Remediation.RemediationOptions[0].Proceed(context.TODO(), data)
+		respNext, err := resp.Remediation.RemediationOptions[0].proceed(context.TODO(), data)
 		assert.NoError(t, err)
 		assert.True(t, respNext.LoginSuccess())
 	})
@@ -203,7 +203,7 @@ func TestRemediationOption_Proceed(t *testing.T) {
 		data := []byte(`{
     "foo": "bar"
 }`)
-		respNext, err := resp.Remediation.RemediationOptions[0].Proceed(context.TODO(), data)
+		respNext, err := resp.Remediation.RemediationOptions[0].proceed(context.TODO(), data)
 		assert.EqualError(t, err, `missing 'credentials' property from input`)
 		assert.Nil(t, respNext)
 	})
@@ -219,7 +219,7 @@ func TestRemediationOption_Proceed(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, resp.LoginSuccess())
 		data := []byte(validInput)
-		respNext, err := resp.Remediation.RemediationOptions[0].Proceed(context.TODO(), data)
+		respNext, err := resp.Remediation.RemediationOptions[0].proceed(context.TODO(), data)
 		assert.Nil(t, respNext)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "http call has failed")
@@ -253,9 +253,9 @@ func TestRemediationOption_Proceed(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, resp.LoginSuccess())
 		data := []byte(validInput)
-		respNext, err := resp.Remediation.RemediationOptions[0].Proceed(context.TODO(), data)
+		respNext, err := resp.Remediation.RemediationOptions[0].proceed(context.TODO(), data)
 		assert.Nil(t, respNext)
 		assert.Error(t, err)
-		assert.EqualError(t, err, "the API returned an error: Password is incorrect")
+		assert.EqualError(t, err, "Password is incorrect")
 	})
 }

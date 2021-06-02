@@ -79,10 +79,10 @@ func WithRedirectURI(redirectURI string) ConfigSetter {
 	}
 }
 
-// ReadConfig reads config from file and environment variables
+// readConfig reads config from file and environment variables
 // Config file should be placed either in project root dir or in $HOME/.okta/
 // If no config file provided, you should use ConfigSetters to set config
-func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
+func readConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v := viper.New()
 	v.SetConfigName("okta")
 	v.AddConfigPath("$HOME/.okta/")                    // path to look for the config file in

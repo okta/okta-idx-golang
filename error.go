@@ -45,7 +45,7 @@ func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 }
 
 func (e *ErrorResponse) Error() string {
-	f := "the API returned an error: %s"
+	f := "%s"
 	switch {
 	case e == nil:
 		return ""
@@ -69,8 +69,8 @@ func (e *ErrorResponse) Error() string {
 		var idxResponse Response
 		_ = json.Unmarshal(e.raw, &idxResponse)
 		if idxResponse.Remediation != nil {
-			for _, v := range idxResponse.Remediation.RemediationOptions {
-				e.Message.Values = append(e.Message.Values, gatherMessages(v.Form(), e.Message.Values)...)
+			for i := range idxResponse.Remediation.RemediationOptions {
+				e.Message.Values = append(e.Message.Values, gatherMessages(idxResponse.Remediation.RemediationOptions[i].Form(), e.Message.Values)...)
 			}
 		}
 		if len(e.Message.Values) > 0 {
