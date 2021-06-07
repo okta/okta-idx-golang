@@ -6,28 +6,40 @@
 
 # Okta IDX - Golang
 
-This repository contains the Okta IDX SDK for Golang. This SDK can be used in your server-side code to assist in
-authenticating users against the Okta IDX.
+## Introduction
 
+> :grey_exclamation: The use of this SDK requires usage of the Okta Identity
+Engine. This functionality is in general availability but is being gradually
+rolled out to customers. If you want to request to gain access to the Okta
+Identity Engine, please reach out to your account manager. If you do not have an
+account manager, please reach out to oie@okta.com for more information.
 
-> :grey_exclamation: The use of this SDK requires the usage of the Okta Identity Engine. This functionality is in general availability but is being gradually rolled out to customers. If you want to request to gain access to the Okta Identity Engine, please reach out to your account manager. If you do not have an account manager, please reach out to oie@okta.com for more information.
+This library is built for projects in Golang to communicate with Okta as an OAuth 
+2.0 + OpenID Connect provider. It works with [Okta's Identity Engine](https://developer.okta.com/doc
+s/concepts/ie-intro/) to authenticate and register users.
+
+To see this library working in a sample, check out our [Golang Sample
+Application](https://github.com/okta/samples-golang/tree/master/direct-auth)
 
 ## Release status
 
-This library uses semantic versioning and follows Okta's [Library Version Policy][okta-library-versioning].
+This library uses semantic versioning and follows Okta's [Library Version
+Policy](https://developer.okta.com/code/library-versions/).
 
 | Version | Status                             |
 | ------- | ---------------------------------- |
-| 0.x     | :warning: In Development           |
+| 0.x     | Beta                               |
 
-The latest release can always be found on the [releases page][github-releases].
+The latest release can always be found on the [releases
+page](https://github.com/okta/okta-idx-golang/releases).
 
 ## Need help?
 
 If you run into problems using the SDK, you can
 
-- Ask questions on the [Okta Developer Forums][devforum]
-- Post [issues on GitHub][github-issues] (for code errors)
+- Ask questions on the [Okta Developer Forums](https://devforum.okta.com/)
+- Post [issues on GitHub](https://github.com/okta/okta-idx-golang/issues) (for
+  code errors)
 
 ## Getting started
 
@@ -35,10 +47,10 @@ If you run into problems using the SDK, you can
 
 You will need:
 
-- An Okta account, called an organization. (Sign up for a free [developer organization][developer-edition-signup] if you
-  need one)
-- Access to the Okta Identity Engine feature. Currently, an early access feature.
-  Contact [support@okta.com][support-email] for more information.
+- An Okta account, called an organization. (Sign up for a free [developer
+  organization][developer-edition-signup] if you need one)
+- Access to the Okta Identity Engine feature. Currently, an early access
+  feature.  Contact [support@okta.com][support-email] for more information.
 
 ### Install current release
 
@@ -46,25 +58,31 @@ To install the Okta IDX SDK in your project:
 
 - Create a module file by running go mod init
   - You can skip this step if you already use go mod
-- Run go get github.com/okta/okta-idx-golang. This will add the SDK to your go.mod file.
-- Import the package in your project with import "github.com/okta/okta-idx-golang"
+- Run go get github.com/okta/okta-idx-golang. This will add the SDK to your
+  go.mod file.
+- Import the package in your project with import
+  "github.com/okta/okta-idx-golang"
 
 ## Usage Guide
 
-For an understanding on how to use this library, please reference our [direct auth sample repo](https://github.com/okta/samples-golang)
+For an understanding on how to use this library, please reference our [direct
+auth sample repo](https://github.com/okta/samples-golang)
 
 ## Configuration Reference
 
 This library looks for the configuration in the following sources:
 
-1. An okta.yaml file in a .okta folder in the current user's home directory (~/.okta/okta.yaml or
-   %userprofile%\.okta\okta.yaml)
-2. An okta.yaml file in a .okta folder in the application or project's root directory
+1. An okta.yaml file in a .okta folder in the current user's home directory
+   (~/.okta/okta.yaml or %userprofile%\.okta\okta.yaml)
+2. An okta.yaml file in a .okta folder in the application or project's root
+   directory
 3. Environment variables
-4. Configuration explicitly passed to the constructor (see the example in [Getting started](#getting-started))
+4. Configuration explicitly passed to the constructor (see the example in
+   [Getting started](#getting-started))
 
-Higher numbers win. In other words, configuration passed via the constructor will override configuration found in
-environment variables, which will override configuration in okta.yaml (if any), and so on.
+Higher numbers win. In other words, configuration passed via the constructor
+will override configuration found in environment variables, which will override
+configuration in okta.yaml (if any), and so on.
 
 ### Config Properties
 
