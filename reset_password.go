@@ -104,6 +104,26 @@ func identifyAndRecover(ctx context.Context, ih *InteractionHandle, ir *Identify
 	if err != nil {
 		return nil, err
 	}
+	return recoverProceed(ctx, resp)
+}
+
+func recoverProceed(ctx context.Context, resp *Response) (*Response, error) {
+	if resp.CurrentAuthenticatorEnrollment != nil {
+		return resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Password", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
 	if resp.CurrentAuthenticatorEnrollment == nil {
 		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment' " +
 			"field is missing from the response")
@@ -119,11 +139,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 	if err != nil {
 		return nil, err
 	}
-	if resp.CurrentAuthenticatorEnrollment == nil {
-		return nil, fmt.Errorf("falied to init password recovery: 'currentAuthenticatorEnrollment'" +
-			" field is missing from the response")
-	}
-	resp, err = resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
+	resp, err = recoverProceed(ctx, resp)
 	if err != nil {
 		return nil, err
 	}
