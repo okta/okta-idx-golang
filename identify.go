@@ -149,28 +149,23 @@ loop:
 	return r, nil
 }
 
+func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepPhoneConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := r.confirmWithCode(ctx, "challenge-authenticator", code)
+	// this might indicate that a user set ups the phone for the first time
+	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
+		return r.confirmWithCode(ctx, "enroll-authenticator", code)
+	}
+	return resp, nil
+}
+
 func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	if option != PhoneMethodVoiceCall && option != PhoneMethodSMS {
-		return nil, fmt.Errorf("%s is invalid phone verification option, plese use %s or %s", option, PhoneMethodVoiceCall, PhoneMethodSMS)
-	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Phone", true)
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `",
-					"methodType": "` + string(option) + `"
-				}
-			}`)
-	resp, err = ro.proceed(ctx, authenticator)
+	resp, err := verifyPhone(ctx, "select-authenticator-authenticate", r.idxContext.interactionHandle, option, "")
 	if err != nil {
 		return nil, err
 	}
@@ -182,11 +177,52 @@ func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*L
 	return r, nil
 }
 
-func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginResponse, error) {
-	if !r.HasStep(LoginStepPhoneConfirmation) {
+func (r *LoginResponse) VerifyPhoneInitial(ctx context.Context, option PhoneOption, phoneNumber string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepPhoneInitialVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	return r.confirmWithCode(ctx, code)
+	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.interactionHandle, option, phoneNumber)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, LoginStepPhoneConfirmation)
+	return r, nil
+}
+
+func verifyPhone(ctx context.Context, remedOpt string, ih *InteractionHandle, phoneOpt PhoneOption, phoneNumber string) (*Response, error) {
+	if phoneOpt != PhoneMethodVoiceCall && phoneOpt != PhoneMethodSMS {
+		return nil, fmt.Errorf("%s is invalid phone verification option, plese use %s or %s", phoneOpt, PhoneMethodVoiceCall, PhoneMethodSMS)
+	}
+	resp, err := idx.introspect(ctx, ih)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption(remedOpt, "Phone", true)
+	if err != nil {
+		return nil, err
+	}
+	var authenticator []byte
+	if phoneNumber != "" {
+		authenticator = []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"methodType": "` + string(phoneOpt) + `",
+					"phoneNumber": "` + phoneNumber + `"
+				}
+			}`)
+	} else {
+		authenticator = []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"methodType": "` + string(phoneOpt) + `"
+				}
+			}`)
+	}
+	return ro.proceed(ctx, authenticator)
 }
 
 func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error) {
@@ -209,7 +245,7 @@ func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginRe
 	if !r.HasStep(LoginStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	return r.confirmWithCode(ctx, code)
+	return r.confirmWithCode(ctx, "challenge-authenticator", code)
 }
 
 // Cancel the whole login process.
@@ -274,32 +310,34 @@ func (s LoginStep) String() string {
 }
 
 var loginStepText = map[LoginStep]string{
-	LoginStepIdentify:               "IDENTIFY",
-	LoginStepProviderIdentify:       "PROVIDER_IDENTIFY",
-	LoginStepEmailVerification:      "EMAIL_VERIFICATION",
-	LoginStepEmailConfirmation:      "EMAIL_CONFIRMATION",
-	LoginStepPhoneVerification:      "PHONE_VERIFICATION",
-	LoginStepPhoneConfirmation:      "PHONE_CONFIRMATION",
-	LoginStepAnswerSecurityQuestion: "ANSWER SECURITY_QUESTION",
-	LoginStepOktaVerify:             "OKTA_VERIFY",
-	LoginStepCancel:                 "CANCEL",
-	LoginStepSkip:                   "SKIP",
-	LoginStepSuccess:                "SUCCESS",
+	LoginStepIdentify:                 "IDENTIFY",
+	LoginStepProviderIdentify:         "PROVIDER_IDENTIFY",
+	LoginStepEmailVerification:        "EMAIL_VERIFICATION",
+	LoginStepEmailConfirmation:        "EMAIL_CONFIRMATION",
+	LoginStepPhoneVerification:        "PHONE_VERIFICATION",
+	LoginStepPhoneInitialVerification: "PHONE_INITIAL_VERIFICATION",
+	LoginStepPhoneConfirmation:        "PHONE_CONFIRMATION",
+	LoginStepAnswerSecurityQuestion:   "ANSWER SECURITY_QUESTION",
+	LoginStepOktaVerify:               "OKTA_VERIFY",
+	LoginStepCancel:                   "CANCEL",
+	LoginStepSkip:                     "SKIP",
+	LoginStepSuccess:                  "SUCCESS",
 }
 
 // These codes indicate what method(s) can be called in the next step.
 const (
-	LoginStepIdentify               LoginStep = iota + 1 // 'Identify'
-	LoginStepProviderIdentify                            // 'Providers'
-	LoginStepEmailVerification                           // 'VerifyEmail'
-	LoginStepEmailConfirmation                           // 'ConfirmEmail'
-	LoginStepPhoneVerification                           // 'VerifyPhone
-	LoginStepPhoneConfirmation                           // 'ConfirmPhone'
-	LoginStepAnswerSecurityQuestion                      // 'AnswerSecurityQuestion'
-	LoginStepOktaVerify                                  // 'OktaVerify'
-	LoginStepCancel                                      // 'Cancel'
-	LoginStepSkip                                        // 'Skip'
-	LoginStepSuccess                                     // 'Token'
+	LoginStepIdentify                 LoginStep = iota + 1 // 'Identify'
+	LoginStepProviderIdentify                              // 'Providers'
+	LoginStepEmailVerification                             // 'VerifyEmail'
+	LoginStepEmailConfirmation                             // 'ConfirmEmail'
+	LoginStepPhoneVerification                             // 'VerifyPhone'
+	LoginStepPhoneInitialVerification                      // 'InitialVerifyPhone'
+	LoginStepPhoneConfirmation                             // 'ConfirmPhone'
+	LoginStepAnswerSecurityQuestion                        // 'AnswerSecurityQuestion'
+	LoginStepOktaVerify                                    // 'OktaVerify'
+	LoginStepCancel                                        // 'Cancel'
+	LoginStepSkip                                          // 'Skip'
+	LoginStepSuccess                                       // 'Token'
 )
 
 // nolint
@@ -356,6 +394,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		steps = append(steps, LoginStepOktaVerify)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
+	if err == nil {
+		steps = append(steps, LoginStepPhoneInitialVerification)
+	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
 		steps = append(steps, LoginStepSkip)
@@ -367,8 +409,8 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	return nil
 }
 
-func (r *LoginResponse) confirmWithCode(ctx context.Context, code string) (*LoginResponse, error) {
-	resp, err := passcodeAuth(ctx, r.idxContext, "challenge-authenticator", code)
+func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
+	resp, err := passcodeAuth(ctx, r.idxContext, remediationOpt, code)
 	if err != nil {
 		return nil, err
 	}

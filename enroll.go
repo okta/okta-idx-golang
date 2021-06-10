@@ -182,25 +182,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	if option != PhoneMethodVoiceCall && option != PhoneMethodSMS {
-		return nil, fmt.Errorf("%s is invalid phone verification option, plese use %s or %s", option, PhoneMethodVoiceCall, PhoneMethodSMS)
-	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Phone", true)
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `",
-					"methodType": "` + string(option) + `",
-					"phoneNumber": "` + phoneNumber + `"
-				}
-			}`)
-	resp, err = ro.proceed(ctx, authenticator)
+	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.interactionHandle, option, phoneNumber)
 	if err != nil {
 		return nil, err
 	}
