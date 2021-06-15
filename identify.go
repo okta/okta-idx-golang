@@ -158,7 +158,7 @@ func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginRe
 	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
 		return r.confirmWithCode(ctx, "enroll-authenticator", code)
 	}
-	return resp, nil
+	return resp, err
 }
 
 func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*LoginResponse, error) {
