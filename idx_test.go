@@ -97,7 +97,7 @@ func TestClient_Interact(t *testing.T) {
 			config: testConfig("%$^@&@&^$"),
 		}
 		_, err := client.interact(context.TODO())
-		assert.EqualError(t, err, `failed to create interact http request: parse "%$^@&@&^$/v1/interact": invalid URL escape "%$^"`)
+		assert.EqualError(t, err, `failed to create interact http request: parse "%$^@&@&^$/oauth2/v1/interact": invalid URL escape "%$^"`)
 	})
 	t.Run("http_client_error", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))

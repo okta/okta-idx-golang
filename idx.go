@@ -57,10 +57,6 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	for _, confSetter := range conf {
 		confSetter(cfg)
 	}
-	if !strings.HasSuffix(cfg.Okta.IDX.Issuer, "/oauth2") &&
-		!strings.HasSuffix(cfg.Okta.IDX.Issuer, "/default") {
-		cfg.Okta.IDX.Issuer += "/oauth2"
-	}
 	err = cfg.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
@@ -141,7 +137,7 @@ func (c *Client) interact(ctx context.Context) (*Context, error) {
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
 	data.Set("state", idxContext.state)
 
-	endpoint := c.config.Okta.IDX.Issuer + "/v1/interact"
+	endpoint := c.config.Okta.IDX.Issuer + "/oauth2/v1/interact"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create interact http request: %w", err)
