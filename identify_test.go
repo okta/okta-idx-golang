@@ -35,7 +35,7 @@ func TestClient_InitLogin(t *testing.T) {
 	var call, challangeCall int
 	t.Run("happy_path", func(t *testing.T) {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/oauth2/v1/interact", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"interaction_handle":"a"}`))
 		})
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
@@ -1845,7 +1845,7 @@ func TestClient_InitLogin(t *testing.T) {
 	})
 	t.Run("identify_providers", func(t *testing.T) {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/oauth2/v1/interact", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`{"interaction_handle":"a"}`))
 		})
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {

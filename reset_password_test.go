@@ -32,7 +32,7 @@ func TestClient_InitPasswordReset(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		var call, callAnswer, callRecover int
 		mux := http.NewServeMux()
-		mux.HandleFunc("/v1/interact", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/oauth2/v1/interact", func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(`{"interaction_handle":"a"}`))
 		})
 		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
