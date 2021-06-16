@@ -57,7 +57,7 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	for _, confSetter := range conf {
 		confSetter(cfg)
 	}
-	if !strings.HasSuffix(cfg.Okta.IDX.Issuer, "/oauth2") ||
+	if !strings.HasSuffix(cfg.Okta.IDX.Issuer, "/oauth2") &&
 		!strings.HasSuffix(cfg.Okta.IDX.Issuer, "/default") {
 		cfg.Okta.IDX.Issuer += "/oauth2"
 	}
