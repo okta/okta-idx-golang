@@ -15,11 +15,11 @@ Identity Engine, please reach out to your account manager. If you do not have an
 account manager, please reach out to oie@okta.com for more information.
 
 This library is built for projects in Golang to communicate with Okta as an OAuth 
-2.0 + OpenID Connect provider. It works with [Okta's Identity Engine](https://developer.okta.com/doc
-s/concepts/ie-intro/) to authenticate and register users.
+2.0 + OpenID Connect provider. It works with [Okta's Identity Engine](https://developer.okta.com/docs/concepts/ie-intro/)
+to authenticate and register users.
 
 To see this library working in a sample, check out our [Golang Sample
-Application](https://github.com/okta/samples-golang/tree/master/direct-auth)
+Applications](https://github.com/okta/samples-golang).
 
 ## Release status
 
