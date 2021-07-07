@@ -22,6 +22,7 @@ import (
 	"strings"
 )
 
+// ErrorResponse provides data access to an error response.
 type ErrorResponse struct {
 	ErrorCode        string                   `json:"errorCode,omitempty"`
 	ErrorSummary     string                   `json:"errorSummary,omitempty"`
@@ -35,6 +36,7 @@ type ErrorResponse struct {
 	raw              []byte
 }
 
+// UnmarshalJSON unmarshals JSON data.
 func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 	type localIDX ErrorResponse
 	if err := json.Unmarshal(data, (*localIDX)(e)); err != nil {
@@ -44,6 +46,7 @@ func (e *ErrorResponse) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Error A string representation of an error response.
 func (e *ErrorResponse) Error() string {
 	f := "%s"
 	switch {

@@ -92,6 +92,7 @@ type MessageValueI18N struct {
 	Key string `json:"key"`
 }
 
+// UnmarshallJSON Unmarshals Response JSON data.
 func (r *Response) UnmarshalJSON(data []byte) error {
 	type localIDX Response
 	if err := json.Unmarshal(data, (*localIDX)(r)); err != nil {
@@ -101,7 +102,7 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 }
 
 // The method to call when you want to cancel the Okta Identity Engine flow.
-// This will return a response for the first step
+// This will return a response for the first step.
 func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	if r.CancelResponse == nil || len(r.CancelResponse.FormValues) == 0 {
 		return nil, errors.New("valid cancel is missing from idx response")
@@ -150,7 +151,7 @@ func (r *Response) remediationOptions(optionName string) ([]RemediationOption, e
 	return ros, nil
 }
 
-// get a remediation option by its name
+// remediationOption get a remediation option by its name.
 func (r *Response) remediationOption(optionName string) (*RemediationOption, error) {
 	if r.Remediation == nil {
 		return nil, fmt.Errorf("this response doesn't contain any remediation options")
@@ -163,7 +164,8 @@ func (r *Response) remediationOption(optionName string) (*RemediationOption, err
 	return nil, fmt.Errorf("could not locate a remediation option with the name '%s'", optionName)
 }
 
-// Check for the status of `successWithInteractionCode` indicating if the login was successful.
+// LoginSuccess Check for the status of `successWithInteractionCode` indicating
+// if the login was successful.
 func (r *Response) LoginSuccess() bool {
 	return r.SuccessResponse != nil
 }

@@ -65,8 +65,48 @@ To install the Okta IDX SDK in your project:
 
 ## Usage Guide
 
-For an understanding on how to use this library, please reference our [direct
-auth sample repo](https://github.com/okta/samples-golang)
+The [embedded authentication with
+SDK](https://github.com/okta/samples-golang/tree/master/identity-engine/embedded-auth-with-sdk)
+sample application provides an example making use of the IDX SDK.
+
+### Create the Client
+
+Create a client as implemented [in the sample application's
+server](https://github.com/okta/samples-golang/blob/master/identity-engine/embedded-auth-with-sdk/server/server.go#L59-L80).
+
+```go
+idx, err := idx.NewClient(
+	idx.WithClientID(os.Getenv("OKTA_IDX_CLIENTID")),
+	idx.WithClientSecret(os.Getenv("OKTA_IDX_CLIENT_SECRET")),
+	idx.WithIssuer(os.Getenv("OKTA_IDX_ISSUER")),
+	idx.WithScopes(os.Getenv("OKTA_IDX_SCOPES")),
+	idx.WithRedirectURI(os.Getenv("OKTA_IDX_REDIRECT_URI")))
+```
+
+### Interact with the login response
+
+Once login has been initialized the login response provides mechanisms for
+various authentication factors.
+
+```go
+lr, err := idx.InitLogin(context.TODO())
+
+// get identity providers
+idps := lr.IdentityProviders()
+
+// password authentication
+ir := &idx.IdentifyRequest{
+		Identifier: r.FormValue("identifier"),
+		Credentials: idx.Credentials{
+			Password: r.FormValue("password"),
+		},
+	}
+
+lr, err = lr.Identify(context.TODO(), ir)
+if lr.Token() != nil {
+  // do something, having a token signals identification success
+}
+```
 
 ## Configuration Reference
 
@@ -112,7 +152,7 @@ okta:
 
 #### Environment Configuration
 
-The configuration could alsp be expressed via environment variables for SDK as follows:
+The configuration could also be expressed via environment variables for SDK as follows:
 
 ```env
 OKTA_IDX_ISSUER

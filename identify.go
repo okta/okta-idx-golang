@@ -38,6 +38,7 @@ type IdentityProvider struct {
 	Method string `json:"method"`
 }
 
+// InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	idxContext, err := c.interact(ctx)
 	if err != nil {
@@ -57,6 +58,7 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	return lr, nil
 }
 
+// Identify Perform identification.
 func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepIdentify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -85,6 +87,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	return r, nil
 }
 
+// WhereAmI Provides introspection of the login response.
 func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
 	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
 	if err != nil {
@@ -98,6 +101,7 @@ func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
 	return r, nil
 }
 
+// OktaVerify Perform verification.
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepOktaVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -149,6 +153,7 @@ loop:
 	return r, nil
 }
 
+// ConfirmPhone Confirms a phone given the identification code.
 func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -161,6 +166,7 @@ func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginRe
 	return resp, err
 }
 
+// VerifyPhone Triggers phone verification code emission.
 func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -177,6 +183,7 @@ func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*L
 	return r, nil
 }
 
+// VerifyPhoneInitial Initial verify phone.
 func (r *LoginResponse) VerifyPhoneInitial(ctx context.Context, option PhoneOption, phoneNumber string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneInitialVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -225,6 +232,7 @@ func verifyPhone(ctx context.Context, remedOpt string, ih *InteractionHandle, ph
 	return ro.proceed(ctx, authenticator)
 }
 
+// VerifyEmail Triggers email verification code emission.
 func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -241,6 +249,7 @@ func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error)
 	return r, nil
 }
 
+// ConfirmEmail Confirm the verified email with the given code that was emitted.
 func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -268,17 +277,19 @@ func (r *LoginResponse) Cancel(ctx context.Context) (*LoginResponse, error) {
 	return r, nil
 }
 
-// AvailableSteps returns list of steps that can be executed next.
-// In case of successful authentication, list will contain only one "SUCCESS" step.
+// AvailableSteps returns list of steps that can be executed next.  In case of
+// successful authentication, list will contain only one "SUCCESS" step.
 func (r *LoginResponse) AvailableSteps() []LoginStep {
 	return r.availableSteps
 }
 
+// IdentityProviders List of idenity providers.
 func (r *LoginResponse) IdentityProviders() []IdentityProvider {
 	return r.identifyProviders
 }
 
-// HasStep checks if the provided step is present in the list of available steps.
+// HasStep checks if the provided step is present in the list of available
+// steps.
 func (r *LoginResponse) HasStep(s LoginStep) bool {
 	for i := range r.availableSteps {
 		if r.availableSteps[i] == s {
@@ -301,6 +312,7 @@ func (r *LoginResponse) Token() *Token {
 
 type LoginStep int
 
+// String String representation of LoginStep.
 func (s LoginStep) String() string {
 	v, ok := loginStepText[s]
 	if ok {

@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// config is a struct for configuration of the IDX client
 type config struct {
 	Okta struct {
 		IDX struct {
@@ -37,6 +38,7 @@ type config struct {
 	} `mapstructure:"okta"`
 }
 
+// Validate validates the config
 func (c config) Validate() error {
 	return validation.ValidateStruct(&c.Okta.IDX,
 		validation.Field(&c.Okta.IDX.ClientID, validation.Required),
@@ -47,41 +49,47 @@ func (c config) Validate() error {
 	)
 }
 
+// ConfigSetter is a type allowing chaining configuration settings in code.
 type ConfigSetter func(*config)
 
+// WithClientID appends clientID on to the IDX config
 func WithClientID(clientID string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.ClientID = clientID
 	}
 }
 
+// WithClientSecret appends clientSecret on to the IDX config
 func WithClientSecret(clientSecret string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.ClientSecret = clientSecret
 	}
 }
 
+// WithIssuer appends issuer on to the IDX config
 func WithIssuer(issuer string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.Issuer = issuer
 	}
 }
 
+// WithScopes appends scopes on to the IDX config
 func WithScopes(scopes []string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.Scopes = scopes
 	}
 }
 
+// WithRedirectURI appends redirectURI on to the IDX config
 func WithRedirectURI(redirectURI string) ConfigSetter {
 	return func(c *config) {
 		c.Okta.IDX.RedirectURI = redirectURI
 	}
 }
 
-// readConfig reads config from file and environment variables
-// Config file should be placed either in project root dir or in $HOME/.okta/
-// If no config file provided, you should use ConfigSetters to set config
+// readConfig reads config from file and environment variables Config file
+// should be placed either in project root dir or in $HOME/.okta/ If no config
+// file provided, you should use ConfigSetters to set config.
 func readConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v := viper.New()
 	v.SetConfigName("okta")

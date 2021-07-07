@@ -24,10 +24,10 @@ import (
 	"strings"
 )
 
-// EnrollmentResponse is used for the profile enrolment flow.
-// It holds the initial IdX context object and the list of the available steps.
-// At the end of the successful flow, the only enrollment step will be `EnrollmentStepSuccess`
-// and tokens will be available
+// EnrollmentResponse is used for the profile enrolment flow.  It holds the
+// initial IdX context object and the list of the available steps.  At the end
+// of the successful flow, the only enrollment step will be
+// `EnrollmentStepSuccess` and tokens will be available.
 type EnrollmentResponse struct {
 	idxContext     *Context
 	token          *Token
@@ -124,6 +124,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	return r, nil
 }
 
+// OktaVerify verify identification.
 func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepOktaVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -135,7 +136,7 @@ func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOp
 	panic("not implemented")
 }
 
-// VerifyEmail sends verification code to the email provided at the first step
+// VerifyEmail sends verification code to the email provided at the first step.
 func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -152,7 +153,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	return r, nil
 }
 
-// ConfirmEmail confirms email address using the provided code
+// ConfirmEmail confirms email address using the provided code.
 func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -163,21 +164,24 @@ func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*En
 // PhoneOption represents the method by which the code will be sent to your phone
 type PhoneOption string
 
+// PhoneOption constants.
 const (
 	PhoneMethodVoiceCall PhoneOption = "voice"
 	PhoneMethodSMS       PhoneOption = "sms"
 )
 
+// OktaVeriftyOption is a verify option type.
 type OktaVerifyOption string
 
+// OktaVeriftyOption constants.
 const (
 	OktaVerifyOptionQRCode OktaVerifyOption = "qrcode"
 	OktaVerifyOptionEmail  OktaVerifyOption = "email"
 	OktaVerifyOptionSms    OktaVerifyOption = "sms"
 )
 
-// VerifyPhone sends verification code to the provided phone.
-// Your phone number should contain a country code
+// VerifyPhone sends verification code to the provided phone.  Your phone number
+// should contain a country code in `+` format e.g. `+11231231234`.
 func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption, phoneNumber string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -194,7 +198,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption
 	return r, nil
 }
 
-// ConfirmPhone confirms phone number using the provided code
+// ConfirmPhone confirms phone number using the provided code.
 func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -202,8 +206,8 @@ func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*En
 	return r.confirmWithCode(ctx, code)
 }
 
-// Skip represents general step to proceed with no action
-// It usually appears when other steps are optional
+// Skip represents general step to proceed with no action.  It usually appears
+// when other steps are optional.
 func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSkip) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -247,11 +251,12 @@ func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, e
 	return r, nil
 }
 
-// SecurityQuestions represents dict of available security questions.
-// Each key represents unique `QuestionKey`, and value represents the human readable question.
+// SecurityQuestions represents dict of available security questions.  Each key
+// represents unique `QuestionKey`, and value represents the human readable
+// question.
 type SecurityQuestions map[string]string
 
-// SecurityQuestionOptions returns list of available security questions
+// SecurityQuestionOptions returns list of available security questions.
 func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*EnrollmentResponse, SecurityQuestions, error) {
 	if !r.HasStep(EnrollmentStepSecurityQuestionOptions) {
 		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -312,6 +317,7 @@ type SecurityQuestion struct {
 	Answer      string `json:"answer"`
 }
 
+// SetupSecurityQuestion sets up the security question.
 func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *SecurityQuestion) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSecurityQuestionSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -347,13 +353,14 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	return r, nil
 }
 
-// AvailableSteps returns list of steps that can be executed next.
-// In case of successful authentication, list will contain only one "SUCCESS" step.
+// AvailableSteps returns list of steps that can be executed next.  In case of
+// successful authentication, list will contain only one "SUCCESS" step.
 func (r *EnrollmentResponse) AvailableSteps() []EnrollmentStep {
 	return r.availableSteps
 }
 
-// HasStep checks if the provided step is present in the list of available steps.
+// HasStep checks if the provided step is present in the list of available
+// steps.
 func (r *EnrollmentResponse) HasStep(s EnrollmentStep) bool {
 	for i := range r.availableSteps {
 		if r.availableSteps[i] == s {
@@ -363,17 +370,19 @@ func (r *EnrollmentResponse) HasStep(s EnrollmentStep) bool {
 	return false
 }
 
+// Authenicators returns the Authenticators.
 func (r *EnrollmentResponse) Authenticators() Authenticators {
 	return r.authenticators
 }
 
-// IsAuthenticated returns true in case "SUCCESS"is present in the list of available steps.
+// IsAuthenticated returns true in case "SUCCESS"is present in the list of
+// available steps.
 func (r *EnrollmentResponse) IsAuthenticated() bool {
 	return r.HasStep(EnrollmentStepSuccess)
 }
 
-// Token returns authorization token. This method should be called when there is "SUCCESS" step
-// present in the list of available steps.
+// Token returns authorization token. This method should be called when there is
+// "SUCCESS" step present in the list of available steps.
 func (r *EnrollmentResponse) Token() *Token {
 	return r.token
 }
@@ -392,6 +401,7 @@ func (r *EnrollmentResponse) WhereAmI(ctx context.Context) (*EnrollmentResponse,
 
 type EnrollmentStep int
 
+// String string representation of the enrollment step.
 func (s EnrollmentStep) String() string {
 	v, ok := enrollStepText[s]
 	if ok {

@@ -39,6 +39,7 @@ type Credentials struct {
 	Password string `json:"passcode"`
 }
 
+// InitPasswordReset Initialize password reset.
 func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
 	idxContext, err := c.interact(ctx)
 	if err != nil {
@@ -58,6 +59,7 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 	return rpr, nil
 }
 
+// Restart Restart password reset.
 func (r *ResetPasswordResponse) Restart(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
 	if !r.HasStep(ResetPasswordStepRestart) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -131,6 +133,7 @@ func recoverProceed(ctx context.Context, resp *Response) (*Response, error) {
 	return resp.CurrentAuthenticatorEnrollment.Value.Recover.proceed(ctx, nil)
 }
 
+// VerifyEmail Verify email.
 func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPasswordResponse, error) {
 	if !r.HasStep(ResetPasswordStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -164,6 +167,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 	return r, nil
 }
 
+// ConfirmEmail Confirm email.
 func (r *ResetPasswordResponse) ConfirmEmail(ctx context.Context, code string) (*ResetPasswordResponse, error) {
 	if !r.HasStep(ResetPasswordStepEmailConfirmation) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -171,6 +175,7 @@ func (r *ResetPasswordResponse) ConfirmEmail(ctx context.Context, code string) (
 	return r.confirmWithCode(ctx, code)
 }
 
+// AnswerSecurityQuestion Answer security question.
 func (r *ResetPasswordResponse) AnswerSecurityQuestion(ctx context.Context, answer string) (*ResetPasswordResponse, error) {
 	if !r.HasStep(ResetPasswordStepAnswerSecurityQuestion) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -201,6 +206,7 @@ func (r *ResetPasswordResponse) AnswerSecurityQuestion(ctx context.Context, answ
 	return r, nil
 }
 
+// SetNewPassword Set new password.
 func (r *ResetPasswordResponse) SetNewPassword(ctx context.Context, password string) (*ResetPasswordResponse, error) {
 	if !r.HasStep(ResetPasswordStepNewPassword) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
@@ -237,21 +243,23 @@ func (r *ResetPasswordResponse) Cancel(ctx context.Context) (*ResetPasswordRespo
 	return r, nil
 }
 
-// SecurityQuestion should return SecurityQuestion object in case there is step 'ANSWER SECURITY_QUESTION'
-// present in the available steps. It will have non-empty 'questionKey' (unique identifier)
-// and 'question' (human readable question) fields
-// In case 'ANSWER SECURITY_QUESTION' is not in the list of available steps, response will be nil.
+// SecurityQuestion should return SecurityQuestion object in case there is step
+// 'ANSWER SECURITY_QUESTION' present in the available steps. It will have
+// non-empty 'questionKey' (unique identifier) and 'question' (human readable
+// question) fields In case 'ANSWER SECURITY_QUESTION' is not in the list of
+// available steps, response will be nil.
 func (r *ResetPasswordResponse) SecurityQuestion() *SecurityQuestion {
 	return r.sq
 }
 
-// AvailableSteps returns list of steps that can be executed next.
-// In case of successful authentication, list will contain only one "SUCCESS" step.
+// AvailableSteps returns list of steps that can be executed next.  In case of
+// successful authentication, list will contain only one "SUCCESS" step.
 func (r *ResetPasswordResponse) AvailableSteps() []ResetPasswordStep {
 	return r.availableSteps
 }
 
-// HasStep checks if the provided step is present in the list of available steps.
+// HasStep checks if the provided step is present in the list of available
+// steps.
 func (r *ResetPasswordResponse) HasStep(s ResetPasswordStep) bool {
 	for i := range r.availableSteps {
 		if r.availableSteps[i] == s {
@@ -261,19 +269,21 @@ func (r *ResetPasswordResponse) HasStep(s ResetPasswordStep) bool {
 	return false
 }
 
-// IsAuthenticated returns true in case "SUCCESS"is present in the list of available steps.
+// IsAuthenticated returns true in case "SUCCESS"is present in the list of
+// available steps.
 func (r *ResetPasswordResponse) IsAuthenticated() bool {
 	return r.HasStep(ResetPasswordStepSuccess)
 }
 
-// Token returns authorization token. This method should be called when there is "SUCCESS" step
-// present in the list of available steps.
+// Token returns authorization token. This method should be called when there is
+// "SUCCESS" step present in the list of available steps.
 func (r *ResetPasswordResponse) Token() *Token {
 	return r.token
 }
 
 type ResetPasswordStep int
 
+// String String representation of ResetPasswordStep.
 func (s ResetPasswordStep) String() string {
 	v, ok := resetStepText[s]
 	if ok {

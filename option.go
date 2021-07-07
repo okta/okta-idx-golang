@@ -85,6 +85,7 @@ type FormOptions struct {
 	RelatesTo    string           `json:"relatesTo"`
 }
 
+// UnmarshallJSON Unmarshals FormOptions JSON data.
 func (r *FormOptions) UnmarshalJSON(data []byte) error {
 	type localIDX FormOptions
 	r.Value = FormOptionsValueObject{}
@@ -123,7 +124,7 @@ type FormOptionsValueForm struct {
 
 type RemediationOption Option
 
-// Form gets all form values
+// Form gets all form values.
 func (o *RemediationOption) Form() []FormValue {
 	if o == nil {
 		return nil
@@ -169,9 +170,9 @@ func (o *Option) proceed(ctx context.Context, data []byte) (*Response, error) {
 	return &idxResponse, nil
 }
 
-// proceed allows you to continue the remediation with this option.
-// It will return error when provided data does not contain all required values to proceed call.
-// Data should be in JSON format.
+// proceed allows you to continue the remediation with this option.  It will
+// return error when provided data does not contain all required values to
+// proceed call.  Data should be in JSON format.
 func (o *RemediationOption) proceed(ctx context.Context, data []byte) (*Response, error) {
 	op := Option(*o)
 	resp, err := op.proceed(ctx, data)
@@ -294,7 +295,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 
 type SuccessOption Option
 
-// Exchange the code from SuccessWithInteractionCode
+// exchangeCode Exchange the code from SuccessWithInteractionCode.
 func (o *SuccessOption) exchangeCode(ctx context.Context, data []byte) (*Token, error) {
 	if o == nil || len(o.FormValues) == 0 {
 		return nil, errors.New("valid success response is missing from idx response")
@@ -361,9 +362,9 @@ type CurrentAuthenticatorEnrollment struct {
 	} `json:"value"`
 }
 
-// proceed allows you to continue the remediation with this option.
-// It will return error when provided data does not contain all required values to proceed call.
-// Data should be in JSON format.
+// proceed allows you to continue the remediation with this option.  It will
+// return error when provided data does not contain all required values to
+// proceed call.  Data should be in JSON format.
 func (o *RecoverOption) proceed(ctx context.Context, data []byte) (*Response, error) {
 	op := Option(*o)
 	resp, err := op.proceed(ctx, data)
