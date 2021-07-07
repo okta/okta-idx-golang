@@ -180,8 +180,8 @@ const (
 	OktaVerifyOptionSms    OktaVerifyOption = "sms"
 )
 
-// VerifyPhone sends verification code to the provided phone.
-// Your phone number should contain a country code.
+// VerifyPhone sends verification code to the provided phone.  Your phone number
+// should contain a country code in `+` format e.g. `+11231231234`.
 func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption, phoneNumber string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
