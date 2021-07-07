@@ -43,11 +43,14 @@ const (
 
 var idx *Client
 
+// Client is the IDX client.
 type Client struct {
 	config     *config
 	httpClient *http.Client
 }
 
+// NewClient A new client constructor making use of a configuration setter of
+// settings.
 func NewClient(conf ...ConfigSetter) (*Client, error) {
 	cfg := &config{}
 	err := readConfig(cfg)
@@ -69,11 +72,13 @@ func NewClient(conf ...ConfigSetter) (*Client, error) {
 	return c, nil
 }
 
+// WithHTTPClient Convenience method to chain settings on the client.
 func (c *Client) WithHTTPClient(client *http.Client) *Client {
 	c.httpClient = client
 	return c
 }
 
+// ClientSecret The IDX Client's Secret.
 func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
 }
