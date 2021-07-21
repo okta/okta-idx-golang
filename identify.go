@@ -431,6 +431,10 @@ func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, cod
 }
 
 func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (*Response, error) {
+	challengeAuthenticator, err := resp.remediationOption("challenge-authenticator")
+	if err == nil {
+		return sendPasscode(ctx, challengeAuthenticator, password)
+	}
 	ro, authID, _ := resp.authenticatorOption("select-authenticator-authenticate", "Password", true)
 	if ro == nil {
 		return resp, nil
@@ -440,18 +444,22 @@ func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err := ro.proceed(ctx, authenticator)
+	resp, err = ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
-	ro, err = resp.remediationOption("challenge-authenticator")
+	challengeAuthenticator, err = resp.remediationOption("challenge-authenticator")
 	if err != nil {
 		return nil, err
 	}
+	return sendPasscode(ctx, challengeAuthenticator, password)
+}
+
+func sendPasscode(ctx context.Context, challengeAuthenticator *RemediationOption, password string) (*Response, error) {
 	credentials := []byte(`{
 		"credentials": {
 			"passcode": "` + strings.TrimSpace(password) + `"
 		}
 	}`)
-	return ro.proceed(ctx, credentials)
+	return challengeAuthenticator.proceed(ctx, credentials)
 }
