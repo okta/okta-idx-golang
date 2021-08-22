@@ -76,7 +76,8 @@ server](https://github.com/okta/samples-golang/blob/master/identity-engine/embed
 
 #### Default Client
 
-Default client will load settings from configuration file then environment variables. Environment variables will override.
+Default client will load settings from configuration file (okta.yaml) followed by environment variables, if any are set. Environment variables will override the configuration file. 
+See the section [Configuration Reference](#configuration-reference)
 
 ```go
 idx, err := idx.NewClient()
@@ -168,11 +169,11 @@ okta:
 The configuration could also be expressed via environment variables for SDK as follows:
 
 ```env
-OKTA_IDX_ISSUER=https://example.com/oauth2/
+OKTA_IDX_ISSUER=https://myorg.okta.com/oauth2/default
 OKTA_IDX_CLIENTID=0123456789abcdefghij
 OKTA_IDX_CLIENTSECRET=changme
 OKTA_IDX_SCOPES=openid,profile,email,offline_access
-OKTA_IDX_REDIRECTURI=https://example.com/login/callback
+OKTA_IDX_REDIRECTURI=https://myorg.okta.com/login/callback
 ```
 
 [okta-library-versioning]: https://developer.okta.com/code/library-versions/
