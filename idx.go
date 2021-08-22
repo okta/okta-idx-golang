@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	packageVersion      = "0.1.0-beta.2"
+	packageVersion      = "0.2.0"
 	defaultPollInterval = time.Second * 3
 	defaultTimeout      = time.Second * 60
 )

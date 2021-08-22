@@ -1,6 +1,6 @@
 module github.com/okta/okta-idx-golang
 
-go 1.14
+go 1.16
 
 require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0

@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.2.0
+- Refine configuration semantics.
+
 ## v0.1.0-beta.2
 - Interact now returns `Context` struct
 - Introspect requires a second parameter, `state *string`. This can be `nil` if you want the library to create a state for you.
