@@ -19,6 +19,7 @@ package idx
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -87,15 +88,34 @@ func WithRedirectURI(redirectURI string) ConfigSetter {
 	}
 }
 
-// readConfig reads config from file and environment variables Config file
-// should be placed either in project root dir or in $HOME/.okta/ If no config
-// file provided, you should use ConfigSetters to set config.
-func readConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
+// ReadEnvVars will check for environment variables for config settings
+func (c *config) ReadEnvVars() {
+	if os.Getenv("OKTA_IDX_ISSUER") != "" {
+		c.Okta.IDX.Issuer = os.Getenv("OKTA_IDX_ISSUER")
+	}
+	if os.Getenv("OKTA_IDX_CLIENTID") != "" {
+		c.Okta.IDX.ClientID = os.Getenv("OKTA_IDX_CLIENTID")
+	}
+	if os.Getenv("OKTA_IDX_CLIENTSECRET") != "" {
+		c.Okta.IDX.ClientSecret = os.Getenv("OKTA_IDX_CLIENTSECRET")
+	}
+	if os.Getenv("OKTA_IDX_SCOPES") != "" {
+		c.Okta.IDX.Scopes = strings.Split(os.Getenv("OKTA_IDX_SCOPES"), ",")
+	}
+	if os.Getenv("OKTA_IDX_REDIRECTURI") != "" {
+		c.Okta.IDX.RedirectURI = os.Getenv("OKTA_IDX_REDIRECTURI")
+	}
+}
+
+// ReadConfig reads config from file. Config file should be placed either in
+// project root dir or in $HOME/.okta/ .
+func ReadConfig(config interface{}, opts ...viper.DecoderConfigOption) error {
 	v := viper.New()
 	v.SetConfigName("okta")
-	v.AddConfigPath("$HOME/.okta/")                    // path to look for the config file in
-	v.AddConfigPath(".")                               // path to look for config in the working directory
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace default viper delimiter for env vars
+	v.AddConfigPath("$HOME/.okta/")
+	v.AddConfigPath(".")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.SetEnvPrefix("okta_idx")
 	v.AutomaticEnv()
 	v.SetTypeByDefaultValue(true)
 	err := v.ReadInConfig()

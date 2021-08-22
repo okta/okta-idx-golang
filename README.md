@@ -74,13 +74,26 @@ sample application provides an example making use of the IDX SDK.
 Create a client as implemented [in the sample application's
 server](https://github.com/okta/samples-golang/blob/master/identity-engine/embedded-auth-with-sdk/server/server.go#L59-L80).
 
+#### Default Client
+
+Default client will load settings from configuration file then environment variables. Environment variables will override.
+
 ```go
-idx, err := idx.NewClient(
-	idx.WithClientID(os.Getenv("OKTA_IDX_CLIENTID")),
-	idx.WithClientSecret(os.Getenv("OKTA_IDX_CLIENT_SECRET")),
-	idx.WithIssuer(os.Getenv("OKTA_IDX_ISSUER")),
-	idx.WithScopes(os.Getenv("OKTA_IDX_SCOPES")),
-	idx.WithRedirectURI(os.Getenv("OKTA_IDX_REDIRECT_URI")))
+idx, err := idx.NewClient()
+```
+
+#### Client configured with setters
+
+Setters will override any settings previously set on the underlying default client.
+
+```go
+idx, err := idx.NewClientWithSettings(
+		idx.WithClientID("0123456789abcdefghij"),
+		idx.WithClientSecret("changeme"),
+		idx.WithIssuer("https://example.com/oauth2"),
+		idx.WithScopes([]string{"openid", "profile", "email", "offline_access"}),
+		idx.WithRedirectURI("https://example.com/login/callback")
+  )
 ```
 
 ### Interact with the login response
@@ -131,7 +144,7 @@ configuration in okta.yaml (if any), and so on.
 | okta.idx.issuer       | OKTA_IDX_ISSUER       | The issuer of the authorization server you want to use for authentication.                                           |
 | okta.idx.clientId     | OKTA_IDX_CLIENTID     | The client ID of the Okta Application.                                                                               |
 | okta.idx.clientSecret | OKTA_IDX_CLIENTSECRET | The client secret of the Okta Application. Required with confidential clients                                        |
-| okta.idx.scopes       | OKTA_IDX_SCOPES       | The scopes requested for the access token.                                                                           |
+| okta.idx.scopes       | OKTA_IDX_SCOPES       | The scopes requested for the access token. Format yaml: array of values. Format ENV: CSV values                      |
 | okta.idx.redirectUri  | OKTA_IDX_REDIRECTURI  | For most cases, this will not be used, but is still required to supply. You can put any configured redirectUri here. |
 
 #### Yaml Configuration
@@ -155,11 +168,11 @@ okta:
 The configuration could also be expressed via environment variables for SDK as follows:
 
 ```env
-OKTA_IDX_ISSUER
-OKTA_IDX_CLIENTID
-OKTA_IDX_CLIENTSECRET
-OKTA_IDX_SCOPES
-OKTA_IDX_REDIRECTURI
+OKTA_IDX_ISSUER=https://example.com/oauth2/
+OKTA_IDX_CLIENTID=0123456789abcdefghij
+OKTA_IDX_CLIENTSECRET=changme
+OKTA_IDX_SCOPES=openid,profile,email,offline_access
+OKTA_IDX_REDIRECTURI=https://example.com/login/callback
 ```
 
 [okta-library-versioning]: https://developer.okta.com/code/library-versions/

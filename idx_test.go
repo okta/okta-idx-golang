@@ -43,7 +43,7 @@ var validYAMLConfig = `okta:
     redirectUri: "https://okta.com"
 `
 
-func TestConfiguration(t *testing.T) {
+func TestConfigurationByYAML(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
 		c := config{}
 		v := viper.New()

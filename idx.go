@@ -32,9 +32,6 @@ import (
 	"time"
 )
 
-/**
- * Current version of the package. This is used mainly for our User-Agent
- */
 const (
 	packageVersion      = "0.1.0-beta.2"
 	defaultPollInterval = time.Second * 3
@@ -49,14 +46,27 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// NewClient A new client constructor making use of a configuration setter of
-// settings.
-func NewClient(conf ...ConfigSetter) (*Client, error) {
+// NewClient New client constructor that is configured with configuration file
+// and environment variables.
+func NewClient() (*Client, error) {
+	return NewClientWithSettings(func(c *config) {})
+}
+
+// NewClientWithSettings New client constructor that is configured with
+// configuration file, environment variables, and then any overriding setters.
+func NewClientWithSettings(conf ...ConfigSetter) (*Client, error) {
 	cfg := &config{}
-	err := readConfig(cfg)
+
+	// read configuration from config file first
+	err := ReadConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new Client: %w", err)
 	}
+
+	// override configuration settings with those set by env vars
+	cfg.ReadEnvVars()
+
+	// override configuration settings with setters
 	for _, confSetter := range conf {
 		confSetter(cfg)
 	}
