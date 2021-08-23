@@ -2,7 +2,14 @@ language: go
 
 jobs:
   include:
-    - stage: test_go_1.14
-      go: 1.14.x
+    - stage: test_go_1.16
+      go: 1.16.x
       script:
         - go mod download
+        - make lint
+        - make test
+    - stage: test_go_tip
+      go: tip
+      script:
+        - go mod download
+        - make test

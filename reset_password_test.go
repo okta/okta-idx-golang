@@ -1583,7 +1583,7 @@ func TestClient_InitPasswordReset(t *testing.T) {
 		ts := httptest.NewServer(mux)
 		defer ts.Close()
 
-		client, err := NewClient(
+		client, err := NewClientWithSettings(
 			WithClientID("foo"),
 			WithClientSecret("bar"),
 			WithIssuer(ts.URL),
