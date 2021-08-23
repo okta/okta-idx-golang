@@ -45,7 +45,7 @@ var validYAMLConfig = `okta:
 
 func TestConfigurationByYAML(t *testing.T) {
 	t.Run("happy_path", func(t *testing.T) {
-		c := config{}
+		c := Config{}
 		v := viper.New()
 		v.SetConfigType("yaml")
 		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
@@ -56,12 +56,12 @@ func TestConfigurationByYAML(t *testing.T) {
 		assert.NoError(t, err)
 	})
 	t.Run("invalid_configuration", func(t *testing.T) {
-		c := &config{}
+		c := &Config{}
 		err := c.Validate()
 		assert.Error(t, err)
 	})
 	t.Run("missing_client_id", func(t *testing.T) {
-		c := config{}
+		c := Config{}
 		v := viper.New()
 		v.SetConfigType("yaml")
 		err := v.ReadConfig(strings.NewReader(validYAMLConfig))
@@ -313,8 +313,8 @@ func TestClient_Introspect(t *testing.T) {
 	})
 }
 
-func testConfig(url string) *config {
-	return &config{
+func testConfig(url string) *Config {
+	return &Config{
 		Okta: struct {
 			IDX struct {
 				ClientID     string   `mapstructure:"clientId" schema:"client_id"`
