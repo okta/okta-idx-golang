@@ -41,7 +41,7 @@ type Credentials struct {
 
 // InitPasswordReset Initialize password reset.
 func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
-	idxContext, err := c.interact(ctx)
+	idxContext, err := c.Interact(ctx)
 	if err != nil {
 		return nil, err
 	}

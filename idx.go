@@ -127,7 +127,8 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	return &idxResponse, nil
 }
 
-func (c *Client) interact(ctx context.Context) (*Context, error) {
+// Interact Gets the current interact response context.
+func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	h := sha256.New()
 	var err error
 

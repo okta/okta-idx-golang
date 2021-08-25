@@ -40,7 +40,7 @@ type IdentityProvider struct {
 
 // InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
-	idxContext, err := c.interact(ctx)
+	idxContext, err := c.Interact(ctx)
 	if err != nil {
 		return nil, err
 	}

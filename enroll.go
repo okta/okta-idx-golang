@@ -44,7 +44,7 @@ type UserProfile struct {
 
 // InitProfileEnroll starts the enrollment process.
 func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*EnrollmentResponse, error) {
-	idxContext, err := c.interact(ctx)
+	idxContext, err := c.Interact(ctx)
 	if err != nil {
 		return nil, err
 	}
