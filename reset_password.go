@@ -45,7 +45,7 @@ func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*R
 	if err != nil {
 		return nil, err
 	}
-	resp, err := identifyAndRecover(ctx, idxContext.interactionHandle, ir)
+	resp, err := identifyAndRecover(ctx, idxContext.InteractionHandle, ir)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (r *ResetPasswordResponse) Restart(ctx context.Context, ir *IdentifyRequest
 	if !r.HasStep(ResetPasswordStepRestart) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := identifyAndRecover(ctx, r.idxContext.interactionHandle, ir)
+	resp, err := identifyAndRecover(ctx, r.idxContext.InteractionHandle, ir)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 	if !r.HasStep(ResetPasswordStepEmailVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (r *ResetPasswordResponse) AnswerSecurityQuestion(ctx context.Context, answ
 	if !r.HasStep(ResetPasswordStepAnswerSecurityQuestion) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (r *ResetPasswordResponse) Cancel(ctx context.Context) (*ResetPasswordRespo
 	if !r.HasStep(ResetPasswordStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +325,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
-			"code_verifier": "` + r.idxContext.codeVerifier + `"
+			"code_verifier": "` + r.idxContext.CodeVerifier + `"
 		}`)
 		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
 		if err != nil {

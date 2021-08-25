@@ -133,7 +133,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	var err error
 
 	idxContext := &Context{}
-	idxContext.codeVerifier, err = createCodeVerifier()
+	idxContext.CodeVerifier, err = createCodeVerifier()
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 		return nil, err
 	}
 
-	_, err = h.Write([]byte(idxContext.codeVerifier))
+	_, err = h.Write([]byte(idxContext.CodeVerifier))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
@@ -182,7 +182,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	idxContext.interactionHandle = &InteractionHandle{
+	idxContext.InteractionHandle = &InteractionHandle{
 		InteractionHandle: interactionHandle.InteractionHandle,
 	}
 	return idxContext, nil
@@ -196,8 +196,8 @@ func withOktaUserAgent(req *http.Request) {
 }
 
 type Context struct {
-	codeVerifier      string
-	interactionHandle *InteractionHandle
+	CodeVerifier      string
+	InteractionHandle *InteractionHandle
 	state             string
 }
 
@@ -274,7 +274,7 @@ func createState() (string, error) {
 }
 
 func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcod
 }
 
 func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption s
 }
 
 func setPassword(ctx context.Context, idxContext *Context, optionName, password string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}

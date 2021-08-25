@@ -44,7 +44,7 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	if !r.HasStep(LoginStepIdentify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 
 // WhereAmI Provides introspection of the login response.
 func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) 
 	if !r.HasStep(LoginStepOktaVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*L
 	if !r.HasStep(LoginStepPhoneVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := verifyPhone(ctx, "select-authenticator-authenticate", r.idxContext.interactionHandle, option, "")
+	resp, err := verifyPhone(ctx, "select-authenticator-authenticate", r.idxContext.InteractionHandle, option, "")
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (r *LoginResponse) VerifyPhoneInitial(ctx context.Context, option PhoneOpti
 	if !r.HasStep(LoginStepPhoneInitialVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.interactionHandle, option, phoneNumber)
+	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.InteractionHandle, option, phoneNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func (r *LoginResponse) Cancel(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepCancel) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +357,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if resp.LoginSuccess() {
 		exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
-			"code_verifier": "` + r.idxContext.codeVerifier + `"
+			"code_verifier": "` + r.idxContext.CodeVerifier + `"
 		}`)
 		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
 		if err != nil {
