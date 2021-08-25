@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	packageVersion      = "0.2.0"
+	packageVersion      = "0.2.1"
 	defaultPollInterval = time.Second * 3
 	defaultTimeout      = time.Second * 60
 )
@@ -42,20 +42,20 @@ var idx *Client
 
 // Client is the IDX client.
 type Client struct {
-	config     *config
+	config     *Config
 	httpClient *http.Client
 }
 
 // NewClient New client constructor that is configured with configuration file
 // and environment variables.
 func NewClient() (*Client, error) {
-	return NewClientWithSettings(func(c *config) {})
+	return NewClientWithSettings(func(c *Config) {})
 }
 
 // NewClientWithSettings New client constructor that is configured with
 // configuration file, environment variables, and then any overriding setters.
 func NewClientWithSettings(conf ...ConfigSetter) (*Client, error) {
-	cfg := &config{}
+	cfg := &Config{}
 
 	// read configuration from config file first
 	err := ReadConfig(cfg)
@@ -91,6 +91,11 @@ func (c *Client) WithHTTPClient(client *http.Client) *Client {
 // ClientSecret The IDX Client's Secret.
 func (c *Client) ClientSecret() string {
 	return c.config.Okta.IDX.ClientSecret
+}
+
+// Config the client's configuration
+func (c *Client) Config() *Config {
+	return c.config
 }
 
 func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Response, error) {

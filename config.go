@@ -27,7 +27,7 @@ import (
 )
 
 // config is a struct for configuration of the IDX client
-type config struct {
+type Config struct {
 	Okta struct {
 		IDX struct {
 			ClientID     string   `mapstructure:"clientId" schema:"client_id"`
@@ -40,7 +40,7 @@ type config struct {
 }
 
 // Validate validates the config
-func (c config) Validate() error {
+func (c Config) Validate() error {
 	return validation.ValidateStruct(&c.Okta.IDX,
 		validation.Field(&c.Okta.IDX.ClientID, validation.Required),
 		validation.Field(&c.Okta.IDX.ClientSecret, validation.Required),
@@ -51,45 +51,45 @@ func (c config) Validate() error {
 }
 
 // ConfigSetter is a type allowing chaining configuration settings in code.
-type ConfigSetter func(*config)
+type ConfigSetter func(*Config)
 
 // WithClientID appends clientID on to the IDX config
 func WithClientID(clientID string) ConfigSetter {
-	return func(c *config) {
+	return func(c *Config) {
 		c.Okta.IDX.ClientID = clientID
 	}
 }
 
 // WithClientSecret appends clientSecret on to the IDX config
 func WithClientSecret(clientSecret string) ConfigSetter {
-	return func(c *config) {
+	return func(c *Config) {
 		c.Okta.IDX.ClientSecret = clientSecret
 	}
 }
 
 // WithIssuer appends issuer on to the IDX config
 func WithIssuer(issuer string) ConfigSetter {
-	return func(c *config) {
+	return func(c *Config) {
 		c.Okta.IDX.Issuer = issuer
 	}
 }
 
 // WithScopes appends scopes on to the IDX config
 func WithScopes(scopes []string) ConfigSetter {
-	return func(c *config) {
+	return func(c *Config) {
 		c.Okta.IDX.Scopes = scopes
 	}
 }
 
 // WithRedirectURI appends redirectURI on to the IDX config
 func WithRedirectURI(redirectURI string) ConfigSetter {
-	return func(c *config) {
+	return func(c *Config) {
 		c.Okta.IDX.RedirectURI = redirectURI
 	}
 }
 
 // ReadEnvVars will check for environment variables for config settings
-func (c *config) ReadEnvVars() {
+func (c *Config) ReadEnvVars() {
 	if os.Getenv("OKTA_IDX_ISSUER") != "" {
 		c.Okta.IDX.Issuer = os.Getenv("OKTA_IDX_ISSUER")
 	}

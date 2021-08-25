@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.1
+- Makes public Config type.
+- Adds a public Config() method access configuration variables on client.
+
 ## v0.2.0
 - Refine configuration semantics.
 
