@@ -138,7 +138,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 		return nil, err
 	}
 
-	idxContext.state, err = createState()
+	idxContext.State, err = createState()
 	if err != nil {
 		return nil, err
 	}
@@ -148,15 +148,16 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
 
-	codeChallenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	idxContext.CodeChallenge = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	idxContext.CodeChallengeMethod = "S256"
 
 	data := url.Values{}
 	data.Set("client_id", c.config.Okta.IDX.ClientID)
 	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
-	data.Set("code_challenge", codeChallenge)
-	data.Set("code_challenge_method", "S256")
+	data.Set("code_challenge", idxContext.CodeChallenge)
+	data.Set("code_challenge_method", idxContext.CodeChallengeMethod)
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", idxContext.state)
+	data.Set("state", idxContext.State)
 
 	var endpoint string
 	if strings.Contains(c.config.Okta.IDX.Issuer, "oauth2") {
@@ -196,9 +197,11 @@ func withOktaUserAgent(req *http.Request) {
 }
 
 type Context struct {
-	CodeVerifier      string
-	InteractionHandle *InteractionHandle
-	state             string
+	CodeVerifier        string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	InteractionHandle   *InteractionHandle
+	State               string
 }
 
 type InteractionHandle struct {
