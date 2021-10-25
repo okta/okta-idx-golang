@@ -30,6 +30,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	verifier "github.com/okta/okta-jwt-verifier-golang"
 )
 
 const (
@@ -159,12 +161,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
 	data.Set("state", idxContext.State)
 
-	var endpoint string
-	if strings.Contains(c.config.Okta.IDX.Issuer, "oauth2") {
-		endpoint = c.config.Okta.IDX.Issuer + "/v1/interact"
-	} else {
-		endpoint = c.config.Okta.IDX.Issuer + "/oauth2/v1/interact"
-	}
+	endpoint := c.oAuthEndPoint("interact")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create interact http request: %w", err)
@@ -189,11 +186,73 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	return idxContext, nil
 }
 
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	DeviceSecret string `json:"device_secret"`
+}
+
+// RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
+func (c *Client) RedeemInteractionCode(idxContext *Context, interactionCode string) (*AccessToken, error) {
+	params := url.Values{
+		"grant_type":       {"interaction_code"},
+		"interaction_code": {interactionCode},
+		"client_id":        {c.config.Okta.IDX.ClientID},
+		"client_secret":    {c.config.Okta.IDX.ClientSecret},
+		"code_verifier":    {idxContext.CodeVerifier},
+	}
+	url := c.oAuthEndPoint(fmt.Sprintf("token?%s", params.Encode()))
+
+	req, _ := http.NewRequest("POST", url, bytes.NewReader([]byte("")))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	withOktaUserAgent(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error calling token api: %w", err)
+	}
+
+	var accessToken AccessToken
+	err = unmarshalResponse(resp, &accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("error with token api response: %w", err)
+	}
+
+	_, err = c.verifyToken(accessToken.IDToken)
+	if err != nil {
+		return nil, fmt.Errorf("error with token api response: %w", err)
+	}
+
+	return &accessToken, nil
+}
+
+func (c *Client) verifyToken(t string) (*verifier.Jwt, error) {
+	tv := map[string]string{}
+	tv["aud"] = c.config.Okta.IDX.ClientID
+	jv := verifier.JwtVerifier{
+		Issuer:           c.config.Okta.IDX.Issuer,
+		ClaimsToValidate: tv,
+	}
+
+	result, err := jv.New().VerifyIdToken(t)
+	if err != nil {
+		return nil, fmt.Errorf("%s; token: %s", err, t)
+	}
+
+	if result != nil {
+		return result, nil
+	}
+
+	return nil, fmt.Errorf("token could not be verified: %s", "")
+}
+
 func withOktaUserAgent(req *http.Request) {
-	userAgentString := "okta-idx-golang/" + packageVersion + " "
-	userAgentString += "golang/" + runtime.Version() + " "
-	userAgentString += runtime.GOOS + "/" + runtime.GOARCH + " "
-	req.Header.Add("User-Agent", userAgentString)
+	userAgent := fmt.Sprintf("okta-idx-golang/%s golang/%s %s/%s", packageVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	req.Header.Add("User-Agent", userAgent)
 }
 
 type Context struct {
