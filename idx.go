@@ -385,3 +385,24 @@ func setPassword(ctx context.Context, idxContext *Context, optionName, password 
 	}`)
 	return ro.proceed(ctx, credentials)
 }
+
+func (c *Client) RevokeToken(ctx context.Context, accessToken string) error {
+	revokeEndpoint := c.oAuthEndPoint("revoke")
+	data := url.Values{
+		"token_type_hint": {"access_token"},
+		"token":           {accessToken},
+	}
+	_, err := http.PostForm(revokeEndpoint, data)
+	return err
+}
+
+func (c *Client) oAuthEndPoint(operation string) string {
+	var endPoint string
+	issuer := c.Config().Okta.IDX.Issuer
+	if strings.Contains(issuer, "oauth2") {
+		endPoint = fmt.Sprintf("%s/v1/%s", issuer, operation)
+	} else {
+		endPoint = fmt.Sprintf("%s/oauth2/v1/%s", issuer, operation)
+	}
+	return endPoint
+}
