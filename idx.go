@@ -38,6 +38,8 @@ const (
 	packageVersion      = "0.2.1"
 	defaultPollInterval = time.Second * 3
 	defaultTimeout      = time.Second * 60
+	CodeVerifierSize    = 86
+	StateSize           = 16
 )
 
 var idx *Client
@@ -197,7 +199,7 @@ type AccessToken struct {
 }
 
 // RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
-func (c *Client) RedeemInteractionCode(idxContext *Context, interactionCode string) (*AccessToken, error) {
+func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context, interactionCode string) (*AccessToken, error) {
 	params := url.Values{
 		"grant_type":       {"interaction_code"},
 		"interaction_code": {interactionCode},
@@ -205,9 +207,9 @@ func (c *Client) RedeemInteractionCode(idxContext *Context, interactionCode stri
 		"client_secret":    {c.config.Okta.IDX.ClientSecret},
 		"code_verifier":    {idxContext.CodeVerifier},
 	}
-	url := c.oAuthEndPoint(fmt.Sprintf("token?%s", params.Encode()))
+	tokenEndpoint := c.oAuthEndPoint(fmt.Sprintf("token?%s", params.Encode()))
 
-	req, _ := http.NewRequest("POST", url, bytes.NewReader([]byte("")))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, nil)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
 
@@ -240,14 +242,14 @@ func (c *Client) verifyToken(t string) (*verifier.Jwt, error) {
 
 	result, err := jv.New().VerifyIdToken(t)
 	if err != nil {
-		return nil, fmt.Errorf("%s; token: %s", err, t)
+		return nil, fmt.Errorf("%w; token: %s", err, t)
 	}
 
 	if result != nil {
 		return result, nil
 	}
 
-	return nil, fmt.Errorf("token could not be verified: %s", "")
+	return nil, fmt.Errorf("token could not be verified, result nil")
 }
 
 func withOktaUserAgent(req *http.Request) {
@@ -274,18 +276,18 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 	if r.StatusCode != http.StatusOK {
-		var respErr ErrorResponse
-		err = json.Unmarshal(body, &respErr)
+		var errIDX ResponseError
+		err = json.Unmarshal(body, &errIDX)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		if respErr.Message.Type == "" && respErr.ErrorSummary == "" {
-			err = digUpMessage(body, &respErr, i)
+		if errIDX.Message.Type == "" && errIDX.ErrorSummary == "" {
+			err = digUpMessage(body, &errIDX, i)
 			if err != nil {
 				return err
 			}
 		}
-		return &respErr
+		return &errIDX
 	}
 	err = json.Unmarshal(body, &i)
 	if err != nil {
@@ -294,7 +296,7 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	return nil
 }
 
-func digUpMessage(body []byte, respErr *ErrorResponse, i interface{}) error {
+func digUpMessage(body []byte, respErr *ResponseError, i interface{}) error {
 	resp, ok := i.(*Response)
 	if !ok {
 		return nil
@@ -319,7 +321,7 @@ func digUpMessage(body []byte, respErr *ErrorResponse, i interface{}) error {
 }
 
 func createCodeVerifier() (string, error) {
-	codeVerifier := make([]byte, 86)
+	codeVerifier := make([]byte, CodeVerifierSize)
 	_, err := crand.Read(codeVerifier)
 	if err != nil {
 		return "", fmt.Errorf("error creating code_verifier: %w", err)
@@ -328,7 +330,7 @@ func createCodeVerifier() (string, error) {
 }
 
 func createState() (string, error) {
-	localState := make([]byte, 16)
+	localState := make([]byte, StateSize)
 	if _, err := crand.Read(localState); err != nil {
 		return "", fmt.Errorf("error creating state: %w", err)
 	}
@@ -387,12 +389,17 @@ func setPassword(ctx context.Context, idxContext *Context, optionName, password 
 }
 
 func (c *Client) RevokeToken(ctx context.Context, accessToken string) error {
-	revokeEndpoint := c.oAuthEndPoint("revoke")
 	data := url.Values{
 		"token_type_hint": {"access_token"},
 		"token":           {accessToken},
 	}
-	_, err := http.PostForm(revokeEndpoint, data)
+	revokeEndpoint := c.oAuthEndPoint("revoke")
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, revokeEndpoint, strings.NewReader(data.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	withOktaUserAgent(req)
+
+	_, err := c.httpClient.Do(req)
 	return err
 }
 

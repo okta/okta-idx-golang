@@ -415,7 +415,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		steps = append(steps, LoginStepSkip)
 	}
 	if len(steps) == 0 {
-		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
+		return fmt.Errorf("there are no more steps available: %+v", resp.Messages.Values)
 	}
 	r.availableSteps = steps
 	return nil
