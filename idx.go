@@ -30,12 +30,16 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	verifier "github.com/okta/okta-jwt-verifier-golang"
 )
 
 const (
 	packageVersion      = "0.2.1"
 	defaultPollInterval = time.Second * 3
 	defaultTimeout      = time.Second * 60
+	CodeVerifierSize    = 86
+	StateSize           = 16
 )
 
 var idx *Client
@@ -127,42 +131,39 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	return &idxResponse, nil
 }
 
-func (c *Client) interact(ctx context.Context) (*Context, error) {
+// Interact Gets the current interact response context.
+func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	h := sha256.New()
 	var err error
 
 	idxContext := &Context{}
-	idxContext.codeVerifier, err = createCodeVerifier()
+	idxContext.CodeVerifier, err = createCodeVerifier()
 	if err != nil {
 		return nil, err
 	}
 
-	idxContext.state, err = createState()
+	idxContext.State, err = createState()
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = h.Write([]byte(idxContext.codeVerifier))
+	_, err = h.Write([]byte(idxContext.CodeVerifier))
 	if err != nil {
 		return nil, fmt.Errorf("failed to write codeVerifier: %w", err)
 	}
 
-	codeChallenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	idxContext.CodeChallenge = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	idxContext.CodeChallengeMethod = "S256"
 
 	data := url.Values{}
 	data.Set("client_id", c.config.Okta.IDX.ClientID)
 	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
-	data.Set("code_challenge", codeChallenge)
-	data.Set("code_challenge_method", "S256")
+	data.Set("code_challenge", idxContext.CodeChallenge)
+	data.Set("code_challenge_method", idxContext.CodeChallengeMethod)
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", idxContext.state)
+	data.Set("state", idxContext.State)
 
-	var endpoint string
-	if strings.Contains(c.config.Okta.IDX.Issuer, "oauth2") {
-		endpoint = c.config.Okta.IDX.Issuer + "/v1/interact"
-	} else {
-		endpoint = c.config.Okta.IDX.Issuer + "/oauth2/v1/interact"
-	}
+	endpoint := c.oAuthEndPoint("interact")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create interact http request: %w", err)
@@ -181,23 +182,87 @@ func (c *Client) interact(ctx context.Context) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	idxContext.interactionHandle = &InteractionHandle{
+	idxContext.InteractionHandle = &InteractionHandle{
 		InteractionHandle: interactionHandle.InteractionHandle,
 	}
 	return idxContext, nil
 }
 
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	DeviceSecret string `json:"device_secret"`
+}
+
+// RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
+func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context, interactionCode string) (*AccessToken, error) {
+	params := url.Values{
+		"grant_type":       {"interaction_code"},
+		"interaction_code": {interactionCode},
+		"client_id":        {c.config.Okta.IDX.ClientID},
+		"client_secret":    {c.config.Okta.IDX.ClientSecret},
+		"code_verifier":    {idxContext.CodeVerifier},
+	}
+	tokenEndpoint := c.oAuthEndPoint(fmt.Sprintf("token?%s", params.Encode()))
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, nil)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	withOktaUserAgent(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error calling token api: %w", err)
+	}
+
+	var accessToken AccessToken
+	err = unmarshalResponse(resp, &accessToken)
+	if err != nil {
+		return nil, fmt.Errorf("error with token api response: %w", err)
+	}
+
+	_, err = c.verifyToken(accessToken.IDToken)
+	if err != nil {
+		return nil, fmt.Errorf("error with token api response: %w", err)
+	}
+
+	return &accessToken, nil
+}
+
+func (c *Client) verifyToken(t string) (*verifier.Jwt, error) {
+	tv := map[string]string{}
+	tv["aud"] = c.config.Okta.IDX.ClientID
+	jv := verifier.JwtVerifier{
+		Issuer:           c.config.Okta.IDX.Issuer,
+		ClaimsToValidate: tv,
+	}
+
+	result, err := jv.New().VerifyIdToken(t)
+	if err != nil {
+		return nil, fmt.Errorf("%w; token: %s", err, t)
+	}
+
+	if result != nil {
+		return result, nil
+	}
+
+	return nil, fmt.Errorf("token could not be verified, result nil")
+}
+
 func withOktaUserAgent(req *http.Request) {
-	userAgentString := "okta-idx-golang/" + packageVersion + " "
-	userAgentString += "golang/" + runtime.Version() + " "
-	userAgentString += runtime.GOOS + "/" + runtime.GOARCH + " "
-	req.Header.Add("User-Agent", userAgentString)
+	userAgent := fmt.Sprintf("okta-idx-golang/%s golang/%s %s/%s", packageVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	req.Header.Add("User-Agent", userAgent)
 }
 
 type Context struct {
-	codeVerifier      string
-	interactionHandle *InteractionHandle
-	state             string
+	CodeVerifier        string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	InteractionHandle   *InteractionHandle
+	State               string
 }
 
 type InteractionHandle struct {
@@ -211,18 +276,18 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 	if r.StatusCode != http.StatusOK {
-		var respErr ErrorResponse
-		err = json.Unmarshal(body, &respErr)
+		var errIDX ResponseError
+		err = json.Unmarshal(body, &errIDX)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		if respErr.Message.Type == "" && respErr.ErrorSummary == "" {
-			err = digUpMessage(body, &respErr, i)
+		if errIDX.Message.Type == "" && errIDX.ErrorSummary == "" {
+			err = digUpMessage(body, &errIDX, i)
 			if err != nil {
 				return err
 			}
 		}
-		return &respErr
+		return &errIDX
 	}
 	err = json.Unmarshal(body, &i)
 	if err != nil {
@@ -231,7 +296,7 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	return nil
 }
 
-func digUpMessage(body []byte, respErr *ErrorResponse, i interface{}) error {
+func digUpMessage(body []byte, respErr *ResponseError, i interface{}) error {
 	resp, ok := i.(*Response)
 	if !ok {
 		return nil
@@ -256,7 +321,7 @@ func digUpMessage(body []byte, respErr *ErrorResponse, i interface{}) error {
 }
 
 func createCodeVerifier() (string, error) {
-	codeVerifier := make([]byte, 86)
+	codeVerifier := make([]byte, CodeVerifierSize)
 	_, err := crand.Read(codeVerifier)
 	if err != nil {
 		return "", fmt.Errorf("error creating code_verifier: %w", err)
@@ -265,7 +330,7 @@ func createCodeVerifier() (string, error) {
 }
 
 func createState() (string, error) {
-	localState := make([]byte, 16)
+	localState := make([]byte, StateSize)
 	if _, err := crand.Read(localState); err != nil {
 		return "", fmt.Errorf("error creating state: %w", err)
 	}
@@ -273,7 +338,7 @@ func createState() (string, error) {
 }
 
 func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +355,7 @@ func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcod
 }
 
 func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +372,7 @@ func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption s
 }
 
 func setPassword(ctx context.Context, idxContext *Context, optionName, password string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.interactionHandle)
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -321,4 +386,30 @@ func setPassword(ctx context.Context, idxContext *Context, optionName, password 
 		}
 	}`)
 	return ro.proceed(ctx, credentials)
+}
+
+func (c *Client) RevokeToken(ctx context.Context, accessToken string) error {
+	data := url.Values{
+		"token_type_hint": {"access_token"},
+		"token":           {accessToken},
+	}
+	revokeEndpoint := c.oAuthEndPoint("revoke")
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, revokeEndpoint, strings.NewReader(data.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	withOktaUserAgent(req)
+
+	_, err := c.httpClient.Do(req)
+	return err
+}
+
+func (c *Client) oAuthEndPoint(operation string) string {
+	var endPoint string
+	issuer := c.Config().Okta.IDX.Issuer
+	if strings.Contains(issuer, "oauth2") {
+		endPoint = fmt.Sprintf("%s/v1/%s", issuer, operation)
+	} else {
+		endPoint = fmt.Sprintf("%s/oauth2/v1/%s", issuer, operation)
+	}
+	return endPoint
 }

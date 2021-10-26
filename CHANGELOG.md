@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.2
+- Client's Interact method is public.
+- Attributes on IDX Context are public.
+- New Client method RedeemInteractionCode that returns an AccessToken.
+
 ## v0.2.1
 - Makes public Config type.
 - Adds a public Config() method access configuration variables on client.
