@@ -148,6 +148,12 @@ configuration in okta.yaml (if any), and so on.
 | okta.idx.scopes       | OKTA_IDX_SCOPES       | The scopes requested for the access token. Format yaml: array of values. Format ENV: CSV values                      |
 | okta.idx.redirectUri  | OKTA_IDX_REDIRECTURI  | For most cases, this will not be used, but is still required to supply. You can put any configured redirectUri here. |
 
+### Debug/Development Properties
+
+| Environment Key  | Description                                                            |
+|------------------|------------------------------------------------------------------------|
+| DEBUG_IDX_CLIENT | Using httputil all http requests and responses are println'd to stdout |
+
 #### Yaml Configuration
 
 The configuration could be expressed in our okta.yaml configuration for SDK as follows:
