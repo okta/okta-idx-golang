@@ -122,7 +122,7 @@ func (r *Response) Cancel(ctx context.Context) (*Response, error) {
 	req.Header.Set("Accepts", r.CancelResponse.Accepts)
 	req.Header.Set("Content-Type", r.CancelResponse.Accepts)
 	withOktaUserAgent(req)
-	resp, err := idx.httpClient.Do(req)
+	resp, err := idx.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}

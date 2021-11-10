@@ -157,7 +157,7 @@ func (o *Option) proceed(ctx context.Context, data []byte) (*Response, error) {
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
 	withOktaUserAgent(req)
-	resp, err := idx.httpClient.Do(req)
+	resp, err := idx.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
@@ -333,7 +333,7 @@ func (o *SuccessOption) exchangeCode(ctx context.Context, data []byte) (*Token, 
 	req.Header.Set("Accepts", o.Accepts)
 	req.Header.Set("Content-Type", o.Accepts)
 	withOktaUserAgent(req)
-	resp, err := idx.httpClient.Do(req)
+	resp, err := idx.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
