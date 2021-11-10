@@ -22,11 +22,8 @@ import (
 	"fmt"
 )
 
-type ResetPasswordResponse struct {
-	idxContext     *Context
-	token          *Token
-	availableSteps []ResetPasswordStep
-	sq             *SecurityQuestion
+type Credentials struct {
+	Password string `json:"passcode"`
 }
 
 type IdentifyRequest struct {
@@ -35,8 +32,11 @@ type IdentifyRequest struct {
 	RememberMe  bool        `json:"rememberMe"`
 }
 
-type Credentials struct {
-	Password string `json:"passcode"`
+type ResetPasswordResponse struct {
+	idxContext     *Context
+	token          *Token
+	availableSteps []ResetPasswordStep
+	sq             *SecurityQuestion
 }
 
 // InitPasswordReset Initialize password reset.

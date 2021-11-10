@@ -46,11 +46,33 @@ const (
 
 var idx *Client
 
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	DeviceSecret string `json:"device_secret"`
+}
+
 // Client is the IDX client.
 type Client struct {
 	config     *Config
 	httpClient *http.Client
 	debug      bool
+}
+
+type Context struct {
+	CodeVerifier        string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	InteractionHandle   *InteractionHandle
+	State               string
+}
+
+type InteractionHandle struct {
+	InteractionHandle string `json:"interactionHandle"`
 }
 
 // NewClient New client constructor that is configured with configuration file
@@ -195,16 +217,6 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	return idxContext, nil
 }
 
-type AccessToken struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
-	Scope        string `json:"scope"`
-	RefreshToken string `json:"refresh_token"`
-	IDToken      string `json:"id_token"`
-	DeviceSecret string `json:"device_secret"`
-}
-
 // RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
 func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context, interactionCode string) (*AccessToken, error) {
 	params := url.Values{
@@ -262,18 +274,6 @@ func (c *Client) verifyToken(t string) (*verifier.Jwt, error) {
 func withOktaUserAgent(req *http.Request) {
 	userAgent := fmt.Sprintf("okta-idx-golang/%s golang/%s %s/%s", packageVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	req.Header.Add("User-Agent", userAgent)
-}
-
-type Context struct {
-	CodeVerifier        string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	InteractionHandle   *InteractionHandle
-	State               string
-}
-
-type InteractionHandle struct {
-	InteractionHandle string `json:"interactionHandle"`
 }
 
 func unmarshalResponse(r *http.Response, i interface{}) error {
