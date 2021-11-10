@@ -605,25 +605,25 @@ func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
 }
 
 func (c *Client) debugRequest(req *http.Request) {
-	fmt.Println("== IDX CLIENT DEBUG REQUEST  ======")
+	fmt.Fprintln(os.Stderr, "== IDX CLIENT DEBUG REQUEST  ======")
 	dump, err := httputil.DumpRequest(req, true)
 	if err == nil {
-		fmt.Printf("%q\n", dump)
+		fmt.Fprintf(os.Stderr, "%q\n", dump)
 	} else {
-		fmt.Printf("dump error: %+v", err)
+		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
 	}
-	fmt.Println("===================================")
+	fmt.Fprintln(os.Stderr, "===================================")
 }
 
 func (c *Client) debugResponse(resp *http.Response) {
-	fmt.Println("== IDX CLIENT DEBUG RESPONSE ======")
+	fmt.Fprintf(os.Stderr, "== IDX CLIENT DEBUG RESPONSE ======")
 	dump, err := httputil.DumpResponse(resp, true)
 	if err == nil {
-		fmt.Printf("%q\n", dump)
+		fmt.Fprintf(os.Stderr, "%q\n", dump)
 	} else {
-		fmt.Printf("dump error: %+v", err)
+		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
 	}
-	fmt.Println("===================================")
+	fmt.Fprintln(os.Stderr, "===================================")
 }
 
 func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
