@@ -189,7 +189,7 @@ configuration in okta.yaml (if any), and so on.
 
 | Environment Key  | Description                                                            |
 |------------------|------------------------------------------------------------------------|
-| DEBUG_IDX_CLIENT | Using httputil all http requests and responses are println'd to stdout |
+| DEBUG_IDX_CLIENT | Using httputil all http requests and responses are println'd to stderr |
 
 #### Yaml Configuration
 
