@@ -34,9 +34,9 @@ type LoginResponse struct {
 }
 
 type AuthenticationOptions struct {
-	UserName string
-	Password string
-    ActivationToken string
+	UserName        string
+	Password        string
+	ActivationToken string
 }
 
 type IdentityProvider struct {
@@ -57,7 +57,7 @@ type LoginStep int
 
 // InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
-	idxContext, err := c.Interact(ctx)
+	idxContext, err := c.Interact(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +77,10 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 
 // Authenticate is an identification flow with username and password, or optional activation token
 func (c *Client) Authenticate(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
+	if authenticationOptions.ActivationToken != "" {
+		return c.AuthenticateWithActivationToken(ctx, authenticationOptions)
+	}
+
 	lr, err := c.InitLogin(ctx)
 	if err != nil {
 		return nil, err
@@ -90,6 +94,32 @@ func (c *Client) Authenticate(ctx context.Context, authenticationOptions *Authen
 	}
 
 	return lr.Identify(ctx, ir)
+}
+
+// AuthenticateWithActivationToken is an identification flow with activation token
+func (c *Client) AuthenticateWithActivationToken(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
+	idxContext, err := c.Interact(ctx, authenticationOptions.ActivationToken)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	lr := &LoginResponse{
+		idxContext: idxContext,
+	}
+	err = lr.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	if !lr.HasStep(LoginStepAuthenticatorEnroll) {
+		return nil, fmt.Errorf("progression to select authenticator enroll failed")
+	}
+
+	return lr, nil
 }
 
 // Identify Perform identification.

@@ -163,7 +163,7 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 }
 
 // Interact Gets the current interact response context.
-func (c *Client) Interact(ctx context.Context) (*Context, error) {
+func (c *Client) Interact(ctx context.Context, activationToken string) (*Context, error) {
 	h := sha256.New()
 	var err error
 
@@ -193,6 +193,9 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	data.Set("code_challenge_method", idxContext.CodeChallengeMethod)
 	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
 	data.Set("state", idxContext.State)
+	if activationToken != "" {
+		data.Set("activation_token", activationToken)
+	}
 
 	endpoint := c.oAuthEndPoint("interact")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))

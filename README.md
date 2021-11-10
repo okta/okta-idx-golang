@@ -171,6 +171,37 @@ lr, err := idx.InitLogin(ctx)
 
 ```
 
+### Login via magic link
+
+Authentication interaction can be achieved with a magic link interaction token.
+
+```go
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
+
+client, err := idx.NewClient()
+if err != nil {
+	log.Fatalf("new client error: %+v\n", err)
+}
+
+authOpts := idx.AuthenticationOptions{
+	ActivationToken: os.Getenv("ACTIVATION_TOKEN"),
+}
+
+lr, err := client.Authenticate(ctx, &authOpts)
+if err != nil {
+	log.Fatalf("authentication error: %+v\n", err)
+}
+
+if lr.HasStep(idx.LoginStepAuthenticatorEnroll) {
+	fmt.Println("response has authenticator enroll")
+	fmt.Println("app should redirect users to the enrollment view now")
+} else {
+	fmt.Println("response didn't have select authenticator enroll remediation")
+}
+
+// do something, having a token signals identification success
+```
 
 ## Configuration Reference
 
