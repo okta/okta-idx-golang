@@ -33,12 +33,27 @@ type LoginResponse struct {
 	contextualData    *ContextualData
 }
 
+type AuthenticationOptions struct {
+	UserName string
+	Password string
+    ActivationToken string
+}
+
 type IdentityProvider struct {
 	Type   string `json:"type"`
 	Name   string `json:"name"`
 	URL    string `json:"url"`
 	Method string `json:"method"`
 }
+
+type LoginResponse struct {
+	idxContext        *Context
+	token             *Token
+	availableSteps    []LoginStep
+	identifyProviders []IdentityProvider
+}
+
+type LoginStep int
 
 // InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
@@ -60,6 +75,23 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	return lr, nil
 }
 
+// Authenticate is an identification flow with username and password, or optional activation token
+func (c *Client) Authenticate(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
+	lr, err := c.InitLogin(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ir := &IdentifyRequest{
+		Identifier: authenticationOptions.UserName,
+		Credentials: Credentials{
+			Password: authenticationOptions.Password,
+		},
+	}
+
+	return lr.Identify(ctx, ir)
+}
+
 // Identify Perform identification.
 func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepIdentify) {
@@ -69,7 +101,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	if err != nil {
 		return nil, err
 	}
-	ro, err := resp.remediationOption("identify")
+	ro, err := resp.remediationOption(option)
 	if err != nil {
 		return nil, err
 	}
@@ -608,7 +640,11 @@ func (r *LoginResponse) Token() *Token {
 	return r.token
 }
 
-type LoginStep int
+// Context The IDX Context
+// present in the list of available steps.
+func (r *LoginResponse) Context() *Context {
+	return r.idxContext
+}
 
 // String representation of LoginStep.
 func (s LoginStep) String() string {
@@ -630,6 +666,7 @@ var loginStepText = map[LoginStep]string{
 	LoginStepPhoneConfirmation:                      "PHONE_CONFIRMATION",
 	LoginStepSecurityQuestionOptions:                "SECURITY_QUESTION_OPTIONS",
 	LoginStepSecurityQuestionSetup:                  "SECURITY_QUESTION_SETUP",
+	LoginStepAnswerSecurityQuestion:                 "ANSWER_SECURITY_QUESTION",
 	LoginStepOktaVerify:                             "OKTA_VERIFY",
 	LoginStepGoogleAuthenticatorInitialVerification: "GOOGLE_AUTHENTICATOR_INITIAL_VERIFICATION",
 	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
@@ -688,10 +725,17 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if resp.CancelResponse != nil {
 		r.appendStep(LoginStepCancel)
 	}
+
 	_, err := resp.remediationOption("identify")
 	if err == nil {
 		r.appendStep(LoginStepIdentify)
 	}
+
+	_, err = resp.remediationOption("select-authenticator-enroll")
+	if err == nil {
+		steps = append(steps, LoginStepAuthenticatorEnroll)
+	}
+
 	ros, err := resp.remediationOptions("redirect-idp")
 	if err == nil {
 		r.identifyProviders = make([]IdentityProvider, len(ros))

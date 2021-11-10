@@ -97,16 +97,51 @@ idx, err := idx.NewClientWithSettings(
   )
 ```
 
-### Interact with the login response
+### Login with convenient authentication options
 
 Once login has been initialized the login response provides mechanisms for
 various authentication factors.
 
 ```go
-lr, err := idx.InitLogin(context.TODO())
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
 
-// get identity providers
-idps := lr.IdentityProviders()
+client, err := idx.NewClient()
+if err != nil {
+	log.Fatalf("new client error: %+v\n", err)
+}
+
+authOpts := idx.AuthenticationOptions{
+	UserName: os.Getenv("EXAMPLE_IDENTIFIER"),
+	Password: os.Getenv("EXAMPLE_PASSWORD"),
+}
+
+lr, err := client.Authenticate(ctx, &authOpts)
+if err != nil {
+	log.Fatalf("authentication error: %+v\n", err)
+}
+
+// is authenticated is a convenience method
+fmt.Printf("authenticated? %t\n", lr.IsAuthenticated())
+
+// or query the token directly
+if lr.Token() == nil {
+  // failed to login
+}
+
+// do something, having a token signals identification success
+```
+
+### Login with detailed identity request
+
+Once login has been initialized the login response provides mechanisms for
+various authentication factors.
+
+```go
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
+
+lr, err := idx.InitLogin(ctx)
 
 // password authentication
 ir := &idx.IdentifyRequest{
@@ -116,10 +151,12 @@ ir := &idx.IdentifyRequest{
 		},
 	}
 
-lr, err = lr.Identify(context.TODO(), ir)
-if lr.Token() != nil {
-  // do something, having a token signals identification success
+lr, err = lr.Identify(ctx, ir)
+if err != nil || lr.Token() == nil {
+  // failed to login
 }
+
+// do something, having a token signals identification success
 ```
 
 In order to provide parity in OIE the following http headers can be used:
