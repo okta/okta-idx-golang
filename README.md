@@ -97,16 +97,51 @@ idx, err := idx.NewClientWithSettings(
   )
 ```
 
-### Interact with the login response
+### Login with convenient authentication options
 
 Once login has been initialized the login response provides mechanisms for
 various authentication factors.
 
 ```go
-lr, err := idx.InitLogin(context.TODO())
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
 
-// get identity providers
-idps := lr.IdentityProviders()
+client, err := idx.NewClient()
+if err != nil {
+	log.Fatalf("new client error: %+v\n", err)
+}
+
+authOpts := idx.AuthenticationOptions{
+	UserName: os.Getenv("EXAMPLE_IDENTIFIER"),
+	Password: os.Getenv("EXAMPLE_PASSWORD"),
+}
+
+lr, err := client.Authenticate(ctx, &authOpts)
+if err != nil {
+	log.Fatalf("authentication error: %+v\n", err)
+}
+
+// is authenticated is a convenience method
+fmt.Printf("authenticated? %t\n", lr.IsAuthenticated())
+
+// or query the token directly
+if lr.Token() == nil {
+  // failed to login
+}
+
+// do something, having a token signals identification success
+```
+
+### Login with detailed identity request
+
+Once login has been initialized the login response provides mechanisms for
+various authentication factors.
+
+```go
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
+
+lr, err := idx.InitLogin(ctx)
 
 // password authentication
 ir := &idx.IdentifyRequest{
@@ -116,10 +151,12 @@ ir := &idx.IdentifyRequest{
 		},
 	}
 
-lr, err = lr.Identify(context.TODO(), ir)
-if lr.Token() != nil {
-  // do something, having a token signals identification success
+lr, err = lr.Identify(ctx, ir)
+if err != nil || lr.Token() == nil {
+  // failed to login
 }
+
+// do something, having a token signals identification success
 ```
 
 ## Configuration Reference
@@ -147,6 +184,12 @@ configuration in okta.yaml (if any), and so on.
 | okta.idx.clientSecret | OKTA_IDX_CLIENTSECRET | The client secret of the Okta Application. Required with confidential clients                                        |
 | okta.idx.scopes       | OKTA_IDX_SCOPES       | The scopes requested for the access token. Format yaml: array of values. Format ENV: CSV values                      |
 | okta.idx.redirectUri  | OKTA_IDX_REDIRECTURI  | For most cases, this will not be used, but is still required to supply. You can put any configured redirectUri here. |
+
+### Debug/Development Properties
+
+| Environment Key  | Description                                                            |
+|------------------|------------------------------------------------------------------------|
+| DEBUG_IDX_CLIENT | Using httputil all http requests and responses are println'd to stderr |
 
 #### Yaml Configuration
 

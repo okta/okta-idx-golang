@@ -26,7 +26,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -44,10 +46,33 @@ const (
 
 var idx *Client
 
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	DeviceSecret string `json:"device_secret"`
+}
+
 // Client is the IDX client.
 type Client struct {
 	config     *Config
 	httpClient *http.Client
+	debug      bool
+}
+
+type Context struct {
+	CodeVerifier        string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	InteractionHandle   *InteractionHandle
+	State               string
+}
+
+type InteractionHandle struct {
+	InteractionHandle string `json:"interactionHandle"`
 }
 
 // NewClient New client constructor that is configured with configuration file
@@ -82,6 +107,10 @@ func NewClientWithSettings(conf ...ConfigSetter) (*Client, error) {
 		config:     cfg,
 		httpClient: &http.Client{Timeout: defaultTimeout},
 	}
+	if os.Getenv("DEBUG_IDX_CLIENT") != "" {
+		c.debug = true
+	}
+
 	idx = c
 	return c, nil
 }
@@ -119,7 +148,7 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
 	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
 	withOktaUserAgent(req)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
@@ -170,7 +199,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
@@ -188,16 +217,6 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	return idxContext, nil
 }
 
-type AccessToken struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
-	Scope        string `json:"scope"`
-	RefreshToken string `json:"refresh_token"`
-	IDToken      string `json:"id_token"`
-	DeviceSecret string `json:"device_secret"`
-}
-
 // RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
 func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context, interactionCode string) (*AccessToken, error) {
 	params := url.Values{
@@ -213,7 +232,7 @@ func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context,
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("error calling token api: %w", err)
 	}
@@ -255,18 +274,6 @@ func (c *Client) verifyToken(t string) (*verifier.Jwt, error) {
 func withOktaUserAgent(req *http.Request) {
 	userAgent := fmt.Sprintf("okta-idx-golang/%s golang/%s %s/%s", packageVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	req.Header.Add("User-Agent", userAgent)
-}
-
-type Context struct {
-	CodeVerifier        string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	InteractionHandle   *InteractionHandle
-	State               string
-}
-
-type InteractionHandle struct {
-	InteractionHandle string `json:"interactionHandle"`
 }
 
 func unmarshalResponse(r *http.Response, i interface{}) error {
@@ -399,7 +406,7 @@ func (c *Client) RevokeToken(ctx context.Context, accessToken string) error {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
 
-	_, err := c.httpClient.Do(req)
+	_, err := c.httpClientDo(req)
 	return err
 }
 
@@ -412,4 +419,38 @@ func (c *Client) oAuthEndPoint(operation string) string {
 		endPoint = fmt.Sprintf("%s/oauth2/v1/%s", issuer, operation)
 	}
 	return endPoint
+}
+
+func (c *Client) debugRequest(req *http.Request) {
+	fmt.Fprintln(os.Stderr, "== IDX CLIENT DEBUG REQUEST  ======")
+	dump, err := httputil.DumpRequest(req, true)
+	if err == nil {
+		fmt.Fprintf(os.Stderr, "%q\n", dump)
+	} else {
+		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
+	}
+	fmt.Fprintln(os.Stderr, "===================================")
+}
+
+func (c *Client) debugResponse(resp *http.Response) {
+	fmt.Fprintf(os.Stderr, "== IDX CLIENT DEBUG RESPONSE ======")
+	dump, err := httputil.DumpResponse(resp, true)
+	if err == nil {
+		fmt.Fprintf(os.Stderr, "%q\n", dump)
+	} else {
+		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
+	}
+	fmt.Fprintln(os.Stderr, "===================================")
+}
+
+func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
+	if c.debug {
+		c.debugRequest(req)
+	}
+	resp, err := c.httpClient.Do(req)
+	if c.debug {
+		c.debugResponse(resp)
+	}
+
+	return resp, err
 }

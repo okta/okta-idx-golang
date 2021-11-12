@@ -24,11 +24,9 @@ import (
 	"time"
 )
 
-type LoginResponse struct {
-	idxContext        *Context
-	token             *Token
-	availableSteps    []LoginStep
-	identifyProviders []IdentityProvider
+type AuthenticationOptions struct {
+	UserName string
+	Password string
 }
 
 type IdentityProvider struct {
@@ -37,6 +35,15 @@ type IdentityProvider struct {
 	URL    string `json:"url"`
 	Method string `json:"method"`
 }
+
+type LoginResponse struct {
+	idxContext        *Context
+	token             *Token
+	availableSteps    []LoginStep
+	identifyProviders []IdentityProvider
+}
+
+type LoginStep int
 
 // InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
@@ -58,16 +65,40 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	return lr, nil
 }
 
+// Authenticate is an identification flow with username and password, or optional activation token
+func (c *Client) Authenticate(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
+	lr, err := c.InitLogin(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ir := &IdentifyRequest{
+		Identifier: authenticationOptions.UserName,
+		Credentials: Credentials{
+			Password: authenticationOptions.Password,
+		},
+	}
+
+	return lr.Identify(ctx, ir)
+}
+
 // Identify Perform identification.
 func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
-	if !r.HasStep(LoginStepIdentify) {
+	var option string
+	if r.HasStep(LoginStepIdentify) {
+		option = "identify"
+	}
+	if r.HasStep(LoginStepAuthenticatorEnroll) {
+		option = "select-authenticator-enroll"
+	}
+	if !r.HasStep(LoginStepIdentify) && !r.HasStep(LoginStepAuthenticatorEnroll) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
-	ro, err := resp.remediationOption("identify")
+	ro, err := resp.remediationOption(option)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +341,11 @@ func (r *LoginResponse) Token() *Token {
 	return r.token
 }
 
-type LoginStep int
+// Context The IDX Context
+// present in the list of available steps.
+func (r *LoginResponse) Context() *Context {
+	return r.idxContext
+}
 
 // String String representation of LoginStep.
 func (s LoginStep) String() string {
@@ -334,6 +369,7 @@ var loginStepText = map[LoginStep]string{
 	LoginStepCancel:                   "CANCEL",
 	LoginStepSkip:                     "SKIP",
 	LoginStepSuccess:                  "SUCCESS",
+	LoginStepAuthenticatorEnroll:      "AUTHENTICATOR_ENROLL",
 }
 
 // These codes indicate what method(s) can be called in the next step.
@@ -350,6 +386,7 @@ const (
 	LoginStepCancel                                        // 'Cancel'
 	LoginStepSkip                                          // 'Skip'
 	LoginStepSuccess                                       // 'Token'
+	LoginStepAuthenticatorEnroll                           // 'AuthenticatorEnroll'
 )
 
 // nolint
@@ -371,10 +408,17 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if resp.CancelResponse != nil {
 		steps = append(steps, LoginStepCancel)
 	}
+
 	_, err := resp.remediationOption("identify")
 	if err == nil {
 		steps = append(steps, LoginStepIdentify)
 	}
+
+	_, err = resp.remediationOption("select-authenticator-enroll")
+	if err == nil {
+		steps = append(steps, LoginStepAuthenticatorEnroll)
+	}
+
 	ros, err := resp.remediationOptions("redirect-idp")
 	if err == nil {
 		r.identifyProviders = make([]IdentityProvider, len(ros))
