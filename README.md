@@ -270,3 +270,10 @@ OKTA_IDX_REDIRECTURI=https://myorg.okta.com/login/callback
 [developer-edition-signup]: https://developer.okta.com/signup
 
 [support-email]: mailto://support@okta.com
+
+## Examples
+
+Check out the examples in the `_examples/` directory. Each example illustrates
+working with the client. They also allow a developer to easily modify the
+client's code and run it locally. This is useful for working on new features,
+debugging, etc..
