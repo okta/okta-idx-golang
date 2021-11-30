@@ -1,11 +1,10 @@
 package main
 
 /*
-This is simple example to fiddle with the code if experimenting with modifying
-the client code.  The example will load up the local files as the idx package.
-Might need to `go mod tidy` first to make work. Be sure app is granted
-Interactive Code grant type.
-
+This is a simple example to experiment with modifying the idx client code.  The
+example will load up the local files as the `idx` package.  Running `go mod
+tidy` may be required to allow the go runner to execute without errors. Be sure
+app is granted with Interactive Code grant type.
 
 export OKTA_IDX_ISSUER=https://example.com
 export OKTA_IDX_CLIENTSECRET=_CHANGE_TO_CORRECT_VALUE
