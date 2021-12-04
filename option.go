@@ -351,15 +351,27 @@ type RecoverOption Option
 type CurrentAuthenticatorEnrollment struct {
 	Type  string `json:"type"`
 	Value struct {
-		Recover     *RecoverOption `json:"recover"`
-		Type        string         `json:"type"`
-		Key         string         `json:"key"`
-		ID          string         `json:"id"`
-		DisplayName string         `json:"displayName"`
-		Methods     []struct {
+		ContextualData *ContextualData `json:"contextualData"`
+		Recover        *RecoverOption `json:"recover"`
+		Type           string         `json:"type"`
+		Key            string         `json:"key"`
+		ID             string         `json:"id"`
+		DisplayName    string         `json:"displayName"`
+		Methods        []struct {
 			Type string `json:"type"`
 		} `json:"methods"`
 	} `json:"value"`
+}
+
+type ContextualData struct {
+	QRcode       QRcode `json:"qrcode"`
+	SharedSecret string `json:"sharedSecret"`
+}
+
+type QRcode struct {
+	Method string `json:"method"`
+	Href   string `json:"href"`
+	Type   string `json:"type"`
 }
 
 // proceed allows you to continue the remediation with this option.  It will
