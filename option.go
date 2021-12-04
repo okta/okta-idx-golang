@@ -48,7 +48,6 @@ type Option struct {
 	OptionType string      `json:"type"`
 	IDP        IDP         `json:"idp"`
 	Name       string      `json:"name"`
-	Type       string      `json:"type"`
 	Href       string      `json:"href"`
 	Method     string      `json:"method"`
 	FormValues []FormValue `json:"value"`
@@ -352,11 +351,11 @@ type CurrentAuthenticatorEnrollment struct {
 	Type  string `json:"type"`
 	Value struct {
 		ContextualData *ContextualData `json:"contextualData"`
-		Recover        *RecoverOption `json:"recover"`
-		Type           string         `json:"type"`
-		Key            string         `json:"key"`
-		ID             string         `json:"id"`
-		DisplayName    string         `json:"displayName"`
+		Recover        *RecoverOption  `json:"recover"`
+		Type           string          `json:"type"`
+		Key            string          `json:"key"`
+		ID             string          `json:"id"`
+		DisplayName    string          `json:"displayName"`
 		Methods        []struct {
 			Type string `json:"type"`
 		} `json:"methods"`
