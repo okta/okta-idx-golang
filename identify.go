@@ -283,7 +283,7 @@ func (r *LoginResponse) AvailableSteps() []LoginStep {
 	return r.availableSteps
 }
 
-// IdentityProviders List of idenity providers.
+// IdentityProviders List of identity providers.
 func (r *LoginResponse) IdentityProviders() []IdentityProvider {
 	return r.identifyProviders
 }
@@ -299,7 +299,7 @@ func (r *LoginResponse) HasStep(s LoginStep) bool {
 	return false
 }
 
-// IsAuthenticated returns true in case "SUCCESS"is present in the list of available steps.
+// IsAuthenticated returns true in case "SUCCESS" is present in the list of available steps.
 func (r *LoginResponse) IsAuthenticated() bool {
 	return r.HasStep(LoginStepSuccess)
 }
@@ -312,7 +312,7 @@ func (r *LoginResponse) Token() *Token {
 
 type LoginStep int
 
-// String String representation of LoginStep.
+// String representation of LoginStep.
 func (s LoginStep) String() string {
 	v, ok := loginStepText[s]
 	if ok {

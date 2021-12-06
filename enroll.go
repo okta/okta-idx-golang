@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-// EnrollmentResponse is used for the profile enrolment flow.  It holds the
+// EnrollmentResponse is used for the profile enrolment flow. It holds the
 // initial IdX context object and the list of the available steps.  At the end
 // of the successful flow, the only enrollment step will be
 // `EnrollmentStepSuccess` and tokens will be available.
@@ -33,6 +33,7 @@ type EnrollmentResponse struct {
 	token          *Token
 	availableSteps []EnrollmentStep
 	authenticators Authenticators
+	contextualData *ContextualData
 }
 
 // UserProfile holds the necessary information to init the enrollment process.
@@ -136,6 +137,47 @@ func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOp
 	panic("not implemented")
 }
 
+// GoogleAuthInit initiates Google Authenticator setup
+func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepGoogleAuthenticatorInit) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, EnrollmentStepGoogleAuthenticatorConfirmation)
+	return r, nil
+}
+
+func (r *EnrollmentResponse) GoogleAuthConfirm(ctx context.Context, code string) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepGoogleAuthenticatorConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	defer func() {
+		r.contextualData = nil
+	}()
+	return r.confirmWithCode(ctx, code)
+}
+
 // VerifyEmail sends verification code to the email provided at the first step.
 func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailVerification) {
@@ -170,10 +212,10 @@ const (
 	PhoneMethodSMS       PhoneOption = "sms"
 )
 
-// OktaVeriftyOption is a verify option type.
+// OktaVerifyOption is a verify option type.
 type OktaVerifyOption string
 
-// OktaVeriftyOption constants.
+// OktaVerifyOption constants.
 const (
 	OktaVerifyOptionQRCode OktaVerifyOption = "qrcode"
 	OktaVerifyOptionEmail  OktaVerifyOption = "email"
@@ -370,12 +412,16 @@ func (r *EnrollmentResponse) HasStep(s EnrollmentStep) bool {
 	return false
 }
 
-// Authenicators returns the Authenticators.
+func (r *EnrollmentResponse) ContextualData() *ContextualData {
+	return r.contextualData
+}
+
+// Authenticators returns the Authenticators.
 func (r *EnrollmentResponse) Authenticators() Authenticators {
 	return r.authenticators
 }
 
-// IsAuthenticated returns true in case "SUCCESS"is present in the list of
+// IsAuthenticated returns true in case "SUCCESS" is present in the list of
 // available steps.
 func (r *EnrollmentResponse) IsAuthenticated() bool {
 	return r.HasStep(EnrollmentStepSuccess)
@@ -401,7 +447,7 @@ func (r *EnrollmentResponse) WhereAmI(ctx context.Context) (*EnrollmentResponse,
 
 type EnrollmentStep int
 
-// String string representation of the enrollment step.
+// String is a string representation of the enrollment step.
 func (s EnrollmentStep) String() string {
 	v, ok := enrollStepText[s]
 	if ok {
@@ -412,31 +458,35 @@ func (s EnrollmentStep) String() string {
 
 // These codes indicate what method(s) can be called in the next step.
 const (
-	EnrollmentStepEmailVerification       EnrollmentStep = iota + 1 // 'VerifyEmail'
-	EnrollmentStepEmailConfirmation                                 // 'ConfirmEmail'
-	EnrollmentStepPasswordSetup                                     // 'SetNewPassword'
-	EnrollmentStepPhoneVerification                                 // 'VerifyPhone'
-	EnrollmentStepPhoneConfirmation                                 // 'ConfirmPhone'
-	EnrollmentStepSecurityQuestionOptions                           // 'SecurityQuestionOptions'
-	EnrollmentStepSecurityQuestionSetup                             // 'SetupSecurityQuestion`
-	EnrollmentStepOktaVerify                                        // `OktaVerify`
-	EnrollmentStepCancel                                            // 'Cancel'
-	EnrollmentStepSkip                                              // 'Skip'
-	EnrollmentStepSuccess                                           // 'Token'
+	EnrollmentStepEmailVerification               EnrollmentStep = iota + 1 // 'VerifyEmail'
+	EnrollmentStepEmailConfirmation                                         // 'ConfirmEmail'
+	EnrollmentStepPasswordSetup                                             // 'SetNewPassword'
+	EnrollmentStepPhoneVerification                                         // 'VerifyPhone'
+	EnrollmentStepPhoneConfirmation                                         // 'ConfirmPhone'
+	EnrollmentStepSecurityQuestionOptions                                   // 'SecurityQuestionOptions'
+	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
+	EnrollmentStepOktaVerify                                                // `OktaVerify`
+	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInit`
+	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
+	EnrollmentStepCancel                                                    // 'Cancel'
+	EnrollmentStepSkip                                                      // 'Skip'
+	EnrollmentStepSuccess                                                   // 'Token'
 )
 
 var enrollStepText = map[EnrollmentStep]string{
-	EnrollmentStepEmailVerification:       "EMAIL_VERIFICATION",
-	EnrollmentStepEmailConfirmation:       "EMAIL_CONFIRMATION",
-	EnrollmentStepPasswordSetup:           "PASSWORD_SETUP",
-	EnrollmentStepPhoneVerification:       "PHONE_VERIFICATION",
-	EnrollmentStepPhoneConfirmation:       "PHONE_CONFIRMATION",
-	EnrollmentStepSecurityQuestionOptions: "SECURITY_QUESTION_OPTIONS",
-	EnrollmentStepSecurityQuestionSetup:   "SECURITY_QUESTION_SETUP",
-	EnrollmentStepOktaVerify:              "OKTA_VERIFY",
-	EnrollmentStepCancel:                  "CANCEL",
-	EnrollmentStepSkip:                    "SKIP",
-	EnrollmentStepSuccess:                 "SUCCESS",
+	EnrollmentStepEmailVerification:               "EMAIL_VERIFICATION",
+	EnrollmentStepEmailConfirmation:               "EMAIL_CONFIRMATION",
+	EnrollmentStepPasswordSetup:                   "PASSWORD_SETUP",
+	EnrollmentStepPhoneVerification:               "PHONE_VERIFICATION",
+	EnrollmentStepPhoneConfirmation:               "PHONE_CONFIRMATION",
+	EnrollmentStepSecurityQuestionOptions:         "SECURITY_QUESTION_OPTIONS",
+	EnrollmentStepSecurityQuestionSetup:           "SECURITY_QUESTION_SETUP",
+	EnrollmentStepOktaVerify:                      "OKTA_VERIFY",
+	EnrollmentStepGoogleAuthenticatorInit:         "GOOGLE_AUTHENTICATOR_INIT",
+	EnrollmentStepGoogleAuthenticatorConfirmation: "GOOGLE_AUTHENTICATOR_CONFIRM",
+	EnrollmentStepCancel:                          "CANCEL",
+	EnrollmentStepSkip:                            "SKIP",
+	EnrollmentStepSuccess:                         "SUCCESS",
 }
 
 func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
@@ -476,6 +526,10 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
 	if err == nil {
 		steps = append(steps, EnrollmentStepOktaVerify)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
+	if err == nil {
+		steps = append(steps, EnrollmentStepGoogleAuthenticatorInit)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
