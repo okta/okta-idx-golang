@@ -29,6 +29,7 @@ type LoginResponse struct {
 	token             *Token
 	availableSteps    []LoginStep
 	identifyProviders []IdentityProvider
+	contextualData    *ContextualData
 }
 
 type IdentityProvider struct {
@@ -77,6 +78,22 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 		return nil, err
 	}
 	resp, err = setPasswordOnDemand(ctx, resp, ir.Credentials.Password)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// SetNewPassword Set new password.
+func (r *LoginResponse) SetNewPassword(ctx context.Context, password string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepSetupNewPassword) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := setPassword(ctx, r.idxContext, "reenroll-authenticator", password)
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +168,56 @@ loop:
 		return nil, err
 	}
 	return r, nil
+}
+
+// GoogleAuthInitialVerify initiates Google Authenticator setup for the existing user in case this authenticator
+// was reset or wasn't set up previously.
+func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepGoogleAuthenticatorInitialVerification) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, LoginStepGoogleAuthenticatorConfirmation)
+	return r, nil
+}
+
+func (r *LoginResponse) GoogleAuthConfirm(ctx context.Context, code string) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepGoogleAuthenticatorConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	defer func() {
+		r.contextualData = nil
+	}()
+	resp, err := r.confirmWithCode(ctx, "challenge-authenticator", code)
+	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
+		return r.confirmWithCode(ctx, "enroll-authenticator", code)
+	}
+	return resp, err
+}
+
+func (r *LoginResponse) ContextualData() *ContextualData {
+	return r.contextualData
 }
 
 // ConfirmPhone Confirms a phone given the identification code.
@@ -322,34 +389,40 @@ func (s LoginStep) String() string {
 }
 
 var loginStepText = map[LoginStep]string{
-	LoginStepIdentify:                 "IDENTIFY",
-	LoginStepProviderIdentify:         "PROVIDER_IDENTIFY",
-	LoginStepEmailVerification:        "EMAIL_VERIFICATION",
-	LoginStepEmailConfirmation:        "EMAIL_CONFIRMATION",
-	LoginStepPhoneVerification:        "PHONE_VERIFICATION",
-	LoginStepPhoneInitialVerification: "PHONE_INITIAL_VERIFICATION",
-	LoginStepPhoneConfirmation:        "PHONE_CONFIRMATION",
-	LoginStepAnswerSecurityQuestion:   "ANSWER SECURITY_QUESTION",
-	LoginStepOktaVerify:               "OKTA_VERIFY",
-	LoginStepCancel:                   "CANCEL",
-	LoginStepSkip:                     "SKIP",
-	LoginStepSuccess:                  "SUCCESS",
+	LoginStepIdentify:                               "IDENTIFY",
+	LoginStepSetupNewPassword:                       "SETUP_NEW_PASSWORD",
+	LoginStepProviderIdentify:                       "PROVIDER_IDENTIFY",
+	LoginStepEmailVerification:                      "EMAIL_VERIFICATION",
+	LoginStepEmailConfirmation:                      "EMAIL_CONFIRMATION",
+	LoginStepPhoneVerification:                      "PHONE_VERIFICATION",
+	LoginStepPhoneInitialVerification:               "PHONE_INITIAL_VERIFICATION",
+	LoginStepPhoneConfirmation:                      "PHONE_CONFIRMATION",
+	LoginStepAnswerSecurityQuestion:                 "ANSWER SECURITY_QUESTION",
+	LoginStepOktaVerify:                             "OKTA_VERIFY",
+	LoginStepGoogleAuthenticatorInitialVerification: "GOOGLE_AUTHENTICATOR_INITIAL_VERIFICATION",
+	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
+	LoginStepCancel:                                 "CANCEL",
+	LoginStepSkip:                                   "SKIP",
+	LoginStepSuccess:                                "SUCCESS",
 }
 
 // These codes indicate what method(s) can be called in the next step.
 const (
-	LoginStepIdentify                 LoginStep = iota + 1 // 'Identify'
-	LoginStepProviderIdentify                              // 'Providers'
-	LoginStepEmailVerification                             // 'VerifyEmail'
-	LoginStepEmailConfirmation                             // 'ConfirmEmail'
-	LoginStepPhoneVerification                             // 'VerifyPhone'
-	LoginStepPhoneInitialVerification                      // 'InitialVerifyPhone'
-	LoginStepPhoneConfirmation                             // 'ConfirmPhone'
-	LoginStepAnswerSecurityQuestion                        // 'AnswerSecurityQuestion'
-	LoginStepOktaVerify                                    // 'OktaVerify'
-	LoginStepCancel                                        // 'Cancel'
-	LoginStepSkip                                          // 'Skip'
-	LoginStepSuccess                                       // 'Token'
+	LoginStepIdentify                               LoginStep = iota + 1 // 'Identify'
+	LoginStepSetupNewPassword                                            // 'SetupNewPassword'
+	LoginStepProviderIdentify                                            // 'Providers'
+	LoginStepEmailVerification                                           // 'VerifyEmail'
+	LoginStepEmailConfirmation                                           // 'ConfirmEmail'
+	LoginStepPhoneVerification                                           // 'VerifyPhone'
+	LoginStepPhoneInitialVerification                                    // 'InitialVerifyPhone'
+	LoginStepPhoneConfirmation                                           // 'ConfirmPhone'
+	LoginStepAnswerSecurityQuestion                                      // 'AnswerSecurityQuestion'
+	LoginStepOktaVerify                                                  // 'OktaVerify'
+	LoginStepGoogleAuthenticatorInitialVerification                      // `GoogleAuthInitialVerify`
+	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
+	LoginStepCancel                                                      // 'Cancel'
+	LoginStepSkip                                                        // 'Skip'
+	LoginStepSuccess                                                     // 'Token'
 )
 
 // nolint
@@ -406,9 +479,28 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		steps = append(steps, LoginStepOktaVerify)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Google Authenticator", false)
+	if err == nil {
+		steps = append(steps, LoginStepGoogleAuthenticatorConfirmation)
+	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
 		steps = append(steps, LoginStepPhoneInitialVerification)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
+	if err == nil {
+		steps = append(steps, LoginStepGoogleAuthenticatorInitialVerification)
+	}
+	ro, err := resp.remediationOption("reenroll-authenticator")
+	if err == nil {
+		v, _ := ro.value("credentials")
+		if v != nil && v.Form != nil {
+			for i := range v.Form.FormValues {
+				if v.Form.FormValues[i].Label == "New password" {
+					steps = append(steps, LoginStepSetupNewPassword)
+				}
+			}
+		}
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
@@ -431,9 +523,11 @@ func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, cod
 }
 
 func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (*Response, error) {
-	challengeAuthenticator, err := resp.remediationOption("challenge-authenticator")
-	if err == nil {
-		return sendPasscode(ctx, challengeAuthenticator, password)
+	if resp.CurrentAuthenticatorEnrollment != nil && resp.CurrentAuthenticatorEnrollment.Value.Key == "okta_password" {
+		challengeAuthenticator, err := resp.remediationOption("challenge-authenticator")
+		if err == nil {
+			return sendPasscode(ctx, challengeAuthenticator, password)
+		}
 	}
 	ro, authID, _ := resp.authenticatorOption("select-authenticator-authenticate", "Password", true)
 	if ro == nil {
@@ -444,11 +538,11 @@ func setPasswordOnDemand(ctx context.Context, resp *Response, password string) (
 					"id": "` + authID + `"
 				}
 			}`)
-	resp, err = ro.proceed(ctx, authenticator)
+	resp, err := ro.proceed(ctx, authenticator)
 	if err != nil {
 		return nil, err
 	}
-	challengeAuthenticator, err = resp.remediationOption("challenge-authenticator")
+	challengeAuthenticator, err := resp.remediationOption("challenge-authenticator")
 	if err != nil {
 		return nil, err
 	}

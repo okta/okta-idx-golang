@@ -466,7 +466,7 @@ const (
 	EnrollmentStepSecurityQuestionOptions                                   // 'SecurityQuestionOptions'
 	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
 	EnrollmentStepOktaVerify                                                // `OktaVerify`
-	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInit`
+	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
 	EnrollmentStepCancel                                                    // 'Cancel'
 	EnrollmentStepSkip                                                      // 'Skip'
