@@ -176,20 +176,7 @@ func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResp
 	if !r.HasStep(LoginStepGoogleAuthenticatorInitialVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", true)
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	resp, err = ro.proceed(ctx, authenticator)
+	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -556,4 +543,21 @@ func sendPasscode(ctx context.Context, challengeAuthenticator *RemediationOption
 		}
 	}`)
 	return challengeAuthenticator.proceed(ctx, credentials)
+}
+
+func enrollGoogleAuth(ctx context.Context, handle *InteractionHandle) (*Response, error) {
+	resp, err := idx.introspect(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	return ro.proceed(ctx, authenticator)
 }
