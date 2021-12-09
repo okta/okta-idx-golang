@@ -142,20 +142,7 @@ func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentRes
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorInit) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", true)
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	resp, err = ro.proceed(ctx, authenticator)
+	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +453,7 @@ const (
 	EnrollmentStepSecurityQuestionOptions                                   // 'SecurityQuestionOptions'
 	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
 	EnrollmentStepOktaVerify                                                // `OktaVerify`
-	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInit`
+	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
 	EnrollmentStepCancel                                                    // 'Cancel'
 	EnrollmentStepSkip                                                      // 'Skip'
