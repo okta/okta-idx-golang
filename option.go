@@ -60,17 +60,64 @@ type IDP struct {
 }
 
 type FormValue struct {
-	Name          string        `json:"name"`
-	Label         string        `json:"label,omitempty"`
-	FormValueType string        `json:"type,omitempty"`
-	Value         string        `json:"value,omitempty"`
-	Required      *bool         `json:"required,omitempty"`
-	Visible       *bool         `json:"visible,omitempty"`
-	Mutable       *bool         `json:"mutable,omitempty"`
-	Secret        *bool         `json:"secret,omitempty"`
-	Form          *Form         `json:"form,omitempty"`
-	Options       []FormOptions `json:"options,omitempty"`
-	Message       *Message      `json:"messages"`
+	Name          string         `json:"name"`
+	Label         string         `json:"label,omitempty"`
+	FormValueType string         `json:"type,omitempty"`
+	Value         FormValueValue `json:"-"`
+	DynamicValue  interface{}    `json:"value"`
+	Required      *bool          `json:"required,omitempty"`
+	Visible       *bool          `json:"visible,omitempty"`
+	Mutable       *bool          `json:"mutable,omitempty"`
+	Secret        *bool          `json:"secret,omitempty"`
+	Form          *Form          `json:"form,omitempty"`
+	Options       []FormOptions  `json:"options,omitempty"`
+	Message       *Message       `json:"messages"`
+}
+
+// MarshallJSON Marshals FormValue JSON data.
+func (v *FormValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.DynamicValue)
+}
+
+// UnmarshallJSON Unmarshals FormValue JSON data.
+func (v *FormValue) UnmarshalJSON(data []byte) error {
+	type localIDX FormValue
+	v.Value = FormValueValueObject{}
+	if err := json.Unmarshal(data, (*localIDX)(v)); err != nil {
+		return fmt.Errorf("failed to unmarshal FormValue: %w", err)
+	}
+	switch dv := v.DynamicValue.(type) {
+	case string:
+		v.Value = FormValueValueString(dv)
+	case map[string]interface{}:
+		b, _ := json.Marshal(dv)
+		var res FormValueValueObject
+		_ = json.Unmarshal(b, &res)
+		v.Value = res
+	}
+	return nil
+}
+
+type FormValueValue interface {
+	String() string
+}
+
+type FormValueValueString string
+
+func (f FormValueValueString) String() string { return string(f) }
+
+type FormValueValueObject struct {
+	Value FormValue `json:"value"`
+}
+
+func (f FormValueValueObject) String() string {
+	if f.Value.DynamicValue != nil {
+		return fmt.Sprintf("%+v", f.Value.DynamicValue)
+	}
+	if f.Value.Value != nil {
+		return fmt.Sprintf("%+v", f.Value.Value)
+	}
+	return ""
 }
 
 type Form struct {
@@ -204,9 +251,9 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 	}
 	for _, v := range f {
 		switch {
-		case v.Value != "":
-			output[v.Name] = v.Value
-		case v.Value == "" && v.Form == nil && len(v.Options) == 0:
+		case v.Value.String() != "":
+			output[v.Name] = v.Value.String()
+		case v.Value.String() == "" && v.Form == nil && len(v.Options) == 0:
 			vv, ok := input[v.Name]
 			if ok {
 				output[v.Name] = vv
@@ -257,7 +304,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				vv, ok := input[v.Name]
 				for _, o := range v.Options {
 					for _, vfv := range o.Value.(FormOptionsValueObject).Form.Value {
-						if !ok && vfv.Required != nil && *vfv.Required && vfv.Value == "" {
+						if !ok && vfv.Required != nil && *vfv.Required && vfv.Value.String() == "" {
 							return nil, fmt.Errorf("missing '%s.%s' property from input", v.Name, vfv.Name)
 						}
 					}
@@ -275,7 +322,7 @@ func form(input, output map[string]interface{}, f ...FormValue) (map[string]inte
 				for _, o := range v.Options {
 					for _, a := range o.Value.(FormOptionsValueObject).Form.Value {
 						n, ok := im[a.Name]
-						if !ok || (a.Value != "" && !reflect.DeepEqual(n, a.Value)) {
+						if !ok || (a.Value.String() != "" && !reflect.DeepEqual(n, a.Value.String())) {
 							continue
 						}
 						gg, err = form(im, gg, o.Value.(FormOptionsValueObject).Form.Value...)

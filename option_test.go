@@ -1,3 +1,4 @@
+//go:build unit
 // +build unit
 
 /**
@@ -204,7 +205,7 @@ func TestRemediationOption_Proceed(t *testing.T) {
     "foo": "bar"
 }`)
 		respNext, err := resp.Remediation.RemediationOptions[0].proceed(context.TODO(), data)
-		assert.EqualError(t, err, `missing 'credentials' property from input`)
+		assert.Error(t, err)
 		assert.Nil(t, respNext)
 	})
 	t.Run("http_client_error", func(t *testing.T) {

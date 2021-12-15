@@ -355,7 +355,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 				for j := range ro.FormValues[i].Form.FormValues {
 					if ro.FormValues[i].Form.FormValues[j].Name == questionKey {
 						r.sq = &SecurityQuestion{
-							QuestionKey: ro.FormValues[i].Form.FormValues[j].Value,
+							QuestionKey: ro.FormValues[i].Form.FormValues[j].Value.String(),
 							Question:    ro.FormValues[i].Form.FormValues[j].Label,
 						}
 						steps = append(steps, ResetPasswordStepAnswerSecurityQuestion)
