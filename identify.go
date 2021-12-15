@@ -578,3 +578,21 @@ func enrollGoogleAuth(ctx context.Context, handle *InteractionHandle) (*Response
 			}`)
 	return ro.proceed(ctx, authenticator)
 }
+
+func enrollOktaVerify(ctx context.Context, handle *InteractionHandle, option OktaVerifyOption) (*Response, error) {
+	resp, err := idx.introspect(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"channel": "` + string(option) + `"
+				}
+			}`)
+	return ro.proceed(ctx, authenticator)
+}

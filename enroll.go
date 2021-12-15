@@ -130,11 +130,17 @@ func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOp
 	if !r.HasStep(EnrollmentStepOktaVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	if option != OktaVerifyOptionQRCode && option != OktaVerifyOptionEmail && option != OktaVerifyOptionSms {
-		return nil, fmt.Errorf("%s is invalid Okta Verify option, plese use %s, %s or %s", option,
-			OktaVerifyOptionQRCode, OktaVerifyOptionEmail, OktaVerifyOptionSms)
+	resp, err := enrollOktaVerify(ctx, r.idxContext.InteractionHandle, option)
+	if err != nil {
+		return nil, err
 	}
-	panic("not implemented")
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, EnrollmentStepOktaVerifyConfirmation)
+	return r, nil
 }
 
 // GoogleAuthInit initiates Google Authenticator setup
@@ -445,6 +451,7 @@ const (
 	EnrollmentStepSecurityQuestionOptions                                   // 'SecurityQuestionOptions'
 	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
 	EnrollmentStepOktaVerify                                                // `OktaVerify`
+	EnrollmentStepOktaVerifyConfirmation                                    // `OktaVerifyConfirmation`
 	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
 	EnrollmentStepCancel                                                    // 'Cancel'
@@ -461,6 +468,7 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepSecurityQuestionOptions:         "SECURITY_QUESTION_OPTIONS",
 	EnrollmentStepSecurityQuestionSetup:           "SECURITY_QUESTION_SETUP",
 	EnrollmentStepOktaVerify:                      "OKTA_VERIFY",
+	EnrollmentStepOktaVerifyConfirmation:          "OKTA_VERIFY_CONFIRMATION",
 	EnrollmentStepGoogleAuthenticatorInit:         "GOOGLE_AUTHENTICATOR_INIT",
 	EnrollmentStepGoogleAuthenticatorConfirmation: "GOOGLE_AUTHENTICATOR_CONFIRM",
 	EnrollmentStepCancel:                          "CANCEL",
