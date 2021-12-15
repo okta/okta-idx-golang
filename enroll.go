@@ -241,15 +241,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 	if !r.HasStep(EnrollmentStepSkip) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("skip")
-	if err != nil {
-		return nil, err
-	}
-	resp, err = ro.proceed(ctx, nil)
+	resp, err := skip(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
 	}
