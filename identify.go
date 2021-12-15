@@ -311,6 +311,23 @@ func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginRe
 	return r.confirmWithCode(ctx, "challenge-authenticator", code)
 }
 
+// Skip represents general step to proceed with no action.  It usually appears
+// when other steps are optional.
+func (r *LoginResponse) Skip(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepSkip) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := skip(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // Cancel the whole login process.
 func (r *LoginResponse) Cancel(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepCancel) {

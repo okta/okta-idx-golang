@@ -194,3 +194,15 @@ func (r *Response) authenticatorOption(optionName, label string, modifyOptions b
 	}
 	return ro, authID, nil
 }
+
+func skip(ctx context.Context, handle *InteractionHandle) (*Response, error) {
+	resp, err := idx.introspect(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("skip")
+	if err != nil {
+		return nil, err
+	}
+	return ro.proceed(ctx, nil)
+}

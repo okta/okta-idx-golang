@@ -24,7 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -209,7 +209,7 @@ func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context,
 	}
 	tokenEndpoint := c.oAuthEndPoint(fmt.Sprintf("token?%s", params.Encode()))
 
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, http.NoBody)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
 
@@ -271,7 +271,7 @@ type InteractionHandle struct {
 
 func unmarshalResponse(r *http.Response, i interface{}) error {
 	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
