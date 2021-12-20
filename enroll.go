@@ -125,9 +125,9 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	return r, nil
 }
 
-// OktaVerify verify identification.
-func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
-	if !r.HasStep(EnrollmentStepOktaVerify) {
+// OktaVerifyInit Initiate Okta Verify enrollment
+func (r *EnrollmentResponse) OktaVerifyInit(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepOktaVerifyInit) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	resp, err := enrollOktaVerify(ctx, r.idxContext.InteractionHandle, option)
@@ -139,8 +139,23 @@ func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOp
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepOktaVerifyConfirmation)
+	r.availableSteps = append(r.availableSteps, EnrollmentStepOktaVerifyPoll)
 	return r, nil
+}
+
+// OktaVerifyContinuePolling Determines if the client should continue polling for Okta Verify enrollment.
+func (r *EnrollmentResponse) OktaVerifyContinuePolling(ctx context.Context) (*EnrollmentResponse, bool, error) {
+	_, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Polling should continue if enroll-poll remidation step is present
+	if r.HasStep(EnrollmentStepOktaVerifyPoll) {
+		return r, true, nil
+	}
+
+	return r, false, nil
 }
 
 // GoogleAuthInit initiates Google Authenticator setup
@@ -450,8 +465,8 @@ const (
 	EnrollmentStepPhoneConfirmation                                         // 'ConfirmPhone'
 	EnrollmentStepSecurityQuestionOptions                                   // 'SecurityQuestionOptions'
 	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
-	EnrollmentStepOktaVerify                                                // `OktaVerify`
-	EnrollmentStepOktaVerifyConfirmation                                    // `OktaVerifyConfirmation`
+	EnrollmentStepOktaVerifyInit                                            // `OktaVerifyInit`
+	EnrollmentStepOktaVerifyPoll                                            // `OktaVerifyPoll`
 	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
 	EnrollmentStepCancel                                                    // 'Cancel'
@@ -467,8 +482,8 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepPhoneConfirmation:               "PHONE_CONFIRMATION",
 	EnrollmentStepSecurityQuestionOptions:         "SECURITY_QUESTION_OPTIONS",
 	EnrollmentStepSecurityQuestionSetup:           "SECURITY_QUESTION_SETUP",
-	EnrollmentStepOktaVerify:                      "OKTA_VERIFY",
-	EnrollmentStepOktaVerifyConfirmation:          "OKTA_VERIFY_CONFIRMATION",
+	EnrollmentStepOktaVerifyInit:                  "OKTA_VERIFY_INIT",
+	EnrollmentStepOktaVerifyPoll:                  "OKTA_VERIFY_POLL",
 	EnrollmentStepGoogleAuthenticatorInit:         "GOOGLE_AUTHENTICATOR_INIT",
 	EnrollmentStepGoogleAuthenticatorConfirmation: "GOOGLE_AUTHENTICATOR_CONFIRM",
 	EnrollmentStepCancel:                          "CANCEL",
@@ -512,7 +527,11 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepOktaVerify)
+		steps = append(steps, EnrollmentStepOktaVerifyInit)
+	}
+	_, err = resp.remediationOption("enroll-poll")
+	if err == nil {
+		steps = append(steps, EnrollmentStepOktaVerifyPoll)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
