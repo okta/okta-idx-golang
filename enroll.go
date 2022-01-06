@@ -139,13 +139,17 @@ func (r *EnrollmentResponse) OktaVerifyInit(ctx context.Context, option OktaVeri
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepOktaVerifyPoll)
+	r.appendStep(EnrollmentStepOktaVerifyPoll)
 	return r, nil
 }
 
 // OktaVerifyContinuePolling Determines if the client should continue polling for Okta Verify enrollment.
 func (r *EnrollmentResponse) OktaVerifyContinuePolling(ctx context.Context) (*EnrollmentResponse, bool, error) {
-	_, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, false, err
+	}
+	err = r.setupNextSteps(ctx, resp)
 	if err != nil {
 		return nil, false, err
 	}
@@ -172,7 +176,7 @@ func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentRes
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepGoogleAuthenticatorConfirmation)
+	r.appendStep(EnrollmentStepGoogleAuthenticatorConfirmation)
 	return r, nil
 }
 
@@ -199,7 +203,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepEmailConfirmation)
+	r.appendStep(EnrollmentStepEmailConfirmation)
 	return r, nil
 }
 
@@ -244,7 +248,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepPhoneConfirmation)
+	r.appendStep(EnrollmentStepPhoneConfirmation)
 	return r, nil
 }
 
@@ -346,7 +350,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if err != nil {
 		return nil, nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepSecurityQuestionSetup)
+	r.appendStep(EnrollmentStepSecurityQuestionSetup)
 	m["custom"] = "Create a security question"
 	return r, m, nil
 }
@@ -506,46 +510,47 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 		r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
 		return nil
 	}
-	var steps []EnrollmentStep
+	// resets steps
+	r.availableSteps = []EnrollmentStep{}
+
 	if resp.CancelResponse != nil {
-		steps = append(steps, EnrollmentStepCancel)
+		r.appendStep(EnrollmentStepCancel)
 	}
 	_, _, err := resp.authenticatorOption("select-authenticator-enroll", "Password", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepPasswordSetup)
+		r.appendStep(EnrollmentStepPasswordSetup)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Email", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepEmailVerification)
+		r.appendStep(EnrollmentStepEmailVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepPhoneVerification)
+		r.appendStep(EnrollmentStepPhoneVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepSecurityQuestionOptions)
+		r.appendStep(EnrollmentStepSecurityQuestionOptions)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepOktaVerifyInit)
+		r.appendStep(EnrollmentStepOktaVerifyInit)
 	}
 	_, err = resp.remediationOption("enroll-poll")
 	if err == nil {
-		steps = append(steps, EnrollmentStepOktaVerifyPoll)
+		r.appendStep(EnrollmentStepOktaVerifyPoll)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepGoogleAuthenticatorInit)
+		r.appendStep(EnrollmentStepGoogleAuthenticatorInit)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
-		steps = append(steps, EnrollmentStepSkip)
+		r.appendStep(EnrollmentStepSkip)
 	}
-	if len(steps) == 0 {
+	if len(r.availableSteps) == 0 {
 		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
 	}
-	r.availableSteps = steps
 	return nil
 }
 
@@ -575,4 +580,13 @@ func (r *EnrollmentResponse) missingStepError(missingStep EnrollmentStep) (*Enro
 
 	}
 	return nil, fmt.Errorf("%q enrollment step is not available, please try one of %s", missingStep, steps)
+}
+
+func (r *EnrollmentResponse) appendStep(step EnrollmentStep) {
+	for _, _step := range r.availableSteps {
+		if step == _step {
+			return
+		}
+	}
+	r.availableSteps = append(r.availableSteps, step)
 }

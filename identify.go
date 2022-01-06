@@ -185,7 +185,7 @@ func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResp
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, LoginStepGoogleAuthenticatorConfirmation)
+	r.appendStep(LoginStepGoogleAuthenticatorConfirmation)
 	return r, nil
 }
 
@@ -233,7 +233,7 @@ func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*L
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, LoginStepPhoneConfirmation)
+	r.appendStep(LoginStepPhoneConfirmation)
 	return r, nil
 }
 
@@ -250,7 +250,7 @@ func (r *LoginResponse) VerifyPhoneInitial(ctx context.Context, option PhoneOpti
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, LoginStepPhoneConfirmation)
+	r.appendStep(LoginStepPhoneConfirmation)
 	return r, nil
 }
 
@@ -299,7 +299,7 @@ func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error)
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, LoginStepEmailConfirmation)
+	r.appendStep(LoginStepEmailConfirmation)
 	return r, nil
 }
 
@@ -444,13 +444,16 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		r.availableSteps = []LoginStep{LoginStepSuccess}
 		return nil
 	}
-	var steps []LoginStep
+
+	// resets steps
+	r.availableSteps = []LoginStep{}
+
 	if resp.CancelResponse != nil {
-		steps = append(steps, LoginStepCancel)
+		r.appendStep(LoginStepCancel)
 	}
 	_, err := resp.remediationOption("identify")
 	if err == nil {
-		steps = append(steps, LoginStepIdentify)
+		r.appendStep(LoginStepIdentify)
 	}
 	ros, err := resp.remediationOptions("redirect-idp")
 	if err == nil {
@@ -463,37 +466,37 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 				Method: ros[i].Method,
 			}
 		}
-		steps = append(steps, LoginStepProviderIdentify)
+		r.appendStep(LoginStepProviderIdentify)
 	} else {
 		r.identifyProviders = nil
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Email", false)
 	if err == nil {
-		steps = append(steps, LoginStepEmailVerification)
+		r.appendStep(LoginStepEmailVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Phone", false)
 	if err == nil {
-		steps = append(steps, LoginStepPhoneVerification)
+		r.appendStep(LoginStepPhoneVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question", false)
 	if err == nil {
-		steps = append(steps, LoginStepAnswerSecurityQuestion)
+		r.appendStep(LoginStepAnswerSecurityQuestion)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", false)
 	if err == nil {
-		steps = append(steps, LoginStepOktaVerify)
+		r.appendStep(LoginStepOktaVerify)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Google Authenticator", false)
 	if err == nil {
-		steps = append(steps, LoginStepGoogleAuthenticatorConfirmation)
+		r.appendStep(LoginStepGoogleAuthenticatorConfirmation)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
-		steps = append(steps, LoginStepPhoneInitialVerification)
+		r.appendStep(LoginStepPhoneInitialVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
-		steps = append(steps, LoginStepGoogleAuthenticatorInitialVerification)
+		r.appendStep(LoginStepGoogleAuthenticatorInitialVerification)
 	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
@@ -501,19 +504,18 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		if v != nil && v.Form != nil {
 			for i := range v.Form.FormValues {
 				if v.Form.FormValues[i].Label == "New password" {
-					steps = append(steps, LoginStepSetupNewPassword)
+					r.appendStep(LoginStepSetupNewPassword)
 				}
 			}
 		}
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
-		steps = append(steps, LoginStepSkip)
+		r.appendStep(LoginStepSkip)
 	}
-	if len(steps) == 0 {
+	if len(r.availableSteps) == 0 {
 		return fmt.Errorf("there are no more steps available: %+v", resp.Messages.Values)
 	}
-	r.availableSteps = steps
 	return nil
 }
 
@@ -607,4 +609,13 @@ func (r *LoginResponse) missingStepError(missingStep LoginStep) (*LoginResponse,
 
 	}
 	return nil, fmt.Errorf("%q login step is not available, please try one of %s", missingStep, steps)
+}
+
+func (r *LoginResponse) appendStep(step LoginStep) {
+	for _, _step := range r.availableSteps {
+		if step == _step {
+			return
+		}
+	}
+	r.availableSteps = append(r.availableSteps, step)
 }

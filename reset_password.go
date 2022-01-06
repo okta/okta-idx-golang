@@ -163,7 +163,7 @@ func (r *ResetPasswordResponse) VerifyEmail(ctx context.Context) (*ResetPassword
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, ResetPasswordStepEmailConfirmation)
+	r.appendStep(ResetPasswordStepEmailConfirmation)
 	return r, nil
 }
 
@@ -239,7 +239,7 @@ func (r *ResetPasswordResponse) Cancel(ctx context.Context) (*ResetPasswordRespo
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, ResetPasswordStepRestart)
+	r.appendStep(ResetPasswordStepRestart)
 	return r, nil
 }
 
@@ -332,20 +332,24 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 			return err
 		}
 		r.token = tokens
+		// reset steps
 		r.availableSteps = []ResetPasswordStep{ResetPasswordStepSuccess}
 		return nil
 	}
-	var steps []ResetPasswordStep
+
+	// reset steps
+	r.availableSteps = []ResetPasswordStep{}
+
 	if resp.CancelResponse != nil {
-		steps = append(steps, ResetPasswordStepCancel)
+		r.appendStep(ResetPasswordStepCancel)
 	}
 	_, _, err := resp.authenticatorOption("select-authenticator-authenticate", "Email", false)
 	if err == nil {
-		steps = append(steps, ResetPasswordStepEmailVerification)
+		r.appendStep(ResetPasswordStepEmailVerification)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
-		steps = append(steps, ResetPasswordStepSkip)
+		r.appendStep(ResetPasswordStepSkip)
 	}
 	ro, err := resp.remediationOption("challenge-authenticator")
 	if err == nil {
@@ -358,7 +362,7 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 							QuestionKey: ro.FormValues[i].Form.FormValues[j].Value.String(),
 							Question:    ro.FormValues[i].Form.FormValues[j].Label,
 						}
-						steps = append(steps, ResetPasswordStepAnswerSecurityQuestion)
+						r.appendStep(ResetPasswordStepAnswerSecurityQuestion)
 						break loop
 					}
 				}
@@ -372,17 +376,16 @@ func (r *ResetPasswordResponse) setupNextSteps(ctx context.Context, resp *Respon
 			if ro.FormValues[i].Form != nil && len(ro.FormValues[i].Form.FormValues) > 0 {
 				for j := range ro.FormValues[i].Form.FormValues {
 					if ro.FormValues[i].Form.FormValues[j].Label == "New password" {
-						steps = append(steps, ResetPasswordStepNewPassword)
+						r.appendStep(ResetPasswordStepNewPassword)
 						break loop2
 					}
 				}
 			}
 		}
 	}
-	if len(steps) == 0 {
+	if len(r.availableSteps) == 0 {
 		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
 	}
-	r.availableSteps = steps
 	return nil
 }
 
@@ -405,4 +408,13 @@ func (r *ResetPasswordResponse) missingStepError(missingStep ResetPasswordStep) 
 
 	}
 	return nil, fmt.Errorf("%q reset password step is not available, please try one of %s", missingStep, steps)
+}
+
+func (r *ResetPasswordResponse) appendStep(step ResetPasswordStep) {
+	for _, _step := range r.availableSteps {
+		if step == _step {
+			return
+		}
+	}
+	r.availableSteps = append(r.availableSteps, step)
 }
