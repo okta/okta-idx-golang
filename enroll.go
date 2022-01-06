@@ -86,7 +86,7 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 // SetNewPassword sets new password for the user.
 func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPasswordSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepPasswordSetup)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -128,7 +128,7 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 // OktaVerifyInit Initiate Okta Verify enrollment
 func (r *EnrollmentResponse) OktaVerifyInit(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepOktaVerifyInit) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepOktaVerifyInit)
 	}
 	resp, err := enrollOktaVerify(ctx, r.idxContext.InteractionHandle, option)
 	if err != nil {
@@ -161,7 +161,7 @@ func (r *EnrollmentResponse) OktaVerifyContinuePolling(ctx context.Context) (*En
 // GoogleAuthInit initiates Google Authenticator setup
 func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorInit) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepGoogleAuthenticatorInit)
 	}
 	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -178,7 +178,7 @@ func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentRes
 
 func (r *EnrollmentResponse) GoogleAuthConfirm(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepGoogleAuthenticatorConfirmation)
 	}
 	defer func() {
 		r.contextualData = nil
@@ -189,7 +189,7 @@ func (r *EnrollmentResponse) GoogleAuthConfirm(ctx context.Context, code string)
 // VerifyEmail sends verification code to the email provided at the first step.
 func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepEmailVerification)
 	}
 	resp, err := verifyEmail(ctx, r.idxContext, "select-authenticator-enroll")
 	if err != nil {
@@ -206,7 +206,7 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 // ConfirmEmail confirms email address using the provided code.
 func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepEmailConfirmation)
 	}
 	return r.confirmWithCode(ctx, code)
 }
@@ -234,7 +234,7 @@ const (
 // should contain a country code in `+` format e.g. `+11231231234`.
 func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption, phoneNumber string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepPhoneVerification)
 	}
 	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.InteractionHandle, option, phoneNumber)
 	if err != nil {
@@ -251,7 +251,7 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption
 // ConfirmPhone confirms phone number using the provided code.
 func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepPhoneConfirmation)
 	}
 	return r.confirmWithCode(ctx, code)
 }
@@ -260,7 +260,7 @@ func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*En
 // when other steps are optional.
 func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSkip) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepSkip)
 	}
 	resp, err := skip(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -276,7 +276,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 // Cancel the whole enrollment process.
 func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepCancel) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepCancel)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -301,7 +301,8 @@ type SecurityQuestions map[string]string
 // SecurityQuestionOptions returns list of available security questions.
 func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*EnrollmentResponse, SecurityQuestions, error) {
 	if !r.HasStep(EnrollmentStepSecurityQuestionOptions) {
-		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		resp, err := r.missingStepError(EnrollmentStepSecurityQuestionOptions)
+		return resp, nil, err
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -362,7 +363,7 @@ type SecurityQuestion struct {
 // SetupSecurityQuestion sets up the security question.
 func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *SecurityQuestion) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSecurityQuestionSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepSecurityQuestionSetup)
 	}
 	if sq.QuestionKey == "" {
 		return nil, errors.New("missing security question key")
@@ -562,4 +563,16 @@ func (r *EnrollmentResponse) confirmWithCode(ctx context.Context, code string) (
 		return nil, err
 	}
 	return r, nil
+}
+
+func (r *EnrollmentResponse) missingStepError(missingStep EnrollmentStep) (*EnrollmentResponse, error) {
+	steps := ""
+	for index, step := range r.availableSteps {
+		if index != 0 {
+			steps = fmt.Sprintf("%s, ", steps)
+		}
+		steps = fmt.Sprintf("%s%q", steps, step)
+
+	}
+	return nil, fmt.Errorf("%q enrollment step is not available, please try one of %s", missingStep, steps)
 }

@@ -62,7 +62,7 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 // Identify Perform identification.
 func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepIdentify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepIdentify)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -91,7 +91,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 // SetNewPassword Set new password.
 func (r *LoginResponse) SetNewPassword(ctx context.Context, password string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepSetupNewPassword) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepSetupNewPassword)
 	}
 	resp, err := setPassword(ctx, r.idxContext, "reenroll-authenticator", password)
 	if err != nil {
@@ -121,7 +121,7 @@ func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
 // OktaVerify Perform verification.
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepOktaVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepOktaVerify)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -174,7 +174,7 @@ loop:
 // was reset or wasn't set up previously.
 func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepGoogleAuthenticatorInitialVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepGoogleAuthenticatorInitialVerification)
 	}
 	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -191,7 +191,7 @@ func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResp
 
 func (r *LoginResponse) GoogleAuthConfirm(ctx context.Context, code string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepGoogleAuthenticatorConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepGoogleAuthenticatorConfirmation)
 	}
 	defer func() {
 		r.contextualData = nil
@@ -210,7 +210,7 @@ func (r *LoginResponse) ContextualData() *ContextualData {
 // ConfirmPhone Confirms a phone given the identification code.
 func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepPhoneConfirmation)
 	}
 	resp, err := r.confirmWithCode(ctx, "challenge-authenticator", code)
 	// this might indicate that a user set ups the phone for the first time
@@ -223,7 +223,7 @@ func (r *LoginResponse) ConfirmPhone(ctx context.Context, code string) (*LoginRe
 // VerifyPhone Triggers phone verification code emission.
 func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepPhoneVerification)
 	}
 	resp, err := verifyPhone(ctx, "select-authenticator-authenticate", r.idxContext.InteractionHandle, option, "")
 	if err != nil {
@@ -240,7 +240,7 @@ func (r *LoginResponse) VerifyPhone(ctx context.Context, option PhoneOption) (*L
 // VerifyPhoneInitial Initial verify phone.
 func (r *LoginResponse) VerifyPhoneInitial(ctx context.Context, option PhoneOption, phoneNumber string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepPhoneInitialVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepPhoneInitialVerification)
 	}
 	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.InteractionHandle, option, phoneNumber)
 	if err != nil {
@@ -289,7 +289,7 @@ func verifyPhone(ctx context.Context, remedOpt string, ih *InteractionHandle, ph
 // VerifyEmail Triggers email verification code emission.
 func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepEmailVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepEmailVerification)
 	}
 	resp, err := verifyEmail(ctx, r.idxContext, "select-authenticator-authenticate")
 	if err != nil {
@@ -306,7 +306,7 @@ func (r *LoginResponse) VerifyEmail(ctx context.Context) (*LoginResponse, error)
 // ConfirmEmail Confirm the verified email with the given code that was emitted.
 func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepEmailConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepEmailConfirmation)
 	}
 	return r.confirmWithCode(ctx, "challenge-authenticator", code)
 }
@@ -315,7 +315,7 @@ func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginRe
 // when other steps are optional.
 func (r *LoginResponse) Skip(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepSkip) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepSkip)
 	}
 	resp, err := skip(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -331,7 +331,7 @@ func (r *LoginResponse) Skip(ctx context.Context) (*LoginResponse, error) {
 // Cancel the whole login process.
 func (r *LoginResponse) Cancel(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepCancel) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepCancel)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -595,4 +595,16 @@ func enrollOktaVerify(ctx context.Context, handle *InteractionHandle, option Okt
 				}
 			}`)
 	return ro.proceed(ctx, authenticator)
+}
+
+func (r *LoginResponse) missingStepError(missingStep LoginStep) (*LoginResponse, error) {
+	steps := ""
+	for index, step := range r.availableSteps {
+		if index != 0 {
+			steps = fmt.Sprintf("%s, ", steps)
+		}
+		steps = fmt.Sprintf("%s%q", steps, step)
+
+	}
+	return nil, fmt.Errorf("%q login step is not available, please try one of %s", missingStep, steps)
 }
