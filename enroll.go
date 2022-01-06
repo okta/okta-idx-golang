@@ -83,6 +83,15 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	return er, nil
 }
 
+// EnrollmentSuccess Determines if the enrollment response represents an enrollment success.
+func (r *EnrollmentResponse) EnrollmentSuccess() bool {
+	if r.HasStep(EnrollmentStepSuccess) && len(r.availableSteps) == 1 {
+		return true
+	}
+
+	return false
+}
+
 // SetNewPassword sets new password for the user.
 func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPasswordSetup) {
