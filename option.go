@@ -79,6 +79,7 @@ func (v *FormValue) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.DynamicValue)
 }
 
+//nolint:dupl
 // UnmarshallJSON Unmarshals FormValue JSON data.
 func (v *FormValue) UnmarshalJSON(data []byte) error {
 	type localIDX FormValue
@@ -131,6 +132,7 @@ type FormOptions struct {
 	RelatesTo    string           `json:"relatesTo"`
 }
 
+//nolint:dupl
 // UnmarshallJSON Unmarshals FormOptions JSON data.
 func (r *FormOptions) UnmarshalJSON(data []byte) error {
 	type localIDX FormOptions

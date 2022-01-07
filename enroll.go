@@ -586,7 +586,6 @@ func (r *EnrollmentResponse) missingStepError(missingStep EnrollmentStep) (*Enro
 			steps = fmt.Sprintf("%s, ", steps)
 		}
 		steps = fmt.Sprintf("%s%q", steps, step)
-
 	}
 	return nil, fmt.Errorf("%q enrollment step is not available, please try one of %s", missingStep, steps)
 }
