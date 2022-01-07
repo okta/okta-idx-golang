@@ -25,8 +25,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http/httputil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"runtime"
@@ -50,7 +50,7 @@ var idx *Client
 type Client struct {
 	config     *Config
 	httpClient *http.Client
-    debug bool
+	debug      bool
 }
 
 // NewClient New client constructor that is configured with configuration file
@@ -342,6 +342,23 @@ func createState() (string, error) {
 		return "", fmt.Errorf("error creating state: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(localState), nil
+}
+
+func totpAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption(remediation)
+	if err != nil {
+		return nil, err
+	}
+	credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"totp": "%s"
+				}
+			}`, strings.TrimSpace(passcode)))
+	return ro.proceed(ctx, credentials)
 }
 
 func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
