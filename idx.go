@@ -378,6 +378,24 @@ func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcod
 	return ro.proceed(ctx, credentials)
 }
 
+func webAuthNCredentials(ctx context.Context, idxContext *Context, remediation string, credentials *WebAuthNCredentials) (*Response, error) {
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption(remediation)
+	if err != nil {
+		return nil, err
+	}
+	data := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"attestation": "%s",
+					"clientData": "%s"
+				}
+			}`, credentials.Attestation, credentials.ClientData))
+	return ro.proceed(ctx, data)
+}
+
 func verifyEmail(ctx context.Context, idxContext *Context, authenticatorOption string) (*Response, error) {
 	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {

@@ -19,6 +19,7 @@ package idx
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -191,7 +192,7 @@ func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResp
 	if !r.HasStep(LoginStepGoogleAuthenticatorInitialVerification) {
 		return r.missingStepError(LoginStepGoogleAuthenticatorInitialVerification)
 	}
-	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
+	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, "Google Authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -214,6 +215,37 @@ func (r *LoginResponse) GoogleAuthConfirm(ctx context.Context, code string) (*Lo
 	resp, err := r.confirmWithCode(ctx, "challenge-authenticator", code)
 	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
 		return r.confirmWithCode(ctx, "enroll-authenticator", code)
+	}
+	return resp, err
+}
+
+func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepWebAuthNInitialVerification) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, "Security Key or Biometric")
+	if err != nil {
+		return nil, err
+	}
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.availableSteps = append(r.availableSteps, LoginStepWebAuthNConfirmation)
+	return r, nil
+}
+
+func (r *LoginResponse) WebAuthNConfirm(ctx context.Context, credentials *WebAuthNCredentials) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepWebAuthNConfirmation) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	if credentials == nil {
+		return nil, errors.New("invalid credentials")
+	}
+	resp, err := r.confirmWithWebAuthNCredentials(ctx, "challenge-authenticator", credentials)
+	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
+		return r.confirmWithWebAuthNCredentials(ctx, "enroll-authenticator", credentials)
 	}
 	return resp, err
 }
@@ -420,6 +452,8 @@ var loginStepText = map[LoginStep]string{
 	LoginStepOktaVerify:                             "OKTA_VERIFY",
 	LoginStepGoogleAuthenticatorInitialVerification: "GOOGLE_AUTHENTICATOR_INITIAL_VERIFICATION",
 	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
+	LoginStepWebAuthNInitialVerification:            "WEB_AUTHN_INITIAL_VERIFICATION",
+	LoginStepWebAuthNConfirmation:                   "WEB_AUTHN_CONFIRMATION",
 	LoginStepCancel:                                 "CANCEL",
 	LoginStepSkip:                                   "SKIP",
 	LoginStepSuccess:                                "SUCCESS",
@@ -439,6 +473,8 @@ const (
 	LoginStepOktaVerify                                                  // 'OktaVerify'
 	LoginStepGoogleAuthenticatorInitialVerification                      // `GoogleAuthInitialVerify`
 	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
+	LoginStepWebAuthNInitialVerification                                 // `WebAuthInitialVerification`
+	LoginStepWebAuthNConfirmation                                        // `WebAuthConfirm`
 	LoginStepCancel                                                      // 'Cancel'
 	LoginStepSkip                                                        // 'Skip'
 	LoginStepSuccess                                                     // 'Token'
@@ -505,6 +541,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		r.appendStep(LoginStepGoogleAuthenticatorConfirmation)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Key or Biometric", false)
+	if err == nil {
+		steps = append(steps, LoginStepWebAuthNConfirmation)
+	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
 		r.appendStep(LoginStepPhoneInitialVerification)
@@ -512,6 +552,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
 		r.appendStep(LoginStepGoogleAuthenticatorInitialVerification)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Key or Biometric", false)
+	if err == nil {
+		steps = append(steps, LoginStepWebAuthNInitialVerification)
 	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
@@ -545,6 +589,15 @@ func (r *LoginResponse) confirmWithTotpCode(ctx context.Context, remediationOpt,
 
 func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
 	resp, err := passcodeAuth(ctx, r.idxContext, remediationOpt, code)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	return r, err
+}
+
+func (r *LoginResponse) confirmWithWebAuthNCredentials(ctx context.Context, remediation string, credentials *WebAuthNCredentials) (*LoginResponse, error) {
+	resp, err := webAuthNCredentials(ctx, r.idxContext, remediation, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -588,12 +641,12 @@ func sendPasscode(ctx context.Context, challengeAuthenticator *RemediationOption
 	return challengeAuthenticator.proceed(ctx, credentials)
 }
 
-func enrollGoogleAuth(ctx context.Context, handle *InteractionHandle) (*Response, error) {
+func enrollAuthenticator(ctx context.Context, handle *InteractionHandle, authenticatorLabel string) (*Response, error) {
 	resp, err := idx.introspect(ctx, handle)
 	if err != nil {
 		return nil, err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", true)
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", authenticatorLabel, true)
 	if err != nil {
 		return nil, err
 	}
