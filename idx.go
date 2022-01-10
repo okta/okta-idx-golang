@@ -439,6 +439,9 @@ func (c *Client) oAuthEndPoint(operation string) string {
 }
 
 func (c *Client) debugRequest(req *http.Request) {
+	if req == nil {
+		return
+	}
 	fmt.Fprintln(os.Stderr, "== IDX CLIENT DEBUG REQUEST  ======")
 	dump, err := httputil.DumpRequest(req, true)
 	if err == nil {
@@ -450,6 +453,9 @@ func (c *Client) debugRequest(req *http.Request) {
 }
 
 func (c *Client) debugResponse(resp *http.Response) {
+	if resp == nil {
+		return
+	}
 	fmt.Fprintf(os.Stderr, "== IDX CLIENT DEBUG RESPONSE ======")
 	dump, err := httputil.DumpResponse(resp, true)
 	if err == nil {
