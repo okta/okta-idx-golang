@@ -176,12 +176,7 @@ func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentRes
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorInit) {
 		return r.missingStepError(EnrollmentStepGoogleAuthenticatorInit)
 	}
-	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, "Google Authenticator")
-	if err != nil {
-		return nil, err
-	}
-	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
-	err = r.setupNextSteps(ctx, resp)
+	err := r.enrollAuthenticator(ctx, "Google Authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -274,12 +269,7 @@ func (r *EnrollmentResponse) WebAuthNSetup(ctx context.Context) (*EnrollmentResp
 	if !r.HasStep(EnrollmentStepWebAuthNSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, "Security Key or Biometric")
-	if err != nil {
-		return nil, err
-	}
-	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
-	err = r.setupNextSteps(ctx, resp)
+	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +591,7 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Key or Biometric", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepWebAuthNSetup)
+		r.appendStep(EnrollmentStepWebAuthNSetup)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
@@ -647,4 +637,13 @@ func (r *EnrollmentResponse) appendStep(step EnrollmentStep) {
 		}
 	}
 	r.availableSteps = append(r.availableSteps, step)
+}
+
+func (r *EnrollmentResponse) enrollAuthenticator(ctx context.Context, authenticatorLabel string) error {
+	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, authenticatorLabel)
+	if err != nil {
+		return err
+	}
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	return r.setupNextSteps(ctx, resp)
 }

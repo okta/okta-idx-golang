@@ -259,6 +259,32 @@ func (c *Client) verifyToken(t string) (*verifier.Jwt, error) {
 	return nil, fmt.Errorf("token could not be verified, result nil")
 }
 
+func (c *Client) RevokeToken(ctx context.Context, accessToken string) error {
+	data := url.Values{
+		"token_type_hint": {"access_token"},
+		"token":           {accessToken},
+	}
+	revokeEndpoint := c.oAuthEndPoint("revoke")
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, revokeEndpoint, strings.NewReader(data.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	withOktaUserAgent(req)
+
+	_, err := c.httpClient.Do(req)
+	return err
+}
+
+func (c *Client) oAuthEndPoint(operation string) string {
+	var endPoint string
+	issuer := c.Config().Okta.IDX.Issuer
+	if strings.Contains(issuer, "oauth2") {
+		endPoint = fmt.Sprintf("%s/v1/%s", issuer, operation)
+	} else {
+		endPoint = fmt.Sprintf("%s/oauth2/v1/%s", issuer, operation)
+	}
+	return endPoint
+}
+
 func withOktaUserAgent(req *http.Request) {
 	userAgent := fmt.Sprintf("okta-idx-golang/%s golang/%s %s/%s", packageVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	req.Header.Add("User-Agent", userAgent)
@@ -430,30 +456,21 @@ func setPassword(ctx context.Context, idxContext *Context, optionName, password 
 	return ro.proceed(ctx, credentials)
 }
 
-func (c *Client) RevokeToken(ctx context.Context, accessToken string) error {
-	data := url.Values{
-		"token_type_hint": {"access_token"},
-		"token":           {accessToken},
+func enrollAuthenticator(ctx context.Context, handle *InteractionHandle, authenticatorLabel string) (*Response, error) {
+	resp, err := idx.introspect(ctx, handle)
+	if err != nil {
+		return nil, err
 	}
-	revokeEndpoint := c.oAuthEndPoint("revoke")
-
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, revokeEndpoint, strings.NewReader(data.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	withOktaUserAgent(req)
-
-	_, err := c.httpClientDo(req)
-	return err
-}
-
-func (c *Client) oAuthEndPoint(operation string) string {
-	var endPoint string
-	issuer := c.Config().Okta.IDX.Issuer
-	if strings.Contains(issuer, "oauth2") {
-		endPoint = fmt.Sprintf("%s/v1/%s", issuer, operation)
-	} else {
-		endPoint = fmt.Sprintf("%s/oauth2/v1/%s", issuer, operation)
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", authenticatorLabel, true)
+	if err != nil {
+		return nil, err
 	}
-	return endPoint
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	return ro.proceed(ctx, authenticator)
 }
 
 func (c *Client) debugRequest(req *http.Request) {

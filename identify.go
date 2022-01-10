@@ -192,12 +192,7 @@ func (r *LoginResponse) GoogleAuthInitialVerify(ctx context.Context) (*LoginResp
 	if !r.HasStep(LoginStepGoogleAuthenticatorInitialVerification) {
 		return r.missingStepError(LoginStepGoogleAuthenticatorInitialVerification)
 	}
-	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, "Google Authenticator")
-	if err != nil {
-		return nil, err
-	}
-	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
-	err = r.setupNextSteps(ctx, resp)
+	err := r.enrollAuthenticator(ctx, "Google Authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -223,12 +218,7 @@ func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context) (*LoginRespon
 	if !r.HasStep(LoginStepWebAuthNInitialVerification) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
-	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, "Security Key or Biometric")
-	if err != nil {
-		return nil, err
-	}
-	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
-	err = r.setupNextSteps(ctx, resp)
+	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +533,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Key or Biometric", false)
 	if err == nil {
-		steps = append(steps, LoginStepWebAuthNConfirmation)
+		r.appendStep(LoginStepWebAuthNConfirmation)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
@@ -555,7 +545,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Key or Biometric", false)
 	if err == nil {
-		steps = append(steps, LoginStepWebAuthNInitialVerification)
+		r.appendStep(LoginStepWebAuthNInitialVerification)
 	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
@@ -641,21 +631,13 @@ func sendPasscode(ctx context.Context, challengeAuthenticator *RemediationOption
 	return challengeAuthenticator.proceed(ctx, credentials)
 }
 
-func enrollAuthenticator(ctx context.Context, handle *InteractionHandle, authenticatorLabel string) (*Response, error) {
-	resp, err := idx.introspect(ctx, handle)
+func (r *LoginResponse) enrollAuthenticator(ctx context.Context, authenticatorLabel string) error {
+	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, authenticatorLabel)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", authenticatorLabel, true)
-	if err != nil {
-		return nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	return ro.proceed(ctx, authenticator)
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	return r.setupNextSteps(ctx, resp)
 }
 
 func enrollOktaVerify(ctx context.Context, handle *InteractionHandle, option OktaVerifyOption) (*Response, error) {

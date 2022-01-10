@@ -435,7 +435,7 @@ type ActivationData struct {
 type ActivationDataUser struct {
 	DisplayName string `json:"displayName"`
 	Name        string `json:"name"`
-	Id          string `json:"id"`
+	ID          string `json:"id"`
 }
 
 type PubKeyCredParam struct {
