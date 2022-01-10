@@ -586,7 +586,8 @@ func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, cod
 	return r, err
 }
 
-func (r *LoginResponse) confirmWithWebAuthNCredentials(ctx context.Context, remediation string, credentials *WebAuthNCredentials) (*LoginResponse, error) {
+func (r *LoginResponse) confirmWithWebAuthNCredentials(ctx context.Context, remediation string,
+	credentials *WebAuthNCredentials) (*LoginResponse, error) {
 	resp, err := webAuthNCredentials(ctx, r.idxContext, remediation, credentials)
 	if err != nil {
 		return nil, err
