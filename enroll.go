@@ -541,20 +541,25 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepSuccess:                         "SUCCESS",
 }
 
-func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
-	if resp.LoginSuccess() {
-		exchangeForm := []byte(`{
+func (r *EnrollmentResponse) setupNextStepsLoginSuccess(ctx context.Context, resp *Response) error {
+	exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
 			"code_verifier": "` + r.idxContext.CodeVerifier + `"
 		}`)
-		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
-		if err != nil {
-			return err
-		}
-		r.token = tokens
-		r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
-		return nil
+	tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
+	if err != nil {
+		return err
 	}
+	r.token = tokens
+	r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
+	return nil
+}
+
+func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
+	if resp.LoginSuccess() {
+		return r.setupNextStepsLoginSuccess(ctx, resp)
+	}
+
 	// resets steps
 	r.availableSteps = []EnrollmentStep{}
 
