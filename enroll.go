@@ -273,7 +273,7 @@ func (r *EnrollmentResponse) WebAuthNSetup(ctx context.Context) (*EnrollmentResp
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepWebAuthNVerify)
+	r.appendStep(EnrollmentStepWebAuthNVerify)
 	return r, nil
 }
 

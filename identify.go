@@ -222,7 +222,7 @@ func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context) (*LoginRespon
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, LoginStepWebAuthNConfirmation)
+	r.appendStep(LoginStepWebAuthNConfirmation)
 	return r, nil
 }
 
