@@ -152,6 +152,41 @@ func (r *EnrollmentResponse) OktaVerifyInit(ctx context.Context, option OktaVeri
 	return r, nil
 }
 
+// OktaVerifySMSInit Initiate Okta Verify enrollment via SMS message
+func (r *EnrollmentResponse) OktaVerifySMSInit(ctx context.Context, option OktaVerifyOption, destination string) (*EnrollmentResponse, error) {
+	// set channel to sms
+	_, err := r.OktaVerifyInit(ctx, OktaVerifyOptionSms)
+	if err != nil {
+		return nil, err
+	}
+
+	// introspect in order to set up input
+	if !r.HasStep(EnrollmentStepEnrollmentChannelData) {
+		return r.missingStepError(EnrollmentStepEnrollmentChannelData)
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the phoneNumber and proceed
+	ro, err := resp.remediationOption("enrollment-channel-data")
+	if err != nil {
+		return nil, err
+	}
+
+	phoneNumber := []byte(`{"phoneNumber":"` + destination + `"}`)
+	resp, err = ro.proceed(ctx, phoneNumber)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // OktaVerifyContinuePolling Determines if the client should continue polling for Okta Verify enrollment.
 func (r *EnrollmentResponse) OktaVerifyContinuePolling(ctx context.Context) (*EnrollmentResponse, bool, error) {
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
@@ -513,6 +548,7 @@ const (
 	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
 	EnrollmentStepOktaVerifyInit                                            // `OktaVerifyInit`
 	EnrollmentStepOktaVerifyPoll                                            // `OktaVerifyPoll`
+	EnrollmentStepEnrollmentChannelData                                     // `EnrollmentChannelData`
 	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
 	EnrollmentStepWebAuthNSetup                                             // `WebAuthNSetup`
@@ -532,6 +568,7 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepSecurityQuestionSetup:           "SECURITY_QUESTION_SETUP",
 	EnrollmentStepOktaVerifyInit:                  "OKTA_VERIFY_INIT",
 	EnrollmentStepOktaVerifyPoll:                  "OKTA_VERIFY_POLL",
+	EnrollmentStepEnrollmentChannelData:           "ENROLLMENT_CHANNEL_DATA",
 	EnrollmentStepGoogleAuthenticatorInit:         "GOOGLE_AUTHENTICATOR_INIT",
 	EnrollmentStepGoogleAuthenticatorConfirmation: "GOOGLE_AUTHENTICATOR_CONFIRM",
 	EnrollmentStepWebAuthNSetup:                   "WEB_AUTHN_SETUP",
@@ -589,6 +626,10 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	_, err = resp.remediationOption("enroll-poll")
 	if err == nil {
 		r.appendStep(EnrollmentStepOktaVerifyPoll)
+	}
+	_, err = resp.remediationOption("enrollment-channel-data")
+	if err == nil {
+		r.appendStep(EnrollmentStepEnrollmentChannelData)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
