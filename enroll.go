@@ -83,10 +83,19 @@ func (c *Client) InitProfileEnroll(ctx context.Context, up *UserProfile) (*Enrol
 	return er, nil
 }
 
+// EnrollmentSuccess Determines if the enrollment response represents an enrollment success.
+func (r *EnrollmentResponse) EnrollmentSuccess() bool {
+	if r.HasStep(EnrollmentStepSuccess) && len(r.availableSteps) == 1 {
+		return true
+	}
+
+	return false
+}
+
 // SetNewPassword sets new password for the user.
 func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPasswordSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepPasswordSetup)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -125,22 +134,47 @@ func (r *EnrollmentResponse) SetNewPassword(ctx context.Context, password string
 	return r, nil
 }
 
-// OktaVerify verify identification.
-func (r *EnrollmentResponse) OktaVerify(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
-	if !r.HasStep(EnrollmentStepOktaVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+// OktaVerifyInit Initiate Okta Verify enrollment
+func (r *EnrollmentResponse) OktaVerifyInit(ctx context.Context, option OktaVerifyOption) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepOktaVerifyInit) {
+		return r.missingStepError(EnrollmentStepOktaVerifyInit)
 	}
-	if option != OktaVerifyOptionQRCode && option != OktaVerifyOptionEmail && option != OktaVerifyOptionSms {
-		return nil, fmt.Errorf("%s is invalid Okta Verify option, plese use %s, %s or %s", option,
-			OktaVerifyOptionQRCode, OktaVerifyOptionEmail, OktaVerifyOptionSms)
+	resp, err := enrollOktaVerify(ctx, r.idxContext.InteractionHandle, option)
+	if err != nil {
+		return nil, err
 	}
-	panic("not implemented")
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	r.appendStep(EnrollmentStepOktaVerifyPoll)
+	return r, nil
+}
+
+// OktaVerifyContinuePolling Determines if the client should continue polling for Okta Verify enrollment.
+func (r *EnrollmentResponse) OktaVerifyContinuePolling(ctx context.Context) (*EnrollmentResponse, bool, error) {
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, false, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Polling should continue if enroll-poll remidation step is present
+	if r.HasStep(EnrollmentStepOktaVerifyPoll) {
+		return r, true, nil
+	}
+
+	return r, false, nil
 }
 
 // GoogleAuthInit initiates Google Authenticator setup
 func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorInit) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepGoogleAuthenticatorInit)
 	}
 	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -151,13 +185,13 @@ func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentRes
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepGoogleAuthenticatorConfirmation)
+	r.appendStep(EnrollmentStepGoogleAuthenticatorConfirmation)
 	return r, nil
 }
 
 func (r *EnrollmentResponse) GoogleAuthConfirm(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepGoogleAuthenticatorConfirmation)
 	}
 	defer func() {
 		r.contextualData = nil
@@ -168,7 +202,7 @@ func (r *EnrollmentResponse) GoogleAuthConfirm(ctx context.Context, code string)
 // VerifyEmail sends verification code to the email provided at the first step.
 func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepEmailVerification)
 	}
 	resp, err := verifyEmail(ctx, r.idxContext, "select-authenticator-enroll")
 	if err != nil {
@@ -178,14 +212,14 @@ func (r *EnrollmentResponse) VerifyEmail(ctx context.Context) (*EnrollmentRespon
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepEmailConfirmation)
+	r.appendStep(EnrollmentStepEmailConfirmation)
 	return r, nil
 }
 
 // ConfirmEmail confirms email address using the provided code.
 func (r *EnrollmentResponse) ConfirmEmail(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepEmailConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepEmailConfirmation)
 	}
 	return r.confirmWithCode(ctx, code)
 }
@@ -213,7 +247,7 @@ const (
 // should contain a country code in `+` format e.g. `+11231231234`.
 func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption, phoneNumber string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneVerification) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepPhoneVerification)
 	}
 	resp, err := verifyPhone(ctx, "select-authenticator-enroll", r.idxContext.InteractionHandle, option, phoneNumber)
 	if err != nil {
@@ -223,14 +257,14 @@ func (r *EnrollmentResponse) VerifyPhone(ctx context.Context, option PhoneOption
 	if err != nil {
 		return nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepPhoneConfirmation)
+	r.appendStep(EnrollmentStepPhoneConfirmation)
 	return r, nil
 }
 
 // ConfirmPhone confirms phone number using the provided code.
 func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepPhoneConfirmation) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepPhoneConfirmation)
 	}
 	return r.confirmWithCode(ctx, code)
 }
@@ -239,7 +273,7 @@ func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*En
 // when other steps are optional.
 func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSkip) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepSkip)
 	}
 	resp, err := skip(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -255,7 +289,7 @@ func (r *EnrollmentResponse) Skip(ctx context.Context) (*EnrollmentResponse, err
 // Cancel the whole enrollment process.
 func (r *EnrollmentResponse) Cancel(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepCancel) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepCancel)
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -280,7 +314,8 @@ type SecurityQuestions map[string]string
 // SecurityQuestionOptions returns list of available security questions.
 func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*EnrollmentResponse, SecurityQuestions, error) {
 	if !r.HasStep(EnrollmentStepSecurityQuestionOptions) {
-		return nil, nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		resp, err := r.missingStepError(EnrollmentStepSecurityQuestionOptions)
+		return resp, nil, err
 	}
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
 	if err != nil {
@@ -324,7 +359,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 	if err != nil {
 		return nil, nil, err
 	}
-	r.availableSteps = append(r.availableSteps, EnrollmentStepSecurityQuestionSetup)
+	r.appendStep(EnrollmentStepSecurityQuestionSetup)
 	m["custom"] = "Create a security question"
 	return r, m, nil
 }
@@ -341,7 +376,7 @@ type SecurityQuestion struct {
 // SetupSecurityQuestion sets up the security question.
 func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *SecurityQuestion) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepSecurityQuestionSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepSecurityQuestionSetup)
 	}
 	if sq.QuestionKey == "" {
 		return nil, errors.New("missing security question key")
@@ -444,7 +479,8 @@ const (
 	EnrollmentStepPhoneConfirmation                                         // 'ConfirmPhone'
 	EnrollmentStepSecurityQuestionOptions                                   // 'SecurityQuestionOptions'
 	EnrollmentStepSecurityQuestionSetup                                     // 'SetupSecurityQuestion`
-	EnrollmentStepOktaVerify                                                // `OktaVerify`
+	EnrollmentStepOktaVerifyInit                                            // `OktaVerifyInit`
+	EnrollmentStepOktaVerifyPoll                                            // `OktaVerifyPoll`
 	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
 	EnrollmentStepCancel                                                    // 'Cancel'
@@ -460,7 +496,8 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepPhoneConfirmation:               "PHONE_CONFIRMATION",
 	EnrollmentStepSecurityQuestionOptions:         "SECURITY_QUESTION_OPTIONS",
 	EnrollmentStepSecurityQuestionSetup:           "SECURITY_QUESTION_SETUP",
-	EnrollmentStepOktaVerify:                      "OKTA_VERIFY",
+	EnrollmentStepOktaVerifyInit:                  "OKTA_VERIFY_INIT",
+	EnrollmentStepOktaVerifyPoll:                  "OKTA_VERIFY_POLL",
 	EnrollmentStepGoogleAuthenticatorInit:         "GOOGLE_AUTHENTICATOR_INIT",
 	EnrollmentStepGoogleAuthenticatorConfirmation: "GOOGLE_AUTHENTICATOR_CONFIRM",
 	EnrollmentStepCancel:                          "CANCEL",
@@ -482,42 +519,47 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 		r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
 		return nil
 	}
-	var steps []EnrollmentStep
+	// resets steps
+	r.availableSteps = []EnrollmentStep{}
+
 	if resp.CancelResponse != nil {
-		steps = append(steps, EnrollmentStepCancel)
+		r.appendStep(EnrollmentStepCancel)
 	}
 	_, _, err := resp.authenticatorOption("select-authenticator-enroll", "Password", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepPasswordSetup)
+		r.appendStep(EnrollmentStepPasswordSetup)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Email", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepEmailVerification)
+		r.appendStep(EnrollmentStepEmailVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepPhoneVerification)
+		r.appendStep(EnrollmentStepPhoneVerification)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepSecurityQuestionOptions)
+		r.appendStep(EnrollmentStepSecurityQuestionOptions)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepOktaVerify)
+		r.appendStep(EnrollmentStepOktaVerifyInit)
+	}
+	_, err = resp.remediationOption("enroll-poll")
+	if err == nil {
+		r.appendStep(EnrollmentStepOktaVerifyPoll)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
-		steps = append(steps, EnrollmentStepGoogleAuthenticatorInit)
+		r.appendStep(EnrollmentStepGoogleAuthenticatorInit)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
-		steps = append(steps, EnrollmentStepSkip)
+		r.appendStep(EnrollmentStepSkip)
 	}
-	if len(steps) == 0 {
+	if len(r.availableSteps) == 0 {
 		return fmt.Errorf("there are no more steps available: %v", resp.Messages.Values)
 	}
-	r.availableSteps = steps
 	return nil
 }
 
@@ -535,4 +577,24 @@ func (r *EnrollmentResponse) confirmWithCode(ctx context.Context, code string) (
 		return nil, err
 	}
 	return r, nil
+}
+
+func (r *EnrollmentResponse) missingStepError(missingStep EnrollmentStep) (*EnrollmentResponse, error) {
+	steps := ""
+	for index, step := range r.availableSteps {
+		if index != 0 {
+			steps = fmt.Sprintf("%s, ", steps)
+		}
+		steps = fmt.Sprintf("%s%q", steps, step)
+	}
+	return nil, fmt.Errorf("%q enrollment step is not available, please try one of %s", missingStep, steps)
+}
+
+func (r *EnrollmentResponse) appendStep(step EnrollmentStep) {
+	for _, _step := range r.availableSteps {
+		if step == _step {
+			return
+		}
+	}
+	r.availableSteps = append(r.availableSteps, step)
 }
