@@ -412,14 +412,44 @@ type CurrentAuthenticatorEnrollment struct {
 }
 
 type ContextualData struct {
-	QRcode       QRcode `json:"qrcode"`
-	SharedSecret string `json:"sharedSecret"`
+	QRcode         QRcode          `json:"qrcode"`
+	SharedSecret   string          `json:"sharedSecret"`
+	ActivationData *ActivationData `json:"activationData"`
 }
 
 type QRcode struct {
 	Method string `json:"method"`
 	Href   string `json:"href"`
 	Type   string `json:"type"`
+}
+
+type ActivationData struct {
+	User                   ActivationDataUser     `json:"user"`
+	PubKeyCredParams       []PubKeyCredParam      `json:"pubKeyCredParams"`
+	Challenge              string                 `json:"challenge"`
+	Attestation            string                 `json:"attestation"`
+	AuthenticatorSelection AuthenticatorSelection `json:"authenticatorSelection"`
+	U2FParams              U2FParams              `json:"u2fParams"`
+}
+
+type ActivationDataUser struct {
+	DisplayName string `json:"displayName"`
+	Name        string `json:"name"`
+	ID          string `json:"id"`
+}
+
+type PubKeyCredParam struct {
+	Type string `json:"type"`
+	Alg  int    `json:"alg"`
+}
+
+type AuthenticatorSelection struct {
+	UserVerification   string `json:"userVerification"`
+	RequireResidentKey bool   `json:"requireResidentKey"`
+}
+
+type U2FParams struct {
+	Appid string `json:"appid"`
 }
 
 // proceed allows you to continue the remediation with this option.  It will

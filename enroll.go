@@ -176,12 +176,7 @@ func (r *EnrollmentResponse) GoogleAuthInit(ctx context.Context) (*EnrollmentRes
 	if !r.HasStep(EnrollmentStepGoogleAuthenticatorInit) {
 		return r.missingStepError(EnrollmentStepGoogleAuthenticatorInit)
 	}
-	resp, err := enrollGoogleAuth(ctx, r.idxContext.InteractionHandle)
-	if err != nil {
-		return nil, err
-	}
-	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
-	err = r.setupNextSteps(ctx, resp)
+	err := r.enrollAuthenticator(ctx, "Google Authenticator")
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +262,43 @@ func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*En
 		return r.missingStepError(EnrollmentStepPhoneConfirmation)
 	}
 	return r.confirmWithCode(ctx, code)
+}
+
+// WebAuthNSetup initiates WebAuthN setup
+func (r *EnrollmentResponse) WebAuthNSetup(ctx context.Context) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepWebAuthNSetup) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
+	if err != nil {
+		return nil, err
+	}
+	r.appendStep(EnrollmentStepWebAuthNVerify)
+	return r, nil
+}
+
+type WebAuthNCredentials struct {
+	Attestation string `json:"attestation"`
+	ClientData  string `json:"clientData"`
+}
+
+// WebAuthNVerify enrolls user's Security Key or Biometric
+func (r *EnrollmentResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNCredentials) (*EnrollmentResponse, error) {
+	if !r.HasStep(EnrollmentStepWebAuthNVerify) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	if credentials == nil {
+		return nil, errors.New("invalid credentials")
+	}
+	resp, err := webAuthNCredentials(ctx, r.idxContext, "enroll-authenticator", credentials)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // Skip represents general step to proceed with no action.  It usually appears
@@ -483,6 +515,8 @@ const (
 	EnrollmentStepOktaVerifyPoll                                            // `OktaVerifyPoll`
 	EnrollmentStepGoogleAuthenticatorInit                                   // `GoogleAuthInitialVerify`
 	EnrollmentStepGoogleAuthenticatorConfirmation                           // `GoogleAuthConfirm`
+	EnrollmentStepWebAuthNSetup                                             // `WebAuthNSetup`
+	EnrollmentStepWebAuthNVerify                                            // `WebAuthNVerify`
 	EnrollmentStepCancel                                                    // 'Cancel'
 	EnrollmentStepSkip                                                      // 'Skip'
 	EnrollmentStepSuccess                                                   // 'Token'
@@ -500,25 +534,32 @@ var enrollStepText = map[EnrollmentStep]string{
 	EnrollmentStepOktaVerifyPoll:                  "OKTA_VERIFY_POLL",
 	EnrollmentStepGoogleAuthenticatorInit:         "GOOGLE_AUTHENTICATOR_INIT",
 	EnrollmentStepGoogleAuthenticatorConfirmation: "GOOGLE_AUTHENTICATOR_CONFIRM",
+	EnrollmentStepWebAuthNSetup:                   "WEB_AUTHN_SETUP",
+	EnrollmentStepWebAuthNVerify:                  "WEB_AUTHN_VERIFY",
 	EnrollmentStepCancel:                          "CANCEL",
 	EnrollmentStepSkip:                            "SKIP",
 	EnrollmentStepSuccess:                         "SUCCESS",
 }
 
-func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
-	if resp.LoginSuccess() {
-		exchangeForm := []byte(`{
+func (r *EnrollmentResponse) setupNextStepsLoginSuccess(ctx context.Context, resp *Response) error {
+	exchangeForm := []byte(`{
 			"client_secret": "` + idx.ClientSecret() + `",
 			"code_verifier": "` + r.idxContext.CodeVerifier + `"
 		}`)
-		tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
-		if err != nil {
-			return err
-		}
-		r.token = tokens
-		r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
-		return nil
+	tokens, err := resp.SuccessResponse.exchangeCode(ctx, exchangeForm)
+	if err != nil {
+		return err
 	}
+	r.token = tokens
+	r.availableSteps = []EnrollmentStep{EnrollmentStepSuccess}
+	return nil
+}
+
+func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response) error {
+	if resp.LoginSuccess() {
+		return r.setupNextStepsLoginSuccess(ctx, resp)
+	}
+
 	// resets steps
 	r.availableSteps = []EnrollmentStep{}
 
@@ -552,6 +593,10 @@ func (r *EnrollmentResponse) setupNextSteps(ctx context.Context, resp *Response)
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
 		r.appendStep(EnrollmentStepGoogleAuthenticatorInit)
+	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Key or Biometric", false)
+	if err == nil {
+		r.appendStep(EnrollmentStepWebAuthNSetup)
 	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
@@ -597,4 +642,13 @@ func (r *EnrollmentResponse) appendStep(step EnrollmentStep) {
 		}
 	}
 	r.availableSteps = append(r.availableSteps, step)
+}
+
+func (r *EnrollmentResponse) enrollAuthenticator(ctx context.Context, authenticatorLabel string) error {
+	resp, err := enrollAuthenticator(ctx, r.idxContext.InteractionHandle, authenticatorLabel)
+	if err != nil {
+		return err
+	}
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	return r.setupNextSteps(ctx, resp)
 }
