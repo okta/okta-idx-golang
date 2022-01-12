@@ -187,6 +187,41 @@ func (r *EnrollmentResponse) OktaVerifySMSInit(ctx context.Context, option OktaV
 	return r, nil
 }
 
+// OktaVerifyEmailInit Initiate Okta Verify enrollment via Email message
+func (r *EnrollmentResponse) OktaVerifyEmailInit(ctx context.Context, option OktaVerifyOption, destination string) (*EnrollmentResponse, error) {
+	// set channel to email
+	_, err := r.OktaVerifyInit(ctx, OktaVerifyOptionEmail)
+	if err != nil {
+		return nil, err
+	}
+
+	// introspect in order to set up input
+	if !r.HasStep(EnrollmentStepEnrollmentChannelData) {
+		return r.missingStepError(EnrollmentStepEnrollmentChannelData)
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the email and proceed
+	ro, err := resp.remediationOption("enrollment-channel-data")
+	if err != nil {
+		return nil, err
+	}
+
+	email := []byte(`{"email":"` + destination + `"}`)
+	resp, err = ro.proceed(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // OktaVerifyContinuePolling Determines if the client should continue polling for Okta Verify enrollment.
 func (r *EnrollmentResponse) OktaVerifyContinuePolling(ctx context.Context) (*EnrollmentResponse, bool, error) {
 	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
