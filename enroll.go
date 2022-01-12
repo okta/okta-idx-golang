@@ -153,7 +153,7 @@ func (r *EnrollmentResponse) OktaVerifyInit(ctx context.Context, option OktaVeri
 }
 
 // OktaVerifySMSInit Initiate Okta Verify enrollment via SMS message
-func (r *EnrollmentResponse) OktaVerifySMSInit(ctx context.Context, option OktaVerifyOption, destination string) (*EnrollmentResponse, error) {
+func (r *EnrollmentResponse) OktaVerifySMSInit(ctx context.Context, destination string) (*EnrollmentResponse, error) {
 	// set channel to sms
 	_, err := r.OktaVerifyInit(ctx, OktaVerifyOptionSms)
 	if err != nil {
@@ -188,7 +188,7 @@ func (r *EnrollmentResponse) OktaVerifySMSInit(ctx context.Context, option OktaV
 }
 
 // OktaVerifyEmailInit Initiate Okta Verify enrollment via Email message
-func (r *EnrollmentResponse) OktaVerifyEmailInit(ctx context.Context, option OktaVerifyOption, destination string) (*EnrollmentResponse, error) {
+func (r *EnrollmentResponse) OktaVerifyEmailInit(ctx context.Context, destination string) (*EnrollmentResponse, error) {
 	// set channel to email
 	_, err := r.OktaVerifyInit(ctx, OktaVerifyOptionEmail)
 	if err != nil {
