@@ -214,30 +214,71 @@ func (r *LoginResponse) GoogleAuthConfirm(ctx context.Context, code string) (*Lo
 	return resp, err
 }
 
-func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context) (*LoginResponse, error) {
-	if !r.HasStep(LoginStepWebAuthNInitialVerification) {
+func (r *LoginResponse) WebAuthNSetup(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepWebAuthNSetup) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
 	if err != nil {
 		return nil, err
 	}
-	r.appendStep(LoginStepWebAuthNConfirmation)
+	r.appendStep(LoginStepWebAuthNInitialVerify)
 	return r, nil
 }
 
-func (r *LoginResponse) WebAuthNConfirm(ctx context.Context, credentials *WebAuthNCredentials) (*LoginResponse, error) {
-	if !r.HasStep(LoginStepWebAuthNConfirmation) {
+func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context, credentials *WebAuthNVerifyCredentials) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepWebAuthNInitialVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
 	if credentials == nil {
 		return nil, errors.New("invalid credentials")
 	}
-	resp, err := r.confirmWithWebAuthNCredentials(ctx, "challenge-authenticator", credentials)
-	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
-		return r.confirmWithWebAuthNCredentials(ctx, "enroll-authenticator", credentials)
+	resp, err := webAuthNCredentials(ctx, r.idxContext, "enroll-authenticator", credentials)
+	if err != nil {
+		return nil, err
 	}
-	return resp, err
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+type WebAuthNChallengeCredentials struct {
+	ClientData        string `json:"clientData"`
+	AuthenticatorData string `json:"authenticatorData"`
+	SignatureData     string `json:"signatureData"`
+}
+
+func (r *LoginResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNChallengeCredentials) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepWebAuthNVerify) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	if credentials == nil {
+		return nil, errors.New("invalid credentials")
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("challenge-authenticator")
+	if err != nil {
+		return nil, err
+	}
+
+	data := []byte(fmt.Sprintf(`{
+				"credentials": {
+        			"clientData": "%s"",
+        			"authenticatorData": "%s",
+        			"signatureData": "%s"
+				}
+			}`, credentials.ClientData, credentials.AuthenticatorData, credentials.SignatureData))
+	resp, err = ro.proceed(ctx, data)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	return r, err
 }
 
 func (r *LoginResponse) ContextualData() *ContextualData {
@@ -442,8 +483,8 @@ var loginStepText = map[LoginStep]string{
 	LoginStepOktaVerify:                             "OKTA_VERIFY",
 	LoginStepGoogleAuthenticatorInitialVerification: "GOOGLE_AUTHENTICATOR_INITIAL_VERIFICATION",
 	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
-	LoginStepWebAuthNInitialVerification:            "WEB_AUTHN_INITIAL_VERIFICATION",
-	LoginStepWebAuthNConfirmation:                   "WEB_AUTHN_CONFIRMATION",
+	LoginStepWebAuthNSetup:                          "WEB_AUTHN_SETUP",
+	LoginStepWebAuthNInitialVerify:                  "WEB_AUTHN_INITIAL_VERIFY",
 	LoginStepCancel:                                 "CANCEL",
 	LoginStepSkip:                                   "SKIP",
 	LoginStepSuccess:                                "SUCCESS",
@@ -463,8 +504,9 @@ const (
 	LoginStepOktaVerify                                                  // 'OktaVerify'
 	LoginStepGoogleAuthenticatorInitialVerification                      // `GoogleAuthInitialVerify`
 	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
-	LoginStepWebAuthNInitialVerification                                 // `WebAuthInitialVerification`
-	LoginStepWebAuthNConfirmation                                        // `WebAuthConfirm`
+	LoginStepWebAuthNSetup                                               // `WebAuthNSetup`
+	LoginStepWebAuthNInitialVerify                                       // `WebAuthNInitialVerify`
+	LoginStepWebAuthNVerify                                              // `WebAuthNVerify`
 	LoginStepCancel                                                      // 'Cancel'
 	LoginStepSkip                                                        // 'Skip'
 	LoginStepSuccess                                                     // 'Token'
@@ -533,7 +575,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Key or Biometric", false)
 	if err == nil {
-		r.appendStep(LoginStepWebAuthNConfirmation)
+		r.appendStep(LoginStepWebAuthNVerify)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {
@@ -545,7 +587,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Key or Biometric", false)
 	if err == nil {
-		r.appendStep(LoginStepWebAuthNInitialVerification)
+		r.appendStep(LoginStepWebAuthNSetup)
 	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
@@ -579,16 +621,6 @@ func (r *LoginResponse) confirmWithTotpCode(ctx context.Context, remediationOpt,
 
 func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
 	resp, err := passcodeAuth(ctx, r.idxContext, remediationOpt, code)
-	if err != nil {
-		return nil, err
-	}
-	err = r.setupNextSteps(ctx, resp)
-	return r, err
-}
-
-func (r *LoginResponse) confirmWithWebAuthNCredentials(ctx context.Context, remediation string,
-	credentials *WebAuthNCredentials) (*LoginResponse, error) {
-	resp, err := webAuthNCredentials(ctx, r.idxContext, remediation, credentials)
 	if err != nil {
 		return nil, err
 	}

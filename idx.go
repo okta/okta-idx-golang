@@ -404,7 +404,7 @@ func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcod
 	return ro.proceed(ctx, credentials)
 }
 
-func webAuthNCredentials(ctx context.Context, idxContext *Context, remediation string, credentials *WebAuthNCredentials) (*Response, error) {
+func webAuthNCredentials(ctx context.Context, idxContext *Context, remediation string, credentials *WebAuthNVerifyCredentials) (*Response, error) {
 	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, err
