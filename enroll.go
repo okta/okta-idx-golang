@@ -277,13 +277,13 @@ func (r *EnrollmentResponse) WebAuthNSetup(ctx context.Context) (*EnrollmentResp
 	return r, nil
 }
 
-type WebAuthNCredentials struct {
+type WebAuthNVerifyCredentials struct {
 	Attestation string `json:"attestation"`
 	ClientData  string `json:"clientData"`
 }
 
 // WebAuthNVerify enrolls user's Security Key or Biometric
-func (r *EnrollmentResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNCredentials) (*EnrollmentResponse, error) {
+func (r *EnrollmentResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNVerifyCredentials) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepWebAuthNVerify) {
 		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
 	}
