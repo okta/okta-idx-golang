@@ -46,13 +46,6 @@ type IdentityProvider struct {
 	Method string `json:"method"`
 }
 
-type LoginResponse struct {
-	idxContext        *Context
-	token             *Token
-	availableSteps    []LoginStep
-	identifyProviders []IdentityProvider
-}
-
 type LoginStep int
 
 // InitLogin Initialize the IDX login.
@@ -115,9 +108,6 @@ func (c *Client) AuthenticateWithActivationToken(ctx context.Context, authentica
 	if err != nil {
 		return nil, err
 	}
-	if !lr.HasStep(LoginStepAuthenticatorEnroll) {
-		return nil, fmt.Errorf("progression to select authenticator enroll failed")
-	}
 
 	return lr, nil
 }
@@ -131,7 +121,7 @@ func (r *LoginResponse) Identify(ctx context.Context, ir *IdentifyRequest) (*Log
 	if err != nil {
 		return nil, err
 	}
-	ro, err := resp.remediationOption(option)
+	ro, err := resp.remediationOption("identify")
 	if err != nil {
 		return nil, err
 	}
@@ -759,11 +749,6 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	_, err := resp.remediationOption("identify")
 	if err == nil {
 		r.appendStep(LoginStepIdentify)
-	}
-
-	_, err = resp.remediationOption("select-authenticator-enroll")
-	if err == nil {
-		steps = append(steps, LoginStepAuthenticatorEnroll)
 	}
 
 	ros, err := resp.remediationOptions("redirect-idp")

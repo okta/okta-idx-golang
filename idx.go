@@ -606,37 +606,3 @@ func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
 
 	return resp, err
 }
-
-func (c *Client) debugRequest(req *http.Request) {
-	fmt.Fprintln(os.Stderr, "== IDX CLIENT DEBUG REQUEST  ======")
-	dump, err := httputil.DumpRequest(req, true)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "%q\n", dump)
-	} else {
-		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
-	}
-	fmt.Fprintln(os.Stderr, "===================================")
-}
-
-func (c *Client) debugResponse(resp *http.Response) {
-	fmt.Fprintf(os.Stderr, "== IDX CLIENT DEBUG RESPONSE ======")
-	dump, err := httputil.DumpResponse(resp, true)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "%q\n", dump)
-	} else {
-		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
-	}
-	fmt.Fprintln(os.Stderr, "===================================")
-}
-
-func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
-	if c.debug {
-		c.debugRequest(req)
-	}
-	resp, err := c.httpClient.Do(req)
-	if c.debug {
-		c.debugResponse(resp)
-	}
-
-	return resp, err
-}
