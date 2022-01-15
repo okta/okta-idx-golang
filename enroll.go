@@ -314,7 +314,7 @@ func (r *EnrollmentResponse) ConfirmPhone(ctx context.Context, code string) (*En
 // WebAuthNSetup initiates WebAuthN setup
 func (r *EnrollmentResponse) WebAuthNSetup(ctx context.Context) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepWebAuthNSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepWebAuthNSetup)
 	}
 	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
 	if err != nil {
@@ -332,7 +332,7 @@ type WebAuthNVerifyCredentials struct {
 // WebAuthNVerify enrolls user's Security Key or Biometric
 func (r *EnrollmentResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNVerifyCredentials) (*EnrollmentResponse, error) {
 	if !r.HasStep(EnrollmentStepWebAuthNVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(EnrollmentStepWebAuthNVerify)
 	}
 	if credentials == nil {
 		return nil, errors.New("invalid credentials")

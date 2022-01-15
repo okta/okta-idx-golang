@@ -216,7 +216,7 @@ func (r *LoginResponse) GoogleAuthConfirm(ctx context.Context, code string) (*Lo
 
 func (r *LoginResponse) WebAuthNSetup(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepWebAuthNSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepWebAuthNSetup)
 	}
 	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
 	if err != nil {
@@ -228,7 +228,7 @@ func (r *LoginResponse) WebAuthNSetup(ctx context.Context) (*LoginResponse, erro
 
 func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context, credentials *WebAuthNVerifyCredentials) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepWebAuthNInitialVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepWebAuthNInitialVerify)
 	}
 	if credentials == nil {
 		return nil, errors.New("invalid credentials")
@@ -287,7 +287,7 @@ type WebAuthNChallengeCredentials struct {
 
 func (r *LoginResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNChallengeCredentials) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepWebAuthNVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepWebAuthNVerify)
 	}
 	if credentials == nil {
 		return nil, errors.New("invalid credentials")
