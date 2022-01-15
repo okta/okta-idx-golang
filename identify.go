@@ -619,6 +619,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		r.appendStep(LoginStepPhoneInitialVerification)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
+	if err == nil {
+		r.appendStep(LoginStepOktaVerify)
+	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
 		r.appendStep(LoginStepGoogleAuthenticatorInitialVerification)
