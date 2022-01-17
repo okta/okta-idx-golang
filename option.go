@@ -415,6 +415,15 @@ type ContextualData struct {
 	QRcode         QRcode          `json:"qrcode"`
 	SharedSecret   string          `json:"sharedSecret"`
 	ActivationData *ActivationData `json:"activationData"`
+	ChallengeData  *ChallengeData  `json:"challengeData"`
+}
+
+type ChallengeData struct {
+	Challenge        string `json:"challenge"`
+	UserVerification string `json:"userVerification"`
+	Extensions       struct {
+		Appid string `json:"appid"`
+	} `json:"extensions"`
 }
 
 type QRcode struct {
