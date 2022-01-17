@@ -177,6 +177,14 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
+
+	for i := range deviceContextKeys {
+		v := ctx.Value(deviceContextKeys[i])
+		if val, ok := v.(string); !ok {
+			req.Header.Set(string(deviceContextKeys[i]), val)
+		}
+	}
+
 	resp, err := c.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
