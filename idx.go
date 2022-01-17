@@ -180,7 +180,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 
 	for i := range deviceContextKeys {
 		v := ctx.Value(deviceContextKeys[i])
-		if val, ok := v.(string); !ok {
+		if val, ok := v.(string); ok {
 			req.Header.Set(string(deviceContextKeys[i]), val)
 		}
 	}
