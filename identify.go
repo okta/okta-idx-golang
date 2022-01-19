@@ -271,7 +271,6 @@ func (r *LoginResponse) WebAuthNChallenge(ctx context.Context) (*LoginResponse, 
 		return nil, err
 	}
 	return r, nil
-
 }
 
 type WebAuthNChallengeCredentials struct {
