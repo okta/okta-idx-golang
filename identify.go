@@ -244,6 +244,35 @@ func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context, credentials *
 	return r, nil
 }
 
+func (r *LoginResponse) WebAuthNChallenge(ctx context.Context) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepWebAuthNChallenge) {
+		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Security Key or Biometric", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 type WebAuthNChallengeCredentials struct {
 	ClientData        string `json:"clientData"`
 	AuthenticatorData string `json:"authenticatorData"`
@@ -485,6 +514,8 @@ var loginStepText = map[LoginStep]string{
 	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
 	LoginStepWebAuthNSetup:                          "WEB_AUTHN_SETUP",
 	LoginStepWebAuthNInitialVerify:                  "WEB_AUTHN_INITIAL_VERIFY",
+	LoginStepWebAuthNChallenge:                      "WEB_AUTHN_CHALLENGE",
+	LoginStepWebAuthNVerify:                         "WEB_AUTHN_VERIFY",
 	LoginStepCancel:                                 "CANCEL",
 	LoginStepSkip:                                   "SKIP",
 	LoginStepSuccess:                                "SUCCESS",
@@ -506,6 +537,7 @@ const (
 	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
 	LoginStepWebAuthNSetup                                               // `WebAuthNSetup`
 	LoginStepWebAuthNInitialVerify                                       // `WebAuthNInitialVerify`
+	LoginStepWebAuthNChallenge                                           // `WebAuthNChallenge`
 	LoginStepWebAuthNVerify                                              // `WebAuthNVerify`
 	LoginStepCancel                                                      // 'Cancel'
 	LoginStepSkip                                                        // 'Skip'
@@ -575,7 +607,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Key or Biometric", false)
 	if err == nil {
-		r.appendStep(LoginStepWebAuthNVerify)
+		r.appendStep(LoginStepWebAuthNChallenge)
 	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Phone", false)
 	if err == nil {

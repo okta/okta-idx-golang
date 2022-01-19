@@ -176,7 +176,8 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 		return nil, fmt.Errorf("failed to create interact http request: %w", err)
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	withOktaUserAgent(req)
+	withDeviceContext(ctx, req)
+
 	resp, err := c.httpClientDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
@@ -288,6 +289,17 @@ func (c *Client) oAuthEndPoint(operation string) string {
 func withOktaUserAgent(req *http.Request) {
 	userAgent := fmt.Sprintf("okta-idx-golang/%s golang/%s %s/%s", packageVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	req.Header.Add("User-Agent", userAgent)
+}
+
+func withDeviceContext(ctx context.Context, req *http.Request) {
+	withOktaUserAgent(req)
+
+	for i := range deviceContextKeys {
+		v := ctx.Value(deviceContextKeys[i])
+		if val, ok := v.(string); ok {
+			req.Header.Set(string(deviceContextKeys[i]), val)
+		}
+	}
 }
 
 type Context struct {

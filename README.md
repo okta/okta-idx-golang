@@ -122,6 +122,19 @@ if lr.Token() != nil {
 }
 ```
 
+In order to provide parity in OIE the following http headers can be used:
+
+```go
+ctx := WithXForwardedFor(context.TODO(), "x.x.x.x")
+ctx = WithUserAgent(ctx, "me")
+
+lr, err := idx.InitLogin(ctx)
+
+//...
+
+```
+
+
 ## Configuration Reference
 
 This library looks for the configuration in the following sources:
