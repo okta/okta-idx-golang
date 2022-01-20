@@ -119,7 +119,55 @@ func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
 	return r, nil
 }
 
-// OktaVerify Perform verification.
+//nolint:gocognit,gocritic
+// OktaVerifyMethodTypes Given OktaVerify step is available, return the
+// available method types as a string slice. Possible values `totp` and `push`
+// at the present time
+func (r *LoginResponse) OktaVerifyMethodTypes(ctx context.Context) ([]string, error) {
+	methodTypes := []string{}
+	if !r.HasStep(LoginStepOktaVerify) {
+		_, err := r.missingStepError(LoginStepOktaVerify)
+		return methodTypes, err
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return methodTypes, err
+	}
+	ro, _, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", true)
+	if err != nil {
+		return methodTypes, err
+	}
+
+	for _, val := range ro.FormValues {
+		if val.Name != "authenticator" {
+			continue
+		}
+
+		for _, opt := range val.Options {
+			if opt.Label != "Okta Verify" {
+				continue
+			}
+
+			if fovo, ok := opt.Value.(FormOptionsValueObject); ok {
+				for _, val := range fovo.Form.Value {
+					if val.Name != "methodType" {
+						continue
+					}
+
+					for _, opt := range val.Options {
+						if str, ok := opt.Value.(FormOptionsValueString); ok {
+							methodTypes = append(methodTypes, string(str))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return methodTypes, err
+}
+
+// OktaVerify Perform Okta Verify verification. This method blocks in a polling manner.
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepOktaVerify) {
 		return r.missingStepError(LoginStepOktaVerify)
