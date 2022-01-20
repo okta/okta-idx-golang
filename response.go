@@ -48,11 +48,12 @@ type Authenticators struct {
 }
 
 type AuthenticatorsValue struct {
-	Type        string                      `json:"type"`
-	Key         string                      `json:"key"`
-	ID          string                      `json:"id"`
-	DisplayName string                      `json:"displayName"`
-	Methods     []AuthenticatorsValueMethod `json:"methods"`
+	Type         string                      `json:"type"`
+	Key          string                      `json:"key"`
+	ID           string                      `json:"id"`
+	DisplayName  string                      `json:"displayName"`
+	CredentialID string                      `json:"credentialId"`
+	Methods      []AuthenticatorsValueMethod `json:"methods"`
 }
 
 type AuthenticatorsValueMethod struct {

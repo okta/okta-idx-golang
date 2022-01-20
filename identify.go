@@ -265,11 +265,17 @@ func (r *LoginResponse) WebAuthNChallenge(ctx context.Context) (*LoginResponse, 
 	if err != nil {
 		return nil, err
 	}
+	for _, v := range resp.AuthenticatorEnrollments.Value {
+		if v.Key == "webauthn" {
+			resp.CurrentAuthenticator.Value.ContextualData.ChallengeData.CredentialID = v.CredentialID
+		}
+	}
 	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
 	err = r.setupNextSteps(ctx, resp)
 	if err != nil {
 		return nil, err
 	}
+	r.appendStep(LoginStepWebAuthNVerify)
 	return r, nil
 }
 
@@ -297,9 +303,9 @@ func (r *LoginResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuth
 
 	data := []byte(fmt.Sprintf(`{
 				"credentials": {
-        			"clientData": "%s"",
-        			"authenticatorData": "%s",
-        			"signatureData": "%s"
+        				"clientData": "%s",
+        				"authenticatorData": "%s",
+        				"signatureData": "%s"
 				}
 			}`, credentials.ClientData, credentials.AuthenticatorData, credentials.SignatureData))
 	resp, err = ro.proceed(ctx, data)

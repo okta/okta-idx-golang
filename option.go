@@ -421,6 +421,7 @@ type ContextualData struct {
 type ChallengeData struct {
 	Challenge        string `json:"challenge"`
 	UserVerification string `json:"userVerification"`
+	CredentialID     string `json:"credentialId"`
 	Extensions       struct {
 		Appid string `json:"appid"`
 	} `json:"extensions"`
