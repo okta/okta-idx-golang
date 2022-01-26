@@ -227,11 +227,45 @@ func (r *LoginResponse) OktaVerifyConfirm(ctx context.Context, code string) (*Lo
 	defer func() {
 		r.contextualData = nil
 	}()
-	resp, err := r.confirmWithTotpCode(ctx, "challenge-authenticator", code)
-	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
-		return r.confirmWithTotpCode(ctx, "enroll-authenticator", code)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
 	}
-	return resp, err
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"methodType": "totp"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+
+	ro, err = resp.remediationOption("challenge-authenticator")
+	if err != nil {
+		return nil, err
+	}
+
+	credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"totp": "%s"
+				}
+			}`, strings.TrimSpace(code)))
+	resp, err = ro.proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, err
 }
 
 // GoogleAuthInitialVerify initiates Google Authenticator setup for the existing user in case this authenticator
@@ -698,15 +732,6 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		return fmt.Errorf("there are no more steps available: %+v", resp.Messages.Values)
 	}
 	return nil
-}
-
-func (r *LoginResponse) confirmWithTotpCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
-	resp, err := totpAuth(ctx, r.idxContext, remediationOpt, code)
-	if err != nil {
-		return nil, err
-	}
-	err = r.setupNextSteps(ctx, resp)
-	return r, err
 }
 
 func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
