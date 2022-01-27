@@ -319,18 +319,6 @@ func withDeviceContext(ctx context.Context, req *http.Request) {
 	}
 }
 
-type Context struct {
-	CodeVerifier        string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	InteractionHandle   *InteractionHandle
-	State               string
-}
-
-type InteractionHandle struct {
-	InteractionHandle string `json:"interactionHandle"`
-}
-
 func unmarshalResponse(r *http.Response, i interface{}) error {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
