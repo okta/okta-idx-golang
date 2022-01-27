@@ -1918,3 +1918,203 @@ func TestClient_InitLogin(t *testing.T) {
 		require.Contains(t, resp.AvailableSteps(), LoginStepProviderIdentify)
 	})
 }
+
+func TestClient_Authenticate(t *testing.T) {
+	t.Run("use of recovery_token", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/oauth2/v1/interact", func(w http.ResponseWriter, r *http.Request) {
+			r.ParseForm()
+
+			rts := r.Form["recovery_token"]
+			rt := rts[0]
+			assert.Equal(t, "abc123", rt)
+
+			w.Write([]byte(`{"interaction_handle":"a"}`))
+		})
+		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
+			s := fmt.Sprintf(`{
+				"version": "1.0.0",
+				"stateHandle": "02ggggggggggggggggggggggggggggg-nFdddddddd",
+				"expiresAt": "2022-01-27T20:19:13.000Z",
+				"intent": "LOGIN",
+				"remediation": {
+					"type": "array",
+					"value": [{
+						"rel": ["create-form"],
+						"name": "reset-authenticator",
+						"relatesTo": ["$.currentAuthenticator"],
+						"href": "https://%s/idp/idx/challenge/answer",
+						"method": "POST",
+						"produces": "application/ion+json; okta-version=1.0.0",
+						"value": [{
+							"name": "credentials",
+							"type": "object",
+							"form": {
+								"value": [{
+									"name": "passcode",
+									"label": "New password",
+									"secret": true
+								}]
+							},
+							"required": true
+						}, {
+							"name": "stateHandle",
+							"required": true,
+							"value": "02ggggggggggggggggggggggggggggg-nFdddddddd",
+							"visible": false,
+							"mutable": false
+						}],
+						"accepts": "application/json; okta-version=1.0.0"
+					}]
+				},
+				"currentAuthenticator": {
+					"type": "object",
+					"value": {
+						"type": "password",
+						"key": "okta_password",
+						"id": "aut44444444444444444",
+						"displayName": "Password",
+						"methods": [{
+							"type": "password"
+						}],
+						"settings": {
+							"complexity": {
+								"minLength": 8,
+								"minLowerCase": 0,
+								"minUpperCase": 0,
+								"minNumber": 0,
+								"minSymbol": 0,
+								"excludeUsername": true,
+								"excludeAttributes": []
+							},
+							"age": {
+								"minAgeMinutes": 0,
+								"historyCount": 4
+							}
+						}
+					}
+				},
+				"authenticators": {
+					"type": "array",
+					"value": [{
+						"type": "password",
+						"key": "okta_password",
+						"id": "aut44444444444444444",
+						"displayName": "Password",
+						"methods": [{
+							"type": "password"
+						}]
+					}]
+				},
+				"authenticatorEnrollments": {
+					"type": "array",
+					"value": [{
+						"type": "email",
+						"key": "okta_email",
+						"id": "eae44444444444444444",
+						"displayName": "Email",
+						"methods": [{
+							"type": "email"
+						}]
+					}, {
+						"type": "password",
+						"key": "okta_password",
+						"id": "lae33333333333333333",
+						"displayName": "Password",
+						"methods": [{
+							"type": "password"
+						}]
+					}]
+				},
+				"recoveryAuthenticator": {
+					"type": "object",
+					"value": {
+						"type": "password",
+						"key": "okta_password",
+						"id": "aut44444444444444444",
+						"displayName": "Password",
+						"methods": [{
+							"type": "password"
+						}],
+						"settings": {
+							"complexity": {
+								"minLength": 8,
+								"minLowerCase": 0,
+								"minUpperCase": 0,
+								"minNumber": 0,
+								"minSymbol": 0,
+								"excludeUsername": true,
+								"excludeAttributes": []
+							},
+							"age": {
+								"minAgeMinutes": 0,
+								"historyCount": 4
+							}
+						}
+					}
+				},
+				"user": {
+					"type": "object",
+					"value": {
+						"id": "00u88888888888888888",
+						"identifier": "some.one@example.com",
+						"profile": {
+							"firstName": "Some",
+							"lastName": "One",
+							"timeZone": "America/Los_Angeles",
+							"locale": "en_US"
+						}
+					}
+				},
+				"cancel": {
+					"rel": ["create-form"],
+					"name": "cancel",
+					"href": "https://%s/idp/idx/cancel",
+					"method": "POST",
+					"produces": "application/ion+json; okta-version=1.0.0",
+					"value": [{
+						"name": "stateHandle",
+						"required": true,
+						"value": "02ggggggggggggggggggggggggggggg-nFdddddddd",
+						"visible": false,
+						"mutable": false
+					}],
+					"accepts": "application/json; okta-version=1.0.0"
+				},
+				"app": {
+					"type": "object",
+					"value": {
+						"name": "oidc_client",
+						"label": "Cool Magic Link",
+						"id": "0oa99999999999999999"
+					}
+				}
+			}`, r.Host, r.Host)
+			_, _ = w.Write([]byte(s))
+		})
+
+		ts := httptest.NewServer(mux)
+		defer ts.Close()
+
+		client, err := NewClientWithSettings(
+			WithClientID("foo"),
+			WithClientSecret("bar"),
+			WithIssuer(ts.URL),
+			WithScopes([]string{"openid", "profile"}),
+			WithRedirectURI(ts.URL+"/authorization-code/callback"))
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		client = client.WithHTTPClient(ts.Client())
+
+		authOpts := AuthenticationOptions{
+			RecoveryToken: "abc123",
+		}
+		ctx := context.TODO()
+		resp, err := client.Authenticate(ctx, &authOpts)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
+		require.Contains(t, resp.AvailableSteps(), LoginStepSetupNewPassword)
+	})
+}
