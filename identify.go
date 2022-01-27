@@ -37,6 +37,7 @@ type AuthenticationOptions struct {
 	UserName        string
 	Password        string
 	ActivationToken string
+	RecoveryToken   string
 }
 
 type IdentityProvider struct {
@@ -50,7 +51,7 @@ type LoginStep int
 
 // InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
-	idxContext, err := c.Interact(ctx, "")
+	idxContext, err := c.interact(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +69,12 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	return lr, nil
 }
 
-// Authenticate is an identification flow with username and password, or optional activation token
+// Authenticate is an identification flow with username and password, or
+// optional activation options for activation by token or recovery by token.
+// Authentication Options can be nil.
 func (c *Client) Authenticate(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
-	if authenticationOptions.ActivationToken != "" {
-		return c.AuthenticateWithActivationToken(ctx, authenticationOptions)
+	if authenticationOptions != nil {
+		return c.authenticateWithAuthenticationOptions(ctx, authenticationOptions)
 	}
 
 	lr, err := c.InitLogin(ctx)
@@ -89,9 +92,20 @@ func (c *Client) Authenticate(ctx context.Context, authenticationOptions *Authen
 	return lr.Identify(ctx, ir)
 }
 
-// AuthenticateWithActivationToken is an identification flow with activation token
-func (c *Client) AuthenticateWithActivationToken(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
-	idxContext, err := c.Interact(ctx, authenticationOptions.ActivationToken)
+// authenticateWithAuthenticationOptions is an identification flow with authentication options
+func (c *Client) authenticateWithAuthenticationOptions(ctx context.Context, aOpts *AuthenticationOptions) (*LoginResponse, error) {
+	iOpts := &interactOptions{}
+
+	if aOpts != nil {
+		if aOpts.ActivationToken != "" {
+			iOpts.activationToken = aOpts.ActivationToken
+		}
+		if aOpts.RecoveryToken != "" {
+			iOpts.recoveryToken = aOpts.RecoveryToken
+		}
+	}
+
+	idxContext, err := c.interact(ctx, iOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -817,7 +831,17 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 			}
 		}
 	}
-
+	ro, err = resp.remediationOption("reset-authenticator")
+	if err == nil {
+		v, _ := ro.value("credentials")
+		if v != nil && v.Form != nil {
+			for i := range v.Form.FormValues {
+				if v.Form.FormValues[i].Label == "New password" {
+					r.appendStep(LoginStepSetupNewPassword)
+				}
+			}
+		}
+	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
 		r.appendStep(LoginStepSkip)

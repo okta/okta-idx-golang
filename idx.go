@@ -77,6 +77,11 @@ type InteractionHandle struct {
 	InteractionHandle string `json:"interactionHandle"`
 }
 
+type interactOptions struct {
+	activationToken string
+	recoveryToken   string
+}
+
 // NewClient New client constructor that is configured with configuration file
 // and environment variables.
 func NewClient() (*Client, error) {
@@ -162,8 +167,8 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	return &idxResponse, nil
 }
 
-// Interact Gets the current interact response context.
-func (c *Client) Interact(ctx context.Context, activationToken string) (*Context, error) {
+// interact Gets the current interact response context.
+func (c *Client) interact(ctx context.Context, opts *interactOptions) (*Context, error) {
 	h := sha256.New()
 	var err error
 
@@ -186,17 +191,7 @@ func (c *Client) Interact(ctx context.Context, activationToken string) (*Context
 	idxContext.CodeChallenge = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 	idxContext.CodeChallengeMethod = "S256"
 
-	data := url.Values{}
-	data.Set("client_id", c.config.Okta.IDX.ClientID)
-	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
-	data.Set("code_challenge", idxContext.CodeChallenge)
-	data.Set("code_challenge_method", idxContext.CodeChallengeMethod)
-	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", idxContext.State)
-	if activationToken != "" {
-		data.Set("activation_token", activationToken)
-	}
-
+	data := c.interactValues(idxContext, opts)
 	endpoint := c.oAuthEndPoint("interact")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -221,6 +216,26 @@ func (c *Client) Interact(ctx context.Context, activationToken string) (*Context
 		InteractionHandle: interactionHandle.InteractionHandle,
 	}
 	return idxContext, nil
+}
+
+func (c *Client) interactValues(ctx *Context, opts *interactOptions) *url.Values {
+	data := url.Values{}
+	data.Set("client_id", c.config.Okta.IDX.ClientID)
+	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
+	data.Set("code_challenge", ctx.CodeChallenge)
+	data.Set("code_challenge_method", ctx.CodeChallengeMethod)
+	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
+	data.Set("state", ctx.State)
+	if opts != nil {
+		if opts.activationToken != "" {
+			data.Set("activation_token", opts.activationToken)
+		}
+		if opts.recoveryToken != "" {
+			data.Set("recovery_token", opts.recoveryToken)
+		}
+	}
+
+	return &data
 }
 
 // RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
