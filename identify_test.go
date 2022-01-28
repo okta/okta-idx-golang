@@ -1920,6 +1920,152 @@ func TestClient_InitLogin(t *testing.T) {
 }
 
 func TestClient_Authenticate(t *testing.T) {
+	t.Run("use of authentication_token", func(t *testing.T) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/oauth2/v1/interact", func(w http.ResponseWriter, r *http.Request) {
+			r.ParseForm()
+
+			rts := r.Form["activation_token"]
+			rt := rts[0]
+			assert.Equal(t, "abc123", rt)
+
+			w.Write([]byte(`{"interaction_handle":"a"}`))
+		})
+		mux.HandleFunc("/idp/idx/introspect", func(w http.ResponseWriter, r *http.Request) {
+			s := fmt.Sprintf(`
+			{
+				"version": "1.0.0",
+				"stateHandle": "02ggggggggggggggggggggggggggggg-nFdddddddd",
+				"expiresAt": "2022-01-28T00:38:36.000Z",
+				"intent": "LOGIN",
+				"remediation": {
+					"type": "array",
+					"value": [{
+						"rel": ["create-form"],
+						"name": "select-authenticator-enroll",
+						"href": "https://%s/idp/idx/credential/enroll",
+						"method": "POST",
+						"produces": "application/ion+json; okta-version=1.0.0",
+						"value": [{
+							"name": "authenticator",
+							"type": "object",
+							"options": [{
+								"label": "Password",
+								"value": {
+									"form": {
+										"value": [{
+											"name": "id",
+											"required": true,
+											"value": "aut44444444444444444",
+											"mutable": false
+										}, {
+											"name": "methodType",
+											"required": false,
+											"value": "password",
+											"mutable": false
+										}]
+									}
+								},
+								"relatesTo": "$.authenticators.value[0]"
+							}]
+						}, {
+							"name": "stateHandle",
+							"required": true,
+							"value": "02ggggggggggggggggggggggggggggg-nFdddddddd",
+							"visible": false,
+							"mutable": false
+						}],
+						"accepts": "application/json; okta-version=1.0.0"
+					}]
+				},
+				"authenticators": {
+					"type": "array",
+					"value": [{
+						"type": "password",
+						"key": "okta_password",
+						"id": "aut44444444444444444",
+						"displayName": "Password",
+						"methods": [{
+							"type": "password"
+						}]
+					}]
+				},
+				"authenticatorEnrollments": {
+					"type": "array",
+					"value": [{
+						"type": "email",
+						"key": "okta_email",
+						"id": "eae47777777777777777",
+						"displayName": "Email",
+						"methods": [{
+							"type": "email"
+						}]
+					}]
+				},
+				"user": {
+					"type": "object",
+					"value": {
+						"id": "00u47m11111111111111",
+						"identifier": "some.one@example.com",
+						"profile": {
+							"firstName": "Some",
+							"lastName": "One",
+							"timeZone": "America/Los_Angeles",
+							"locale": "en_US"
+						}
+					}
+				},
+				"cancel": {
+					"rel": ["create-form"],
+					"name": "cancel",
+					"href": "https://%s/idp/idx/cancel",
+					"method": "POST",
+					"produces": "application/ion+json; okta-version=1.0.0",
+					"value": [{
+						"name": "stateHandle",
+						"required": true,
+						"value": "02ggggggggggggggggggggggggggggg-nFdddddddd",
+						"visible": false,
+						"mutable": false
+					}],
+					"accepts": "application/json; okta-version=1.0.0"
+				},
+				"app": {
+					"type": "object",
+					"value": {
+						"name": "oidc_client",
+						"label": "My Magic Link",
+						"id": "0oa47lllllllllllllll"
+					}
+				}
+			}`, r.Host, r.Host)
+			_, _ = w.Write([]byte(s))
+		})
+
+		ts := httptest.NewServer(mux)
+		defer ts.Close()
+
+		client, err := NewClientWithSettings(
+			WithClientID("foo"),
+			WithClientSecret("bar"),
+			WithIssuer(ts.URL),
+			WithScopes([]string{"openid", "profile"}),
+			WithRedirectURI(ts.URL+"/authorization-code/callback"))
+		require.NoError(t, err)
+		require.NotNil(t, client)
+		client = client.WithHTTPClient(ts.Client())
+
+		authOpts := AuthenticationOptions{
+			ActivationToken: "abc123",
+		}
+		ctx := context.TODO()
+		resp, err := client.Authenticate(ctx, &authOpts)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		require.Contains(t, resp.AvailableSteps(), LoginStepCancel)
+		require.Contains(t, resp.AvailableSteps(), LoginStepAuthenticatorEnroll)
+	})
 	t.Run("use of recovery_token", func(t *testing.T) {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/oauth2/v1/interact", func(w http.ResponseWriter, r *http.Request) {

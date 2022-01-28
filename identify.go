@@ -708,6 +708,7 @@ var loginStepText = map[LoginStep]string{
 	LoginStepWebAuthNInitialVerify:                  "WEB_AUTHN_INITIAL_VERIFY",
 	LoginStepWebAuthNChallenge:                      "WEB_AUTHN_CHALLENGE",
 	LoginStepWebAuthNVerify:                         "WEB_AUTHN_VERIFY",
+	LoginStepAuthenticatorEnroll:                    "AUTHENTICATOR_ENROLL",
 	LoginStepCancel:                                 "CANCEL",
 	LoginStepSkip:                                   "SKIP",
 	LoginStepSuccess:                                "SUCCESS",
@@ -732,6 +733,7 @@ const (
 	LoginStepWebAuthNInitialVerify                                       // `WebAuthNInitialVerify`
 	LoginStepWebAuthNChallenge                                           // `WebAuthNChallenge`
 	LoginStepWebAuthNVerify                                              // `WebAuthNVerify`
+	LoginStepAuthenticatorEnroll                                         // LoginStepAuthenticatorEnroll
 	LoginStepCancel                                                      // 'Cancel'
 	LoginStepSkip                                                        // 'Skip'
 	LoginStepSuccess                                                     // 'Token'
@@ -819,6 +821,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question", false)
 	if err == nil {
 		r.appendStep(LoginStepSecurityQuestionOptions)
+    }
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Password", false)
+	if err == nil {
+		r.appendStep(LoginStepAuthenticatorEnroll)
 	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
