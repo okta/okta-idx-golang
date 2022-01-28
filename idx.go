@@ -382,23 +382,6 @@ func createState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(localState), nil
 }
 
-func totpAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
-	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption(remediation)
-	if err != nil {
-		return nil, err
-	}
-	credentials := []byte(fmt.Sprintf(`{
-				"credentials": {
-					"totp": "%s"
-				}
-			}`, strings.TrimSpace(passcode)))
-	return ro.proceed(ctx, credentials)
-}
-
 func passcodeAuth(ctx context.Context, idxContext *Context, remediation, passcode string) (*Response, error) {
 	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {

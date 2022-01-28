@@ -119,7 +119,55 @@ func (r *LoginResponse) WhereAmI(ctx context.Context) (*LoginResponse, error) {
 	return r, nil
 }
 
-// OktaVerify Perform verification.
+//nolint:gocognit,gocritic
+// OktaVerifyMethodTypes Given OktaVerify step is available, return the
+// available method types as a string slice. Possible values `totp` and `push`
+// at the present time
+func (r *LoginResponse) OktaVerifyMethodTypes(ctx context.Context) ([]string, error) {
+	methodTypes := []string{}
+	if !r.HasStep(LoginStepOktaVerify) {
+		_, err := r.missingStepError(LoginStepOktaVerify)
+		return methodTypes, err
+	}
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return methodTypes, err
+	}
+	ro, _, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", true)
+	if err != nil {
+		return methodTypes, err
+	}
+
+	for _, val := range ro.FormValues {
+		if val.Name != "authenticator" {
+			continue
+		}
+
+		for _, opt := range val.Options {
+			if opt.Label != "Okta Verify" {
+				continue
+			}
+
+			if fovo, ok := opt.Value.(FormOptionsValueObject); ok {
+				for _, val := range fovo.Form.Value {
+					if val.Name != "methodType" {
+						continue
+					}
+
+					for _, opt := range val.Options {
+						if str, ok := opt.Value.(FormOptionsValueString); ok {
+							methodTypes = append(methodTypes, string(str))
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return methodTypes, err
+}
+
+// OktaVerify Perform Okta Verify verification. This method blocks in a polling manner.
 func (r *LoginResponse) OktaVerify(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepOktaVerify) {
 		return r.missingStepError(LoginStepOktaVerify)
@@ -179,11 +227,45 @@ func (r *LoginResponse) OktaVerifyConfirm(ctx context.Context, code string) (*Lo
 	defer func() {
 		r.contextualData = nil
 	}()
-	resp, err := r.confirmWithTotpCode(ctx, "challenge-authenticator", code)
-	if err != nil && strings.Contains(err.Error(), "could not locate a remediation option with the name 'challenge-authenticator'") {
-		return r.confirmWithTotpCode(ctx, "enroll-authenticator", code)
+	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
 	}
-	return resp, err
+	ro, authID, err := resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", true)
+	if err != nil {
+		return nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `",
+					"methodType": "totp"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, err
+	}
+
+	ro, err = resp.remediationOption("challenge-authenticator")
+	if err != nil {
+		return nil, err
+	}
+
+	credentials := []byte(fmt.Sprintf(`{
+				"credentials": {
+					"totp": "%s"
+				}
+			}`, strings.TrimSpace(code)))
+	resp, err = ro.proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, err
 }
 
 // GoogleAuthInitialVerify initiates Google Authenticator setup for the existing user in case this authenticator
@@ -216,7 +298,7 @@ func (r *LoginResponse) GoogleAuthConfirm(ctx context.Context, code string) (*Lo
 
 func (r *LoginResponse) WebAuthNSetup(ctx context.Context) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepWebAuthNSetup) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepWebAuthNSetup)
 	}
 	err := r.enrollAuthenticator(ctx, "Security Key or Biometric")
 	if err != nil {
@@ -228,7 +310,7 @@ func (r *LoginResponse) WebAuthNSetup(ctx context.Context) (*LoginResponse, erro
 
 func (r *LoginResponse) WebAuthNInitialVerify(ctx context.Context, credentials *WebAuthNVerifyCredentials) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepWebAuthNInitialVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepWebAuthNInitialVerify)
 	}
 	if credentials == nil {
 		return nil, errors.New("invalid credentials")
@@ -287,7 +369,7 @@ type WebAuthNChallengeCredentials struct {
 
 func (r *LoginResponse) WebAuthNVerify(ctx context.Context, credentials *WebAuthNChallengeCredentials) (*LoginResponse, error) {
 	if !r.HasStep(LoginStepWebAuthNVerify) {
-		return nil, fmt.Errorf("this step is not available, please try one of %s", r.AvailableSteps())
+		return r.missingStepError(LoginStepWebAuthNVerify)
 	}
 	if credentials == nil {
 		return nil, errors.New("invalid credentials")
@@ -619,6 +701,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		r.appendStep(LoginStepPhoneInitialVerification)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Okta Verify", false)
+	if err == nil {
+		r.appendStep(LoginStepOktaVerify)
+	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Google Authenticator", false)
 	if err == nil {
 		r.appendStep(LoginStepGoogleAuthenticatorInitialVerification)
@@ -646,15 +732,6 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 		return fmt.Errorf("there are no more steps available: %+v", resp.Messages.Values)
 	}
 	return nil
-}
-
-func (r *LoginResponse) confirmWithTotpCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
-	resp, err := totpAuth(ctx, r.idxContext, remediationOpt, code)
-	if err != nil {
-		return nil, err
-	}
-	err = r.setupNextSteps(ctx, resp)
-	return r, err
 }
 
 func (r *LoginResponse) confirmWithCode(ctx context.Context, remediationOpt, code string) (*LoginResponse, error) {
