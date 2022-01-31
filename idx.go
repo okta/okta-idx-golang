@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -320,25 +322,31 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
-	if r.StatusCode != http.StatusOK {
-		var errIDX ResponseError
-		err = json.Unmarshal(body, &errIDX)
+	if r.StatusCode == http.StatusOK {
+		err = json.Unmarshal(body, &i)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		if errIDX.Message.Type == "" && errIDX.ErrorSummary == "" {
-			err = digUpMessage(body, &errIDX, i)
-			if err != nil {
-				return err
-			}
-		}
-		return &errIDX
+		return nil
 	}
-	err = json.Unmarshal(body, &i)
+	var errIDX ResponseError
+	err = json.Unmarshal(body, &errIDX)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %w", err)
+		var syntaxErr *json.SyntaxError
+		if errors.As(err, &syntaxErr) {
+			errIDX.ErrorDescription = string(body)
+			errIDX.ErrorType = strconv.Itoa(r.StatusCode)
+			return &errIDX
+		}
+		return fmt.Errorf("failed to unmarshal error response body: %w", err)
 	}
-	return nil
+	if errIDX.Message.Type == "" && errIDX.ErrorSummary == "" {
+		err = digUpMessage(body, &errIDX, i)
+		if err != nil {
+			return err
+		}
+	}
+	return &errIDX
 }
 
 func digUpMessage(body []byte, respErr *ResponseError, i interface{}) error {
@@ -466,6 +474,82 @@ func enrollAuthenticator(ctx context.Context, handle *InteractionHandle, authent
 				}
 			}`)
 	return ro.proceed(ctx, authenticator)
+}
+
+const customQuestion = "custom"
+
+func securityQuestionSetup(ctx context.Context, idxContext *Context, sq *SecurityQuestion) (*Response, error) {
+	if sq.QuestionKey == "" {
+		return nil, errors.New("missing security question key")
+	}
+	if sq.Answer == "" {
+		return nil, errors.New("missing answer for the security question key")
+	}
+	if sq.QuestionKey == customQuestion && sq.Question == "" {
+		return nil, errors.New("missing custom question")
+	}
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+	ro, err := resp.remediationOption("enroll-authenticator")
+	if err != nil {
+		return nil, err
+	}
+	if sq.QuestionKey == customQuestion {
+		clearOptionsForCustomKey(ro)
+	}
+	credentials, _ := json.Marshal(&struct {
+		Credentials *SecurityQuestion `json:"credentials"`
+	}{Credentials: sq})
+	resp, err = ro.proceed(ctx, credentials)
+	if err != nil {
+		return nil, err
+	}
+	return resp, err
+}
+
+func securityQuestionOptions(ctx context.Context, idxContext *Context) (*Response, SecurityQuestions, error) {
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
+	if err != nil {
+		return nil, nil, err
+	}
+	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Security Question", true)
+	if err != nil {
+		return nil, nil, err
+	}
+	authenticator := []byte(`{
+				"authenticator": {
+					"id": "` + authID + `"
+				}
+			}`)
+	resp, err = ro.proceed(ctx, authenticator)
+	if err != nil {
+		return nil, nil, err
+	}
+	m := make(map[string]string)
+	ro, err = resp.remediationOption("enroll-authenticator")
+	if err != nil {
+		return nil, nil, err
+	}
+	v, err := ro.value("credentials")
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := range v.Options {
+		if v.Options[i].Label == "Choose a security question" {
+			obj := v.Options[i].Value.(FormOptionsValueObject).Form.Value
+			for j := range obj {
+				if obj[j].Name == "questionKey" {
+					for k := range obj[j].Options {
+						m[string(obj[j].Options[k].Value.(FormOptionsValueString))] = obj[j].Options[k].Label
+					}
+				}
+			}
+		}
+	}
+	m["custom"] = "Create a security question"
+	return resp, m, nil
 }
 
 func (c *Client) debugRequest(req *http.Request) {

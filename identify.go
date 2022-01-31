@@ -506,6 +506,38 @@ func (r *LoginResponse) ConfirmEmail(ctx context.Context, code string) (*LoginRe
 	return r.confirmWithCode(ctx, "challenge-authenticator", code)
 }
 
+func (r *LoginResponse) SecurityQuestionOptions(ctx context.Context) (*LoginResponse, SecurityQuestions, error) {
+	if !r.HasStep(LoginStepSecurityQuestionOptions) {
+		_, err := r.missingStepError(LoginStepOktaVerify)
+		return nil, nil, err
+	}
+	resp, questions, err := securityQuestionOptions(ctx, r.idxContext)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, nil, err
+	}
+	r.appendStep(LoginStepSecurityQuestionSetup)
+	return r, questions, nil
+}
+
+func (r *LoginResponse) SecurityQuestionSetup(ctx context.Context, sq *SecurityQuestion) (*LoginResponse, error) {
+	if !r.HasStep(LoginStepSecurityQuestionSetup) {
+		return r.missingStepError(LoginStepSecurityQuestionSetup)
+	}
+	resp, err := securityQuestionSetup(ctx, r.idxContext, sq)
+	if err != nil {
+		return nil, err
+	}
+	err = r.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 // Skip represents general step to proceed with no action.  It usually appears
 // when other steps are optional.
 func (r *LoginResponse) Skip(ctx context.Context) (*LoginResponse, error) {
@@ -596,7 +628,8 @@ var loginStepText = map[LoginStep]string{
 	LoginStepPhoneVerification:                      "PHONE_VERIFICATION",
 	LoginStepPhoneInitialVerification:               "PHONE_INITIAL_VERIFICATION",
 	LoginStepPhoneConfirmation:                      "PHONE_CONFIRMATION",
-	LoginStepAnswerSecurityQuestion:                 "ANSWER SECURITY_QUESTION",
+	LoginStepSecurityQuestionOptions:                "SECURITY_QUESTION_OPTIONS",
+	LoginStepSecurityQuestionSetup:                  "SECURITY_QUESTION_SETUP",
 	LoginStepOktaVerify:                             "OKTA_VERIFY",
 	LoginStepGoogleAuthenticatorInitialVerification: "GOOGLE_AUTHENTICATOR_INITIAL_VERIFICATION",
 	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
@@ -619,7 +652,8 @@ const (
 	LoginStepPhoneVerification                                           // 'VerifyPhone'
 	LoginStepPhoneInitialVerification                                    // 'InitialVerifyPhone'
 	LoginStepPhoneConfirmation                                           // 'ConfirmPhone'
-	LoginStepAnswerSecurityQuestion                                      // 'AnswerSecurityQuestion'
+	LoginStepSecurityQuestionOptions                                     // 'SecurityQuestionOptions'
+	LoginStepSecurityQuestionSetup                                       // 'SecurityQuestionSetup'
 	LoginStepOktaVerify                                                  // 'OktaVerify'
 	LoginStepGoogleAuthenticatorInitialVerification                      // `GoogleAuthInitialVerify`
 	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
@@ -681,10 +715,6 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		r.appendStep(LoginStepPhoneVerification)
 	}
-	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Security Question", false)
-	if err == nil {
-		r.appendStep(LoginStepAnswerSecurityQuestion)
-	}
 	_, _, err = resp.authenticatorOption("select-authenticator-authenticate", "Okta Verify", false)
 	if err == nil {
 		r.appendStep(LoginStepOktaVerify)
@@ -713,6 +743,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		r.appendStep(LoginStepWebAuthNSetup)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question", false)
+	if err == nil {
+		r.appendStep(LoginStepSecurityQuestionOptions)
+	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
 		v, _ := ro.value("credentials")
@@ -724,6 +758,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 			}
 		}
 	}
+
 	_, err = resp.remediationOption("skip")
 	if err == nil {
 		r.appendStep(LoginStepSkip)
