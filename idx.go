@@ -322,31 +322,31 @@ func unmarshalResponse(r *http.Response, i interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
-	if r.StatusCode != http.StatusOK {
-		var errIDX ResponseError
-		err = json.Unmarshal(body, &errIDX)
+	if r.StatusCode == http.StatusOK {
+		err = json.Unmarshal(body, &i)
 		if err != nil {
-			var syntaxErr *json.SyntaxError
-			if errors.As(err, &syntaxErr) {
-				errIDX.ErrorDescription = string(body)
-				errIDX.ErrorType = strconv.Itoa(r.StatusCode)
-				return &errIDX
-			}
 			return fmt.Errorf("failed to unmarshal response body: %w", err)
 		}
-		if errIDX.Message.Type == "" && errIDX.ErrorSummary == "" {
-			err = digUpMessage(body, &errIDX, i)
-			if err != nil {
-				return err
-			}
-		}
-		return &errIDX
+		return nil
 	}
-	err = json.Unmarshal(body, &i)
+	var errIDX ResponseError
+	err = json.Unmarshal(body, &errIDX)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %w", err)
+		var syntaxErr *json.SyntaxError
+		if errors.As(err, &syntaxErr) {
+			errIDX.ErrorDescription = string(body)
+			errIDX.ErrorType = strconv.Itoa(r.StatusCode)
+			return &errIDX
+		}
+		return fmt.Errorf("failed to unmarshal error response body: %w", err)
 	}
-	return nil
+	if errIDX.Message.Type == "" && errIDX.ErrorSummary == "" {
+		err = digUpMessage(body, &errIDX, i)
+		if err != nil {
+			return err
+		}
+	}
+	return &errIDX
 }
 
 func digUpMessage(body []byte, respErr *ResponseError, i interface{}) error {
@@ -476,6 +476,8 @@ func enrollAuthenticator(ctx context.Context, handle *InteractionHandle, authent
 	return ro.proceed(ctx, authenticator)
 }
 
+const customQuestion = "custom"
+
 func securityQuestionSetup(ctx context.Context, idxContext *Context, sq *SecurityQuestion) (*Response, error) {
 	if sq.QuestionKey == "" {
 		return nil, errors.New("missing security question key")
@@ -483,7 +485,7 @@ func securityQuestionSetup(ctx context.Context, idxContext *Context, sq *Securit
 	if sq.Answer == "" {
 		return nil, errors.New("missing answer for the security question key")
 	}
-	if sq.QuestionKey == "custom" && sq.Question == "" {
+	if sq.QuestionKey == customQuestion && sq.Question == "" {
 		return nil, errors.New("missing custom question")
 	}
 	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
@@ -494,7 +496,7 @@ func securityQuestionSetup(ctx context.Context, idxContext *Context, sq *Securit
 	if err != nil {
 		return nil, err
 	}
-	if sq.QuestionKey == "custom" {
+	if sq.QuestionKey == customQuestion {
 		clearOptionsForCustomKey(ro)
 	}
 	credentials, _ := json.Marshal(&struct {
@@ -507,7 +509,7 @@ func securityQuestionSetup(ctx context.Context, idxContext *Context, sq *Securit
 	return resp, err
 }
 
-func securityQuestionOptions(ctx context.Context, idxContext *Context, authenticatorOption string) (*Response, SecurityQuestions, error) {
+func securityQuestionOptions(ctx context.Context, idxContext *Context) (*Response, SecurityQuestions, error) {
 	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
 	if err != nil {
 		return nil, nil, err

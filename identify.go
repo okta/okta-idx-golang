@@ -511,7 +511,7 @@ func (r *LoginResponse) SecurityQuestionOptions(ctx context.Context) (*LoginResp
 		_, err := r.missingStepError(LoginStepOktaVerify)
 		return nil, nil, err
 	}
-	resp, questions, err := securityQuestionOptions(ctx, r.idxContext, "select-authenticator-enroll")
+	resp, questions, err := securityQuestionOptions(ctx, r.idxContext)
 	if err != nil {
 		return nil, nil, err
 	}

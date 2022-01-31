@@ -396,7 +396,7 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 		resp, err := r.missingStepError(EnrollmentStepSecurityQuestionOptions)
 		return resp, nil, err
 	}
-	resp, questions, err := securityQuestionOptions(ctx, r.idxContext, "select-authenticator-enroll")
+	resp, questions, err := securityQuestionOptions(ctx, r.idxContext)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -422,30 +422,7 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	if !r.HasStep(EnrollmentStepSecurityQuestionSetup) {
 		return r.missingStepError(EnrollmentStepSecurityQuestionSetup)
 	}
-	if sq.QuestionKey == "" {
-		return nil, errors.New("missing security question key")
-	}
-	if sq.Answer == "" {
-		return nil, errors.New("missing answer for the security question key")
-	}
-	if sq.QuestionKey == "custom" && sq.Question == "" {
-		return nil, errors.New("missing custom question")
-	}
-	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
-	if err != nil {
-		return nil, err
-	}
-	ro, err := resp.remediationOption("enroll-authenticator")
-	if err != nil {
-		return nil, err
-	}
-	if sq.QuestionKey == "custom" {
-		clearOptionsForCustomKey(ro)
-	}
-	credentials, _ := json.Marshal(&struct {
-		Credentials *SecurityQuestion `json:"credentials"`
-	}{Credentials: sq})
-	resp, err = ro.proceed(ctx, credentials)
+	resp, err := securityQuestionSetup(ctx, r.idxContext, sq)
 	if err != nil {
 		return nil, err
 	}
