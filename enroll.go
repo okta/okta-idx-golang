@@ -396,51 +396,16 @@ func (r *EnrollmentResponse) SecurityQuestionOptions(ctx context.Context) (*Enro
 		resp, err := r.missingStepError(EnrollmentStepSecurityQuestionOptions)
 		return resp, nil, err
 	}
-	resp, err := idx.introspect(ctx, r.idxContext.InteractionHandle)
+	resp, questions, err := securityQuestionOptions(ctx, r.idxContext, "select-authenticator-enroll")
 	if err != nil {
 		return nil, nil, err
-	}
-	ro, authID, err := resp.authenticatorOption("select-authenticator-enroll", "Security Question", true)
-	if err != nil {
-		return nil, nil, err
-	}
-	authenticator := []byte(`{
-				"authenticator": {
-					"id": "` + authID + `"
-				}
-			}`)
-	resp, err = ro.proceed(ctx, authenticator)
-	if err != nil {
-		return nil, nil, err
-	}
-	m := make(map[string]string)
-	ro, err = resp.remediationOption("enroll-authenticator")
-	if err != nil {
-		return nil, nil, err
-	}
-	v, err := ro.value("credentials")
-	if err != nil {
-		return nil, nil, err
-	}
-	for i := range v.Options {
-		if v.Options[i].Label == "Choose a security question" {
-			obj := v.Options[i].Value.(FormOptionsValueObject).Form.Value
-			for j := range obj {
-				if obj[j].Name == "questionKey" {
-					for k := range obj[j].Options {
-						m[string(obj[j].Options[k].Value.(FormOptionsValueString))] = obj[j].Options[k].Label
-					}
-				}
-			}
-		}
 	}
 	err = r.setupNextSteps(ctx, resp)
 	if err != nil {
 		return nil, nil, err
 	}
 	r.appendStep(EnrollmentStepSecurityQuestionSetup)
-	m["custom"] = "Create a security question"
-	return r, m, nil
+	return r, questions, nil
 }
 
 // SecurityQuestion represents security question to be used for the account verification.
@@ -473,6 +438,9 @@ func (r *EnrollmentResponse) SetupSecurityQuestion(ctx context.Context, sq *Secu
 	ro, err := resp.remediationOption("enroll-authenticator")
 	if err != nil {
 		return nil, err
+	}
+	if sq.QuestionKey == "custom" {
+		clearOptionsForCustomKey(ro)
 	}
 	credentials, _ := json.Marshal(&struct {
 		Credentials *SecurityQuestion `json:"credentials"`
@@ -705,4 +673,22 @@ func (r *EnrollmentResponse) enrollAuthenticator(ctx context.Context, authentica
 	}
 	r.contextualData = resp.CurrentAuthenticator.Value.ContextualData
 	return r.setupNextSteps(ctx, resp)
+}
+
+func clearOptionsForCustomKey(ro *RemediationOption) {
+	var opts []FormOptions
+	for i := range ro.FormValues {
+		if ro.FormValues[i].Name != "credentials" {
+			continue
+		}
+		for j := range ro.FormValues[i].Options {
+			if ro.FormValues[i].Options[j].Label == "Create my own security question" {
+				opts = []FormOptions{ro.FormValues[i].Options[j]}
+				break
+			}
+		}
+		if len(opts) > 0 {
+			ro.FormValues[i].Options = opts
+		}
+	}
 }
