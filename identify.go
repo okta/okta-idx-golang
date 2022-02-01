@@ -726,6 +726,7 @@ const (
 	LoginStepPhoneConfirmation                                           // 'ConfirmPhone'
 	LoginStepSecurityQuestionOptions                                     // 'SecurityQuestionOptions'
 	LoginStepSecurityQuestionSetup                                       // 'SecurityQuestionSetup'
+	LoginStepAnswerSecurityQuestion                                      // 'AnswerSecurityQuestion'
 	LoginStepOktaVerify                                                  // 'OktaVerify'
 	LoginStepGoogleAuthenticatorInitialVerification                      // `GoogleAuthInitialVerify`
 	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
@@ -821,7 +822,7 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Security Question", false)
 	if err == nil {
 		r.appendStep(LoginStepSecurityQuestionOptions)
-    }
+	}
 	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Password", false)
 	if err == nil {
 		r.appendStep(LoginStepAuthenticatorEnroll)
