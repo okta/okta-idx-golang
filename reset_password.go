@@ -22,11 +22,8 @@ import (
 	"fmt"
 )
 
-type ResetPasswordResponse struct {
-	idxContext     *Context
-	token          *Token
-	availableSteps []ResetPasswordStep
-	sq             *SecurityQuestion
+type Credentials struct {
+	Password string `json:"passcode"`
 }
 
 type IdentifyRequest struct {
@@ -35,13 +32,16 @@ type IdentifyRequest struct {
 	RememberMe  bool        `json:"rememberMe"`
 }
 
-type Credentials struct {
-	Password string `json:"passcode"`
+type ResetPasswordResponse struct {
+	idxContext     *Context
+	token          *Token
+	availableSteps []ResetPasswordStep
+	sq             *SecurityQuestion
 }
 
 // InitPasswordReset Initialize password reset.
 func (c *Client) InitPasswordReset(ctx context.Context, ir *IdentifyRequest) (*ResetPasswordResponse, error) {
-	idxContext, err := c.Interact(ctx)
+	idxContext, err := c.interact(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -33,6 +33,13 @@ type LoginResponse struct {
 	contextualData    *ContextualData
 }
 
+type AuthenticationOptions struct {
+	UserName        string
+	Password        string
+	ActivationToken string
+	RecoveryToken   string
+}
+
 type IdentityProvider struct {
 	Type   string `json:"type"`
 	Name   string `json:"name"`
@@ -40,9 +47,11 @@ type IdentityProvider struct {
 	Method string `json:"method"`
 }
 
+type LoginStep int
+
 // InitLogin Initialize the IDX login.
 func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
-	idxContext, err := c.Interact(ctx)
+	idxContext, err := c.interact(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +66,63 @@ func (c *Client) InitLogin(ctx context.Context) (*LoginResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	return lr, nil
+}
+
+// Authenticate is an identification flow with username and password, or
+// optional activation options for activation by token or recovery by token.
+// Authentication Options can be nil.
+func (c *Client) Authenticate(ctx context.Context, authenticationOptions *AuthenticationOptions) (*LoginResponse, error) {
+	if authenticationOptions != nil {
+		return c.authenticateWithAuthenticationOptions(ctx, authenticationOptions)
+	}
+
+	lr, err := c.InitLogin(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ir := &IdentifyRequest{
+		Identifier: authenticationOptions.UserName,
+		Credentials: Credentials{
+			Password: authenticationOptions.Password,
+		},
+	}
+
+	return lr.Identify(ctx, ir)
+}
+
+// authenticateWithAuthenticationOptions is an identification flow with authentication options
+func (c *Client) authenticateWithAuthenticationOptions(ctx context.Context, aOpts *AuthenticationOptions) (*LoginResponse, error) {
+	iOpts := &interactOptions{}
+
+	if aOpts != nil {
+		if aOpts.ActivationToken != "" {
+			iOpts.activationToken = aOpts.ActivationToken
+		}
+		if aOpts.RecoveryToken != "" {
+			iOpts.recoveryToken = aOpts.RecoveryToken
+		}
+	}
+
+	idxContext, err := c.interact(ctx, iOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := idx.introspect(ctx, idxContext.InteractionHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	lr := &LoginResponse{
+		idxContext: idxContext,
+	}
+	err = lr.setupNextSteps(ctx, resp)
+	if err != nil {
+		return nil, err
+	}
+
 	return lr, nil
 }
 
@@ -608,7 +674,11 @@ func (r *LoginResponse) Token() *Token {
 	return r.token
 }
 
-type LoginStep int
+// Context The IDX Context
+// present in the list of available steps.
+func (r *LoginResponse) Context() *Context {
+	return r.idxContext
+}
 
 // String representation of LoginStep.
 func (s LoginStep) String() string {
@@ -630,6 +700,7 @@ var loginStepText = map[LoginStep]string{
 	LoginStepPhoneConfirmation:                      "PHONE_CONFIRMATION",
 	LoginStepSecurityQuestionOptions:                "SECURITY_QUESTION_OPTIONS",
 	LoginStepSecurityQuestionSetup:                  "SECURITY_QUESTION_SETUP",
+	LoginStepAnswerSecurityQuestion:                 "ANSWER_SECURITY_QUESTION",
 	LoginStepOktaVerify:                             "OKTA_VERIFY",
 	LoginStepGoogleAuthenticatorInitialVerification: "GOOGLE_AUTHENTICATOR_INITIAL_VERIFICATION",
 	LoginStepGoogleAuthenticatorConfirmation:        "GOOGLE_AUTHENTICATOR_CONFIRMATION",
@@ -637,6 +708,7 @@ var loginStepText = map[LoginStep]string{
 	LoginStepWebAuthNInitialVerify:                  "WEB_AUTHN_INITIAL_VERIFY",
 	LoginStepWebAuthNChallenge:                      "WEB_AUTHN_CHALLENGE",
 	LoginStepWebAuthNVerify:                         "WEB_AUTHN_VERIFY",
+	LoginStepAuthenticatorEnroll:                    "AUTHENTICATOR_ENROLL",
 	LoginStepCancel:                                 "CANCEL",
 	LoginStepSkip:                                   "SKIP",
 	LoginStepSuccess:                                "SUCCESS",
@@ -654,6 +726,7 @@ const (
 	LoginStepPhoneConfirmation                                           // 'ConfirmPhone'
 	LoginStepSecurityQuestionOptions                                     // 'SecurityQuestionOptions'
 	LoginStepSecurityQuestionSetup                                       // 'SecurityQuestionSetup'
+	LoginStepAnswerSecurityQuestion                                      // 'AnswerSecurityQuestion'
 	LoginStepOktaVerify                                                  // 'OktaVerify'
 	LoginStepGoogleAuthenticatorInitialVerification                      // `GoogleAuthInitialVerify`
 	LoginStepGoogleAuthenticatorConfirmation                             // `GoogleAuthConfirm`
@@ -661,6 +734,7 @@ const (
 	LoginStepWebAuthNInitialVerify                                       // `WebAuthNInitialVerify`
 	LoginStepWebAuthNChallenge                                           // `WebAuthNChallenge`
 	LoginStepWebAuthNVerify                                              // `WebAuthNVerify`
+	LoginStepAuthenticatorEnroll                                         // LoginStepAuthenticatorEnroll
 	LoginStepCancel                                                      // 'Cancel'
 	LoginStepSkip                                                        // 'Skip'
 	LoginStepSuccess                                                     // 'Token'
@@ -688,10 +762,12 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if resp.CancelResponse != nil {
 		r.appendStep(LoginStepCancel)
 	}
+
 	_, err := resp.remediationOption("identify")
 	if err == nil {
 		r.appendStep(LoginStepIdentify)
 	}
+
 	ros, err := resp.remediationOptions("redirect-idp")
 	if err == nil {
 		r.identifyProviders = make([]IdentityProvider, len(ros))
@@ -747,6 +823,10 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 	if err == nil {
 		r.appendStep(LoginStepSecurityQuestionOptions)
 	}
+	_, _, err = resp.authenticatorOption("select-authenticator-enroll", "Password", false)
+	if err == nil {
+		r.appendStep(LoginStepAuthenticatorEnroll)
+	}
 	ro, err := resp.remediationOption("reenroll-authenticator")
 	if err == nil {
 		v, _ := ro.value("credentials")
@@ -758,7 +838,17 @@ func (r *LoginResponse) setupNextSteps(ctx context.Context, resp *Response) erro
 			}
 		}
 	}
-
+	ro, err = resp.remediationOption("reset-authenticator")
+	if err == nil {
+		v, _ := ro.value("credentials")
+		if v != nil && v.Form != nil {
+			for i := range v.Form.FormValues {
+				if v.Form.FormValues[i].Label == "New password" {
+					r.appendStep(LoginStepSetupNewPassword)
+				}
+			}
+		}
+	}
 	_, err = resp.remediationOption("skip")
 	if err == nil {
 		r.appendStep(LoginStepSkip)

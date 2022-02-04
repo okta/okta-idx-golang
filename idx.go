@@ -48,11 +48,38 @@ const (
 
 var idx *Client
 
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
+	DeviceSecret string `json:"device_secret"`
+}
+
 // Client is the IDX client.
 type Client struct {
 	config     *Config
 	httpClient *http.Client
 	debug      bool
+}
+
+type Context struct {
+	CodeVerifier        string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	InteractionHandle   *InteractionHandle
+	State               string
+}
+
+type InteractionHandle struct {
+	InteractionHandle string `json:"interactionHandle"`
+}
+
+type interactOptions struct {
+	activationToken string
+	recoveryToken   string
 }
 
 // NewClient New client constructor that is configured with configuration file
@@ -140,8 +167,8 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	return &idxResponse, nil
 }
 
-// Interact Gets the current interact response context.
-func (c *Client) Interact(ctx context.Context) (*Context, error) {
+// interact Gets the current interact response context.
+func (c *Client) interact(ctx context.Context, opts *interactOptions) (*Context, error) {
 	h := sha256.New()
 	var err error
 
@@ -164,14 +191,7 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	idxContext.CodeChallenge = base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 	idxContext.CodeChallengeMethod = "S256"
 
-	data := url.Values{}
-	data.Set("client_id", c.config.Okta.IDX.ClientID)
-	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
-	data.Set("code_challenge", idxContext.CodeChallenge)
-	data.Set("code_challenge_method", idxContext.CodeChallengeMethod)
-	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
-	data.Set("state", idxContext.State)
-
+	data := c.interactValues(idxContext, opts)
 	endpoint := c.oAuthEndPoint("interact")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -198,14 +218,24 @@ func (c *Client) Interact(ctx context.Context) (*Context, error) {
 	return idxContext, nil
 }
 
-type AccessToken struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
-	Scope        string `json:"scope"`
-	RefreshToken string `json:"refresh_token"`
-	IDToken      string `json:"id_token"`
-	DeviceSecret string `json:"device_secret"`
+func (c *Client) interactValues(ctx *Context, opts *interactOptions) *url.Values {
+	data := url.Values{}
+	data.Set("client_id", c.config.Okta.IDX.ClientID)
+	data.Set("scope", strings.Join(c.config.Okta.IDX.Scopes, " "))
+	data.Set("code_challenge", ctx.CodeChallenge)
+	data.Set("code_challenge_method", ctx.CodeChallengeMethod)
+	data.Set("redirect_uri", c.config.Okta.IDX.RedirectURI)
+	data.Set("state", ctx.State)
+	if opts != nil {
+		if opts.activationToken != "" {
+			data.Set("activation_token", opts.activationToken)
+		}
+		if opts.recoveryToken != "" {
+			data.Set("recovery_token", opts.recoveryToken)
+		}
+	}
+
+	return &data
 }
 
 // RedeemInteractionCode Calls the token api with given interactionCode and returns an AccessToken
@@ -302,18 +332,6 @@ func withDeviceContext(ctx context.Context, req *http.Request) {
 			req.Header.Set(string(deviceContextKeys[i]), val)
 		}
 	}
-}
-
-type Context struct {
-	CodeVerifier        string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	InteractionHandle   *InteractionHandle
-	State               string
-}
-
-type InteractionHandle struct {
-	InteractionHandle string `json:"interactionHandle"`
 }
 
 func unmarshalResponse(r *http.Response, i interface{}) error {

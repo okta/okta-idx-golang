@@ -97,16 +97,51 @@ idx, err := idx.NewClientWithSettings(
   )
 ```
 
-### Interact with the login response
+### Login with convenient authentication options
 
 Once login has been initialized the login response provides mechanisms for
 various authentication factors.
 
 ```go
-lr, err := idx.InitLogin(context.TODO())
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
 
-// get identity providers
-idps := lr.IdentityProviders()
+client, err := idx.NewClient()
+if err != nil {
+	log.Fatalf("new client error: %+v\n", err)
+}
+
+authOpts := idx.AuthenticationOptions{
+	UserName: os.Getenv("EXAMPLE_IDENTIFIER"),
+	Password: os.Getenv("EXAMPLE_PASSWORD"),
+}
+
+lr, err := client.Authenticate(ctx, &authOpts)
+if err != nil {
+	log.Fatalf("authentication error: %+v\n", err)
+}
+
+// is authenticated is a convenience method
+fmt.Printf("authenticated? %t\n", lr.IsAuthenticated())
+
+// or query the token directly
+if lr.Token() == nil {
+  // failed to login
+}
+
+// do something, having a token signals identification success
+```
+
+### Login with detailed identity request
+
+Once login has been initialized the login response provides mechanisms for
+various authentication factors.
+
+```go
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
+
+lr, err := idx.InitLogin(ctx)
 
 // password authentication
 ir := &idx.IdentifyRequest{
@@ -116,10 +151,12 @@ ir := &idx.IdentifyRequest{
 		},
 	}
 
-lr, err = lr.Identify(context.TODO(), ir)
-if lr.Token() != nil {
-  // do something, having a token signals identification success
+lr, err = lr.Identify(ctx, ir)
+if err != nil || lr.Token() == nil {
+  // failed to login
 }
+
+// do something, having a token signals identification success
 ```
 
 In order to provide parity in OIE the following http headers can be used:
@@ -134,6 +171,37 @@ lr, err := idx.InitLogin(ctx)
 
 ```
 
+### Login via magic link
+
+Authentication interaction can be achieved with a magic link interaction token.
+
+```go
+// establish context here, or use context from/within a caller
+ctx := context.TODO()
+
+client, err := idx.NewClient()
+if err != nil {
+	log.Fatalf("new client error: %+v\n", err)
+}
+
+authOpts := idx.AuthenticationOptions{
+	ActivationToken: os.Getenv("ACTIVATION_TOKEN"),
+}
+
+lr, err := client.Authenticate(ctx, &authOpts)
+if err != nil {
+	log.Fatalf("authentication error: %+v\n", err)
+}
+
+if lr.HasStep(idx.LoginStepAuthenticatorEnroll) {
+	fmt.Println("response has authenticator enroll")
+	fmt.Println("app should redirect users to the enrollment view now")
+} else {
+	fmt.Println("response didn't have select authenticator enroll remediation")
+}
+
+// do something, having a token signals identification success
+```
 
 ## Configuration Reference
 
@@ -202,3 +270,10 @@ OKTA_IDX_REDIRECTURI=https://myorg.okta.com/login/callback
 [developer-edition-signup]: https://developer.okta.com/signup
 
 [support-email]: mailto://support@okta.com
+
+## Examples
+
+Check out the examples in the `_examples/` directory. Each example illustrates
+working with the client. They also allow a developer to easily modify the
+client's code and run it locally. This is useful for working on new features,
+debugging, etc..
