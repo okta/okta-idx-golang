@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -574,28 +575,24 @@ func (c *Client) debugRequest(req *http.Request) {
 	if req == nil {
 		return
 	}
-	fmt.Fprintln(os.Stderr, "== IDX CLIENT DEBUG REQUEST  ======")
-	dump, err := httputil.DumpRequest(req, true)
+	reqData, err := httputil.DumpRequest(req, true)
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "%q\n", dump)
+		log.Printf("[DEBUG] "+logReqMsg, req.RequestURI, prettyPrintJsonLines(reqData))
 	} else {
-		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
+		log.Printf("[ERROR] %s API Request error: %#v", req.RequestURI, err)
 	}
-	fmt.Fprintln(os.Stderr, "===================================")
 }
 
 func (c *Client) debugResponse(resp *http.Response) {
 	if resp == nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "== IDX CLIENT DEBUG RESPONSE ======")
-	dump, err := httputil.DumpResponse(resp, true)
+	respData, err := httputil.DumpResponse(resp, true)
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "%q\n", dump)
+		log.Printf("[DEBUG] "+logRespMsg, resp.Request.RequestURI, prettyPrintJsonLines(respData))
 	} else {
-		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
+		log.Printf("[ERROR] %s API Response error: %#v", resp.Request.RequestURI, err)
 	}
-	fmt.Fprintln(os.Stderr, "===================================")
 }
 
 func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
@@ -609,3 +606,27 @@ func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
 
 	return resp, err
 }
+
+// prettyPrintJsonLines iterates through a []byte line-by-line, transforming any
+// lines that are complete json into pretty-printed json.
+func prettyPrintJsonLines(b []byte) string {
+	parts := strings.Split(string(b), "\n")
+	for i, p := range parts {
+		if b := []byte(p); json.Valid(b) {
+			var out bytes.Buffer
+			json.Indent(&out, b, "", " ")
+			parts[i] = out.String()
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+const logReqMsg = `%s API Request Details:
+---[ REQUEST ]---------------------------------------
+%s
+-----------------------------------------------------`
+
+const logRespMsg = `%s API Response Details:
+---[ RESPONSE ]--------------------------------------
+%s
+-----------------------------------------------------`
