@@ -27,9 +27,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -62,7 +60,6 @@ type AccessToken struct {
 type Client struct {
 	config     *Config
 	httpClient *http.Client
-	debug      bool
 }
 
 type Context struct {
@@ -111,11 +108,11 @@ func NewClientWithSettings(conf ...ConfigSetter) (*Client, error) {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 	c := &Client{
-		config:     cfg,
-		httpClient: &http.Client{Timeout: defaultTimeout},
-	}
-	if os.Getenv("DEBUG_IDX_CLIENT") != "" {
-		c.debug = true
+		config: cfg,
+		httpClient: &http.Client{
+			Transport: newIdxTransport(),
+			Timeout:   defaultTimeout,
+		},
 	}
 
 	idx = c
@@ -155,7 +152,7 @@ func (c *Client) introspect(ctx context.Context, ih *InteractionHandle) (*Respon
 	req.Header.Add("Content-Type", "application/ion+json; okta-version=1.0.0")
 	req.Header.Add("Accept", "application/ion+json; okta-version=1.0.0")
 	withOktaUserAgent(req)
-	resp, err := c.httpClientDo(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
@@ -200,7 +197,7 @@ func (c *Client) interact(ctx context.Context, opts *interactOptions) (*Context,
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withDeviceContext(ctx, req)
 
-	resp, err := c.httpClientDo(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http call has failed: %w", err)
 	}
@@ -253,7 +250,7 @@ func (c *Client) RedeemInteractionCode(ctx context.Context, idxContext *Context,
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	withOktaUserAgent(req)
 
-	resp, err := c.httpClientDo(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error calling token api: %w", err)
 	}
@@ -568,44 +565,4 @@ func securityQuestionOptions(ctx context.Context, idxContext *Context) (*Respons
 	}
 	m["custom"] = "Create a security question"
 	return resp, m, nil
-}
-
-func (c *Client) debugRequest(req *http.Request) {
-	if req == nil {
-		return
-	}
-	fmt.Fprintln(os.Stderr, "== IDX CLIENT DEBUG REQUEST  ======")
-	dump, err := httputil.DumpRequest(req, true)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "%q\n", dump)
-	} else {
-		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
-	}
-	fmt.Fprintln(os.Stderr, "===================================")
-}
-
-func (c *Client) debugResponse(resp *http.Response) {
-	if resp == nil {
-		return
-	}
-	fmt.Fprintf(os.Stderr, "== IDX CLIENT DEBUG RESPONSE ======")
-	dump, err := httputil.DumpResponse(resp, true)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "%q\n", dump)
-	} else {
-		fmt.Fprintf(os.Stderr, "dump error: %+v", err)
-	}
-	fmt.Fprintln(os.Stderr, "===================================")
-}
-
-func (c *Client) httpClientDo(req *http.Request) (*http.Response, error) {
-	if c.debug {
-		c.debugRequest(req)
-	}
-	resp, err := c.httpClient.Do(req)
-	if c.debug {
-		c.debugResponse(resp)
-	}
-
-	return resp, err
 }
