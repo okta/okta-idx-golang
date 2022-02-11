@@ -32,7 +32,7 @@ func debugRequest(req *http.Request) {
 	}
 	reqData, err := httputil.DumpRequest(req, true)
 	if err == nil {
-		log.Printf("[DEBUG] "+logReqMsg, req.RequestURI, prettyPrintJsonLines(reqData))
+		log.Printf("[DEBUG] "+logReqMsg, req.RequestURI, prettyPrintJSONLines(reqData))
 	} else {
 		log.Printf("[ERROR] %s API Request error: %#v", req.RequestURI, err)
 	}
@@ -44,20 +44,20 @@ func debugResponse(resp *http.Response) {
 	}
 	respData, err := httputil.DumpResponse(resp, true)
 	if err == nil {
-		log.Printf("[DEBUG] "+logRespMsg, resp.Request.RequestURI, prettyPrintJsonLines(respData))
+		log.Printf("[DEBUG] "+logRespMsg, resp.Request.RequestURI, prettyPrintJSONLines(respData))
 	} else {
 		log.Printf("[ERROR] %s API Response error: %#v", resp.Request.RequestURI, err)
 	}
 }
 
-// prettyPrintJsonLines iterates through a []byte line-by-line, transforming any
+// prettyPrintJSONLines iterates through a []byte line-by-line, transforming any
 // lines that are complete json into pretty-printed json.
-func prettyPrintJsonLines(b []byte) string {
+func prettyPrintJSONLines(b []byte) string {
 	parts := strings.Split(string(b), "\n")
 	for i, p := range parts {
 		if b := []byte(p); json.Valid(b) {
 			var out bytes.Buffer
-			json.Indent(&out, b, "", " ")
+			_ = json.Indent(&out, b, "", " ")
 			parts[i] = out.String()
 		}
 	}
